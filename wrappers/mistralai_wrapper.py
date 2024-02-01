@@ -1,9 +1,9 @@
 import requests
 from config import config
 from utils.conn_helper import ConnHelper
-import urllib.parse
 
 class MistralAIWrapper:
+    
     def __init__(self, api_key):
         self.API_BASE_URL = config['url']['mistral']['base']
         self.session = requests.Session()
@@ -14,8 +14,7 @@ class MistralAIWrapper:
         })
 
     def generate_text(self, params):
-
-        url = urllib.parse.urljoin(self.API_BASE_URL, config['url']['mistral']['completions'])
+        url = f"{self.API_BASE_URL}{config['url']['mistral']['completions']}"
 
         try:
             response = self.session.post(url, json=params)
@@ -25,8 +24,7 @@ class MistralAIWrapper:
             raise Exception(ConnHelper.get_error_message(e))
 
     def get_embeddings(self, params):
-        
-        url = urllib.parse.urljoin(self.API_BASE_URL, config['url']['mistral']['embed'])
+        url = f"{self.API_BASE_URL}{config['url']['mistral']['embed']}"
 
         try:
             response = self.session.post(url, json=params)
