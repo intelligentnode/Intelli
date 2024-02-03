@@ -1,9 +1,7 @@
 import unittest
 import os
-from dotenv import load_dotenv
 from wrappers.mistralai_wrapper import MistralAIWrapper
-
-# Ensure environment variables are loaded
+from dotenv import load_dotenv
 load_dotenv()
 
 class TestMistralAIWrapperIntegration(unittest.TestCase):
