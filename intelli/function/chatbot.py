@@ -1,4 +1,3 @@
-import asyncio
 import json
 from wrappers.openai_wrapper import OpenAIWrapper
 from wrappers.mistralai_wrapper import MistralAIWrapper
@@ -30,13 +29,13 @@ class Chatbot:
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
     
-    async def chat(self, chat_input):
+    def chat(self, chat_input):
         if not isinstance(chat_input, ChatModelInput):
             raise TypeError("chat_input must be an instance of ChatModelInput")
         
         references = []
         if self.extended_search and chat_input.attach_reference:
-            references = await self._augment_with_semantic_search(chat_input)
+            references = self._augment_with_semantic_search(chat_input)
         
         get_input_method = f"get_{self.provider}_input"
         chat_method = getattr(self, f"_chat_{self.provider}", None)
@@ -44,22 +43,22 @@ class Chatbot:
             raise NotImplementedError(f"{self.provider.capitalize()} chat is not implemented.")
         
         params = getattr(chat_input, get_input_method)()
-        result = await chat_method(params)
+        result = chat_method(params)
         return {'result': result, 'references': references} if chat_input.attach_reference else result
 
-    async def _chat_openai(self, params):
-        results = await self.wrapper.generate_chat_text(params)
+    def _chat_openai(self, params):
+        results = self.wrapper.generate_chat_text(params)
         return self._parse_openai_responses(results)
     
-    async def _chat_mistral(self, params):
-        response = await self.wrapper.generate_text(params)
+    def _chat_mistral(self, params):
+        response = self.wrapper.generate_text(params)
         return [choice['message']['content'] for choice in response.get('choices', [])]
     
-    async def _chat_gemini(self, params):
-        response = await self.wrapper.generate_content(params)
+    def _chat_gemini(self, params):
+        response = self.wrapper.generate_content(params)
         return [candidate["content"]["parts"][0]["text"] for candidate in response["candidates"]]
 
-    async def stream(self, chat_input):
+    def stream(self, chat_input):
         """
         Streams responses from OpenAI for the given chat input.
         
@@ -69,18 +68,18 @@ class Chatbot:
             raise NotImplementedError("Streaming is only supported for OpenAI.")
         
         if self.extended_search:
-            _ = await self._augment_with_semantic_search(chat_input)
+            _ = self._augment_with_semantic_search(chat_input)
         
         params = chat_input.get_openai_input()
         
-        async for content in self._stream_openai(params):
+        for content in self._stream_openai(params):
             yield content
 
-    async def _stream_openai(self, params):
+    def _stream_openai(self, params):
         """
         Private helper method to stream text from OpenAI and parse each content chunk.
         """
-        async for response in self.wrapper.generate_chat_text(params, stream=True):
+        for response in self.wrapper.generate_chat_text(params, stream=True):
             if response.strip() and response.startswith('data: ') and response != 'data: [DONE]':
                 json_content = response[len('data: '):].strip()
                 
@@ -96,18 +95,18 @@ class Chatbot:
     def _parse_openai_responses(self, results):
         responses = []
         for choice in results.get('choices', []):
-            response = {'content': choice.get('message', {}).get('content', '')}
+            response = choice.get('message', {}).get('content', '')
             if choice.get('finish_reason') == 'function_call' and 'function_call' in choice.get('message', {}):
                 response['function_call'] = choice['message']['function_call']
             responses.append(response)
         return responses
     
-    async def _augment_with_semantic_search(self, chat_input):
+    def _augment_with_semantic_search(self, chat_input):
         last_user_message = chat_input.messages[-1].content if chat_input.messages else ""
         references = []
         if last_user_message:
             # Perform the semantic search based on the last user message.
-            search_results = await self.extended_search.semantic_search(last_user_message, chat_input.search_k)
+            search_results = self.extended_search.semantic_search(last_user_message, chat_input.search_k)
             
             # Accumulate document names from the search results for references.
             references = {}
