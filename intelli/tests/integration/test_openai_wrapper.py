@@ -2,6 +2,7 @@ import unittest
 from wrappers.openai_wrapper import OpenAIWrapper
 import os
 import base64
+import json
 from io import BytesIO
 from dotenv import load_dotenv
 load_dotenv()
@@ -22,6 +23,36 @@ class TestOpenAIWrapper(unittest.TestCase):
         print('ChatGPT Result:\n', result, '\n')
         # assert
         self.assertTrue("choices" in result)
+    
+    def test_stream_openai_chat(self):
+        params = {
+            "model": "gpt-3.5-turbo",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "Tell me a story about space."}
+            ],
+            "stream": True
+        }
+
+        full_text = ""
+        for content_chunk in self.openai.generate_chat_text(params):
+
+            if content_chunk.strip() and content_chunk.startswith('data: ') and content_chunk != 'data: [DONE]':
+
+                json_content = content_chunk[len('data: '):].strip()
+                
+                try:
+                    data_chunk = json.loads(json_content)
+                    content = data_chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    full_text += content
+                    print('Received content:', content)
+                except json.JSONDecodeError as e:
+                    print("Error decoding JSON:", e)
+                    print("Received chunk:", content_chunk)
+
+        print('Full stream text:', full_text)
+        self.assertTrue(len(full_text) > 0, "Stream response length should be greater than 0")
+    
     
     def test_generate_images(self):
         params = {
@@ -95,6 +126,6 @@ class TestOpenAIWrapper(unittest.TestCase):
         print('Vision Sample Result:\n', value[:50], '\n')
 
         self.assertTrue(len(value) > 0)
-
+    
 if __name__ == "__main__":
     unittest.main()
