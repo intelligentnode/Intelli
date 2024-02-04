@@ -34,7 +34,7 @@ config = {
             "version": "2022-12-06"
         },
         "google": {
-            "base": "https://{1}.googleapis.com/v1",
+            "base": "https://{0}.googleapis.com/v1",
             "speech": {
                 "prefix": "texttospeech",
                 "synthesize": {
@@ -44,9 +44,9 @@ config = {
         },
         "stability": {
             "base": "https://api.stability.ai",
-            "text_to_image": "/v1/generation/{1}/text-to-image",
-            "upscale": "/v1/generation/{1}/image-to-image/upscale",
-            "image_to_image": "/v1/generation/{1}/image-to-image"
+            "text_to_image": "/v1/generation/{0}/text-to-image",
+            "upscale": "/v1/generation/{0}/image-to-image/upscale",
+            "image_to_image": "/v1/generation/{0}/image-to-image"
         },
         "huggingface": {
             "base": "https://api-inference.huggingface.co/models"
