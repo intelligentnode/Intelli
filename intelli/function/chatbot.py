@@ -15,7 +15,7 @@ class Chatbot:
         self.provider = provider.lower()
         self.options = options
         self.wrapper = self._initialize_provider()
-        self.extended_search = IntellicloudWrapper(options['one_key']) if 'one_key' in options else None
+        self.extended_search = IntellicloudWrapper(options['one_key'], options.get('api_base',None)) if 'one_key' in options else None
         self.system_helper = SystemHelper()
     
     def _initialize_provider(self):
@@ -34,7 +34,7 @@ class Chatbot:
             raise TypeError("chat_input must be an instance of ChatModelInput")
         
         references = []
-        if self.extended_search and chat_input.attach_reference:
+        if self.extended_search:
             references = self._augment_with_semantic_search(chat_input)
         
         get_input_method = f"get_{self.provider}_input"
