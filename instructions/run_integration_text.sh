@@ -20,4 +20,5 @@ python3 -m unittest test/integration/test_stability_wrapper.py
 python3 -m unittest test/integration/test_remote_embed_model.py
 
 ## functions
+# chatbot
 python3 -m unittest test/integration/test_chatbot.py
