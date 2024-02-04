@@ -1,5 +1,5 @@
 # IntelliPy
-Unified prompt, evaluation, and production integration to AI models
+Create chatbots and AI agent workflows with unified access.
 
 # install
 ```bash
