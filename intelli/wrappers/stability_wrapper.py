@@ -12,7 +12,7 @@ class StabilityAIWrapper:
             'Accept': 'application/json',
         })
 
-    def generate_text_to_image(self, params, engine='stable-diffusion-xl-beta-v2-2-2'):
+    def generate_text_to_image(self, params, engine='stable-diffusion-v1-6'):
         endpoint = config['url']['stability']['text_to_image'].format(engine)
         url = f"{self.api_base_url}{endpoint}"
         try:
