@@ -1,4 +1,4 @@
-from models.input.embed_input import EmbedInput
+from model.input.embed_input import EmbedInput
 from wrappers.openai_wrapper import OpenAIWrapper
 from wrappers.mistralai_wrapper import MistralAIWrapper
 from wrappers.geminiai_wrapper import GeminiAIWrapper
