@@ -14,3 +14,7 @@ python3 -m unittest tests/integration/test_intellicloud_wrapper.py
 
 # stability testing
 python3 -m unittest tests/integration/test_stability_wrapper.py
+
+## controllers
+# embedding
+python3 -m unittest tests/integration/test_remote_embed_model.py
