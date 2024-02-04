@@ -29,9 +29,9 @@ class ChatModelInput:
     def clean_messages(self):
         self.messages = []
 
-    def delete_last_message(self, message_content, message_role):
+    def delete_last_message(self, delete_message):
         for i in range(len(self.messages) - 1, -1, -1):
-            if self.messages[i].content == message_content and self.messages[i].role == message_role:
+            if self.messages[i].content == delete_message.content and self.messages[i].role == delete_message.role:
                 del self.messages[i]
                 return True
         return False
