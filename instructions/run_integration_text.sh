@@ -10,3 +10,7 @@ python3 -m unittest tests/integration/test_openai_wrapper.py
 
 # intellicloud
 python3 -m unittest tests/integration/test_intellicloud_wrapper.py
+
+
+# stability testing
+python3 -m unittest tests/integration/test_stability_wrapper.py
