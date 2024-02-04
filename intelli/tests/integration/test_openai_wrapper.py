@@ -11,7 +11,7 @@ class TestOpenAIWrapper(unittest.TestCase):
     def setUp(self):
         self.api_key = os.getenv('OPENAI_API_KEY')
         self.openai = OpenAIWrapper(self.api_key)
-    """
+    
     def test_generate_chat_text(self):
         params = {
             "model": "gpt-3.5-turbo",
@@ -59,7 +59,7 @@ class TestOpenAIWrapper(unittest.TestCase):
         result = self.openai.upload_file(file_path, purpose)
         print('Upload File Result:\n', result, '\n')
         self.assertTrue("id" in result)
-    """
+    
     def test_vision_image_to_text(self):
 
         file_path = '../temp/test_image_desc.png'
