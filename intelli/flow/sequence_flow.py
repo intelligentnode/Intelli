@@ -1,7 +1,10 @@
+from utils.logging import Logger
+
 class SequenceFlow:
     def __init__(self, order, log=False):
         self.order = order
         self.log = log
+        self.logger = Logger(log)
 
     def start(self):
         result = {}
@@ -11,8 +14,8 @@ class SequenceFlow:
         
         for index, task in enumerate(self.order, start=1):
             
-            if self.log:
-                print(f"- Executing task: {task.desc}")
+            # log
+            self.logger.log(f"- Executing task: {task.desc}")
             
             task.execute(flow_input, flow_input_type)
             

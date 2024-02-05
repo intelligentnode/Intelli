@@ -6,6 +6,10 @@ from flow.types import AgentTypes
 
 class Agent:
     def __init__(self, agent_type, provider, mission, model_params, options=None):
+        
+        if agent_type not in AgentTypes._value2member_map_:
+            raise ValueError("Incorrect agent type. Accepted types in AgentTypes.")
+        
         self.type = agent_type
         self.provider = provider
         self.mission = mission
@@ -26,6 +30,6 @@ class Agent:
             image_input = ImageModelInput(prompt=agent_input, model=self.model_params.get('model'))
             result = image_model.generate_images(image_input)
         else:
-            raise ValueError(f"Unsupported agent type: {self.type}")
+            raise ValueError(f"Unsupported agent type: {self.type}.")
         
         return result
