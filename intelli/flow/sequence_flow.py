@@ -3,17 +3,24 @@ class SequenceFlow:
         self.order = order
         self.log = log
 
-    def start(self, initial_input=None):
+    def start(self):
         result = {}
-        current_input = initial_input
-        for task in self.order:
+
+        flow_input = None
+        flow_input_type = None
+        
+        for index, task in enumerate(self.order, start=1):
+            
             if self.log:
-                print(f"Executing task: {task.desc}")
-            task.execute(current_input)
+                print(f"- Executing task: {task.desc}")
+            
+            task.execute(flow_input, flow_input_type)
             
             if not task.exclude:
-                result[task.desc] = task.output
+                result[f'task{index}'] = task.output
             
-            current_input = task.output
+            # define the input for next step
+            flow_input = task.output
+            flow_input_type = task.output_type
         
         return result
