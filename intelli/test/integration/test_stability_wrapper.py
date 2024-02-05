@@ -31,7 +31,7 @@ class TestStabilityAIWrapper(unittest.TestCase):
             "steps": 20
         }
 
-        result = self.wrapper.generate_text_to_image(params)
+        result = self.wrapper.generate_images(params)
 
         # Verify the response contains expected keys
         self.assertIn('artifacts', result)
