@@ -16,7 +16,7 @@ class TestChatbot(unittest.TestCase):
         self.openai_bot = Chatbot(self.openai_api_key, "openai")
         self.gemini_bot = Chatbot(self.gemini_api_key, "gemini")
         self.mistral_bot = Chatbot(self.mistral_api_key, "mistral")
-
+    """
     def test_openai_chat(self):
         print('---- start openai ----')
         input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
@@ -50,6 +50,28 @@ class TestChatbot(unittest.TestCase):
         print('mistral response: ', response)
         
         self.assertTrue(len(response) > 0, "Mistral chat response should not be empty")
+    """
+    def test_openai_stream(self):
+        print('---- start openai stream ----')
+        input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
+        input.add_user_message("Tell me a story about a lion in the savanna.")
 
+        # Use asyncio.run() to get the result of the coroutine
+        full_text = asyncio.run(self._get_openai_stream(input))
+
+        print('openai stream response: ', full_text)
+
+        self.assertTrue(len(full_text) > 0, "OpenAI stream response should not be empty")
+
+    async def _get_openai_stream(self, chat_input):
+        
+        full_text = ''
+        
+        for content in self.openai_bot.stream(chat_input):
+            full_text += content
+            print('content item: ', content) 
+        
+        return full_text
+    
 if __name__ == '__main__':
     unittest.main()

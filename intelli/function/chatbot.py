@@ -79,7 +79,8 @@ class Chatbot:
         """
         Private helper method to stream text from OpenAI and parse each content chunk.
         """
-        for response in self.wrapper.generate_chat_text(params, stream=True):
+        params['stream']=True
+        for response in self.wrapper.generate_chat_text(params):
             if response.strip() and response.startswith('data: ') and response != 'data: [DONE]':
                 json_content = response[len('data: '):].strip()
                 
