@@ -1,5 +1,5 @@
 import requests
-from config import config  # Assuming you have a configuration dictionary similar to Node.js config.json
+from config import config
 from utils.conn_helper import ConnHelper
 
 class IntellicloudWrapper:
