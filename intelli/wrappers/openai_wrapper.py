@@ -153,5 +153,5 @@ class BaseURLSession(requests.Session):
     def request(self, method, url, *args, **kwargs):
         # Prepend the base URL if it's defined and the URL is relative
         if self.base_url and not url.startswith(("http://", "https://")):
-            url = urljoin(self.base_url, url)
+            url = f"{self.base_url}{url}"
         return super().request(method, url, *args, **kwargs)
