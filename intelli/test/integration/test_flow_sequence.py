@@ -2,6 +2,7 @@ import unittest
 from flow.agent import Agent
 from flow.task import Task
 from flow.sequence_flow import SequenceFlow
+from flow.input.task_input import TextTaskInput
 import os
 from dotenv import load_dotenv
 load_dotenv()
@@ -24,11 +25,11 @@ class TestFlows(unittest.TestCase):
                             model_params={'key': self.stability_key})
 
         # Define tasks
-        task1 = Task('blog post about electric cars', blog_agent, log=True)
-        task2 = Task('Generate short image description for image model', description_agent, log=True)
-        task3 = Task('Generate cartoon style image', image_agent, log=True)
+        task1 = Task(TextTaskInput('blog post about electric cars'), blog_agent, log=True)
+        task2 = Task(TextTaskInput('Generate short image description for image model'), description_agent, log=True)
+        task3 = Task(TextTaskInput('Generate cartoon style image'), image_agent, log=True)
 
-        # Assuming SequenceFlow
+        # Start SequenceFlow
         flow = SequenceFlow([task1, task2, task3], log=True)
         final_result = flow.start()
 

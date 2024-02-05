@@ -1,9 +1,10 @@
-from flow.templates.basic_template import TextInputTemplate
+from flow.template.basic_template import TextInputTemplate
+from flow.types import AgentTypes, InputTypes
 
 class Task:
-    def __init__(self, desc, agent, exclude=False, pre_process=None, 
+    def __init__(self, task_input, agent, exclude=False, pre_process=None, 
                  post_process=None, template=None, log=False):
-        self.desc = desc
+        self.desc = task_input.desc
         self.agent = agent
         self.pre_process = pre_process
         self.post_process = post_process
@@ -19,9 +20,9 @@ class Task:
     def execute(self, input_data=None, input_type=None):
         
         if self.log:
-            if input_type in ['text', 'image']:
+            if input_type in [InputTypes.TEXT.value, InputTypes.IMAGE.value]:
                 print('- Inside the task with input data head: ', input_data[:self.log_head_size])
-            elif input_type == 'image' and self.agent.type in ['text', 'image']:
+            elif input_type == InputTypes.IMAGE.value and self.agent.type in [AgentTypes.TEXT.value, AgentTypes.IMAGE.value]:
                 print('- Inside the task. the previous step input not supported')
 
         # Run task pre procesing
@@ -29,7 +30,7 @@ class Task:
             input_data = self.pre_process(input_data)
 
         # Apply template
-        if input_data and input_type in ['text', 'image']:
+        if input_data and input_type in [InputTypes.TEXT.value, InputTypes.IMAGE.value]:
             agent_input = self.template.apply_input(input_data)
             if self.log:
                 print('- Input data with template: ', agent_input[:self.log_head_size])
