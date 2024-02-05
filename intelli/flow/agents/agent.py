@@ -2,9 +2,16 @@ from function.chatbot import Chatbot
 from model.input.chatbot_input import ChatModelInput
 from controller.remote_image_model import RemoteImageModel
 from model.input.image_input import ImageModelInput
+from abc import ABC, abstractmethod
 from flow.types import AgentTypes
 
-class Agent:
+class BasicAgent(ABC):
+
+    @abstractmethod
+    def execute(self, agent_input):
+        pass
+
+class Agent(BasicAgent):
     def __init__(self, agent_type, provider, mission, model_params, options=None):
         
         if agent_type not in AgentTypes._value2member_map_:

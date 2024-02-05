@@ -1,10 +1,10 @@
 import os
 import unittest
-from flow.agent import Agent
+from flow.agents.agent import Agent
 from flow.task import Task
 from flow.sequence_flow import SequenceFlow
 from flow.input.task_input import TextTaskInput
-from flow.processors.basic_processor import BasicProcessor
+from flow.processors.basic_processor import TextProcessor
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -27,7 +27,7 @@ class TestFlows(unittest.TestCase):
 
         # Define tasks
         task1 = Task(TextTaskInput('blog post about electric cars'), blog_agent, log=True)
-        task2 = Task(TextTaskInput('Generate short image description for image model'), description_agent, pre_process=BasicProcessor.text_head, log=True)
+        task2 = Task(TextTaskInput('Generate short image description for image model'), description_agent, pre_process=TextProcessor.text_head, log=True)
         task3 = Task(TextTaskInput('Generate cartoon style image'), image_agent, log=True)
 
         # Start SequenceFlow

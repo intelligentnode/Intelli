@@ -1,4 +1,4 @@
-class BasicProcessor:
+class TextProcessor:
 
     @staticmethod
     def text_head(text, size=800):
