@@ -22,3 +22,6 @@ python3 -m unittest test/integration/test_remote_embed_model.py
 ## functions
 # chatbot
 python3 -m unittest test/integration/test_chatbot.py
+
+# chatbot azure
+python3 -m unittest test/integration/test_azure_chatbot.py

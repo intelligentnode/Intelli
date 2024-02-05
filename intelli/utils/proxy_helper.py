@@ -24,7 +24,7 @@ class ProxyHelper:
 
         config = deepcopy(default_config["url"])
         self.resource_name = resource_name
-        self.openai_url = config['azure_openai']['base'].format(resource_name=resource_name)
+        self.openai_url = config['azure_openai']['base'].replace('{resource-name}', resource_name)
         self.openai_completion = config['azure_openai']['completions']
         self.openai_chat_gpt = config['azure_openai']['chatgpt']
         self.openai_image = config['azure_openai']['imagegenerate']
