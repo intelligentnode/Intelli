@@ -1,5 +1,5 @@
 <p align="center">
-<img src="assets/flow_logo-round.png" width="200em">
+<img src="assets/flow_logo-round.png" width="180em">
 </p>
 
 # IntelliPy
