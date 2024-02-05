@@ -16,7 +16,7 @@ class TestChatbot(unittest.TestCase):
         self.openai_bot = Chatbot(self.openai_api_key, "openai")
         self.gemini_bot = Chatbot(self.gemini_api_key, "gemini")
         self.mistral_bot = Chatbot(self.mistral_api_key, "mistral")
-    """
+    
     def test_openai_chat(self):
         print('---- start openai ----')
         input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
@@ -50,7 +50,7 @@ class TestChatbot(unittest.TestCase):
         print('mistral response: ', response)
         
         self.assertTrue(len(response) > 0, "Mistral chat response should not be empty")
-    """
+    
     def test_openai_stream(self):
         print('---- start openai stream ----')
         input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
