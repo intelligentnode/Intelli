@@ -25,7 +25,7 @@ class TestFlows(unittest.TestCase):
 
         # Define tasks
         task1 = Task('blog post about electric cars', blog_agent, log=True)
-        task2 = Task('Generate image description', description_agent, log=True)
+        task2 = Task('Generate short image description for image model', description_agent, log=True)
         task3 = Task('Generate cartoon style image', image_agent, log=True)
 
         # Assuming SequenceFlow
