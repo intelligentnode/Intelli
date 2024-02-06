@@ -25,17 +25,17 @@ from flow.sequence_flow import SequenceFlow
 from flow.input.task_input import TextTaskInput
 from flow.processors.basic_processor import TextProcessor
 
-# Define agents
+# define agents
 blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-3.5-turbo'})
 copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
 artist_agent = Agent(agent_type='image', provider='stability', mission='generate image', model_params={'key': YOUR_STABILITY_API_KEY})
 
-# Define tasks
+# define tasks
 task1 = Task(TextTaskInput('blog post about electric cars'), blog_agent, log=True)
 task2 = Task(TextTaskInput('Generate short image description for image model'), copy_agent, pre_process=TextProcessor.text_head, log=True)
 task3 = Task(TextTaskInput('Generate cartoon style image'), artist_agent, log=True)
 
-# Start SequenceFlow
+# start sequence flow
 flow = SequenceFlow([task1, task2, task3], log=True)
 final_result = flow.start()
 ```
@@ -48,11 +48,11 @@ from function.chatbot import Chatbot
 from model.input.chatbot_input import ChatModelInput
 
 def call_chatbot(provider, model=None):
-    # Prepare common input 
+    # prepare common input 
     input = ChatModelInput("You are a helpful assistant.", model)
     input.add_user_message("What is the capital of France?")
 
-    # Creating Chatbot instance
+    # creating Chatbot instance
     openai_bot = Chatbot(YOUR_OPENAI_API_KEY, "openai")
     response = openai_bot.chat(input)
 
@@ -71,7 +71,7 @@ call_chatbot("gemini")
 IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
 
 ```python
-# Creating Chatbot with the intellinode one key
+# creating Chatbot with the intellinode one key
 bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
 
 input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
