@@ -13,10 +13,6 @@ setup(
     long_description_content_type="text/markdown",
     url="https://www.intellinode.ai/",
     packages=find_packages(),
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved ::Apache License",
-    ],
     python_requires='>=3.6',
     install_requires=[
         "requests-mock==1.11.0", "python-dotenv==1.0.1"
