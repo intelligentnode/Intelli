@@ -76,6 +76,8 @@ bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
 
 input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
 input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
+# optional to returne the searched file name
+input.attach_reference = True
 
 response = bot.chat(input)
 ```
