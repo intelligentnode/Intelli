@@ -52,7 +52,7 @@ def call_chatbot(provider, model=None):
     input = ChatModelInput("You are a helpful assistant.", model)
     input.add_user_message("What is the capital of France?")
 
-    # creating Chatbot instance
+    # creating chatbot instance
     openai_bot = Chatbot(YOUR_OPENAI_API_KEY, "openai")
     response = openai_bot.chat(input)
 
