@@ -82,10 +82,9 @@ response = bot.chat(input)
 
 
 # The Repository Setup
-1. Initial setup.
+1. Install the requirements.
 ```shell
 pip install -r requirements.txt
-cd intelli
 ```
 
 2. Rename `.example.env` to `.env` and fill the keys.
