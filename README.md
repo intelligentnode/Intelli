@@ -59,13 +59,26 @@ def call_chatbot(provider, model=None):
 # call openai
 call_chatbot("openai", "gpt-3.5-turbo")
 
+# call mistralai
+call_chatbot("mistral", "mistral-medium")
+
 # call gooogle gemini
 call_chatbot("gemini")
 ```
 
 
 # Connect Your Data 
-... WIP ...
+IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
+
+```python
+# Creating Chatbot with the intellinode one key
+bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
+
+input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
+input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
+
+response = bot.chat(input)
+```
 
 
 # The Repository Setup
