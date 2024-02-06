@@ -1,6 +1,6 @@
 import requests
-from config import config  # Assuming you have a config module with the necessary configurations
-from utils.conn_helper import ConnHelper  # Assuming you have a conn_helper module with the get_error_message function
+from config import config
+from utils.conn_helper import ConnHelper
 
 class CohereAIWrapper:
     def __init__(self, api_key):

@@ -37,17 +37,7 @@ class TestCohereAIWrapperIntegration(unittest.TestCase):
                 'temperature': 0.3,
                 'chat_history': [],
                 'prompt_truncation': 'auto',
-                ''
-                ' k'
-                ''
-                ''
-                ''
-                '  '
-                ''
-                ''
-                ''
-                ''
-                '': False,
+                'stream': False,
                 'citation_quality': 'accurate',
                 'connectors': [{'id': 'web-search'}],
             }
