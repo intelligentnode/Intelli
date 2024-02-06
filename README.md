@@ -26,12 +26,9 @@ from flow.input.task_input import TextTaskInput
 from flow.processors.basic_processor import TextProcessor
 
 # Define agents
-blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts',
-                model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-3.5-turbo'})
-copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description',
-                        model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
-artist_agent = Agent(agent_type='image', provider='stability', mission='generate image',
-                    model_params={'key': YOUR_STABILITY_API_KEY})
+blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-3.5-turbo'})
+copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
+artist_agent = Agent(agent_type='image', provider='stability', mission='generate image', model_params={'key': YOUR_STABILITY_API_KEY})
 
 # Define tasks
 task1 = Task(TextTaskInput('blog post about electric cars'), blog_agent, log=True)
