@@ -1,10 +1,10 @@
 import os
 import unittest
-from flow.agents.agent import Agent
-from flow.task import Task
-from flow.sequence_flow import SequenceFlow
-from flow.input.task_input import TextTaskInput
-from flow.processors.basic_processor import TextProcessor
+from intelli.flow.agents.agent import Agent
+from intelli.flow.task import Task
+from intelli.flow.sequence_flow import SequenceFlow
+from intelli.flow.input.task_input import TextTaskInput
+from intelli.flow.processors.basic_processor import TextProcessor
 from dotenv import load_dotenv
 load_dotenv()
 

@@ -1,5 +1,5 @@
 import unittest
-from model.input.chatbot_input import ChatModelInput
+from intelli.model.input.chatbot_input import ChatModelInput
 
 class TestChatModelInput(unittest.TestCase):
     def setUp(self):

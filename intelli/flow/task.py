@@ -1,6 +1,6 @@
-from flow.template.basic_template import TextInputTemplate
-from flow.types import AgentTypes, InputTypes
-from utils.logging import Logger
+from intelli.flow.template.basic_template import TextInputTemplate
+from intelli.flow.types import AgentTypes, InputTypes
+from intelli.utils.logging import Logger
 
 class Task:
     def __init__(self, task_input, agent, exclude=False, pre_process=None, 

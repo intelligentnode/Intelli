@@ -1,9 +1,9 @@
 import unittest
 import os
 import asyncio
-from function.chatbot import Chatbot
-from utils.proxy_helper import ProxyHelper
-from model.input.chatbot_input import ChatModelInput
+from intelli.function.chatbot import Chatbot
+from intelli.utils.proxy_helper import ProxyHelper
+from intelli.model.input.chatbot_input import ChatModelInput
 from dotenv import load_dotenv
 load_dotenv()
 

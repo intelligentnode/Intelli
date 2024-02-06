@@ -1,10 +1,10 @@
 import json
-from wrappers.openai_wrapper import OpenAIWrapper
-from wrappers.mistralai_wrapper import MistralAIWrapper
-from wrappers.geminiai_wrapper import GeminiAIWrapper
-from wrappers.intellicloud_wrapper import IntellicloudWrapper
-from model.input.chatbot_input import ChatModelInput
-from utils.system_helper import SystemHelper
+from intelli.wrappers.openai_wrapper import OpenAIWrapper
+from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
+from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
+from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
+from intelli.model.input.chatbot_input import ChatModelInput
+from intelli.utils.system_helper import SystemHelper
 
 class Chatbot:
    

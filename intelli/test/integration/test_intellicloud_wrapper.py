@@ -1,6 +1,6 @@
 import unittest
 import os
-from wrappers.intellicloud_wrapper import IntellicloudWrapper
+from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from dotenv import load_dotenv
 
 load_dotenv()

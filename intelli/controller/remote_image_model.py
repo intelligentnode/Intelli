@@ -1,6 +1,6 @@
-from wrappers.openai_wrapper import OpenAIWrapper
-from wrappers.stability_wrapper import StabilityAIWrapper
-from model.input.image_input import ImageModelInput
+from intelli.wrappers.openai_wrapper import OpenAIWrapper
+from intelli.wrappers.stability_wrapper import StabilityAIWrapper
+from intelli.model.input.image_input import ImageModelInput
 
 class RemoteImageModel:
     supported_image_models = {

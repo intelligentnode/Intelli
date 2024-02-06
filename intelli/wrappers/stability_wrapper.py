@@ -1,7 +1,7 @@
 import requests
 import os
-from config import config
-from utils.conn_helper import ConnHelper
+from intelli.config import config
+from intelli.utils.conn_helper import ConnHelper
 
 class StabilityAIWrapper:
     def __init__(self, api_key):

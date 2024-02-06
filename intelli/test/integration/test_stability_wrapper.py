@@ -1,6 +1,6 @@
 import unittest
 import os
-from wrappers.stability_wrapper import StabilityAIWrapper
+from intelli.wrappers.stability_wrapper import StabilityAIWrapper
 import base64
 from dotenv import load_dotenv
 load_dotenv()

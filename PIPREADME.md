@@ -1,5 +1,5 @@
 <p align="center">
-<img src="assets/flow_logo-round.png" width="180em">
+<img src="https://github.com/intelligentnode/IntelliPy/blob/main/assets/flow_logo-round.png" width="180em">
 </p>
 
 # IntelliPy
@@ -78,33 +78,6 @@ input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
 input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
 
 response = bot.chat(input)
-```
-
-
-# The Repository Setup
-1. Install the requirements.
-```shell
-pip install -r requirements.txt
-```
-
-2. Rename `.example.env` to `.env` and fill the keys.
-
-3. Run the test cases, examples below.
-```shell
-# images
-python3 -m unittest intelli.test.integration.test_remote_image_model
-
-# chatbot
-python3 -m unittest intelli.test.integration.test_chatbot
-
-# mistral
-python3 -m unittest intelli.test.integration.test_mistralai_wrapper
-
-# chatbot
-python3 -m unittest intelli.test.integration.test_chatbot
-
-# ai flows
-python3 -m unittest intelli.test.integration.test_flow_sequence
 ```
 
 # Pillars

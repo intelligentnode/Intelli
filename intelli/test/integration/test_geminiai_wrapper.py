@@ -1,7 +1,7 @@
 import unittest
 import os
 from dotenv import load_dotenv
-from wrappers.geminiai_wrapper import GeminiAIWrapper
+from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
 
 load_dotenv()
 
@@ -27,7 +27,7 @@ class TestGeminiAIWrapper(unittest.TestCase):
         self.assertIsNotNone(result['candidates'][0]['content']['parts'][0]['text'])
     
     def test_image_to_text(self):
-        file_path = '../temp/test_image_desc.png' 
+        file_path = 'temp/test_image_desc.png' 
 
         try:
             result = self.wrapper.image_to_text('describe the image', file_path, 'png')

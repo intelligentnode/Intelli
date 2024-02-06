@@ -1,6 +1,6 @@
 import unittest
 import os
-from wrappers.mistralai_wrapper import MistralAIWrapper
+from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from dotenv import load_dotenv
 load_dotenv()
 

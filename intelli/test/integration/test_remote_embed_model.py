@@ -1,7 +1,7 @@
 
 import unittest
-from controller.remote_embed_model import RemoteEmbedModel
-from model.input.embed_input import EmbedInput
+from intelli.controller.remote_embed_model import RemoteEmbedModel
+from intelli.model.input.embed_input import EmbedInput
 import os
 from dotenv import load_dotenv
 load_dotenv()

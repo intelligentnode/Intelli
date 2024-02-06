@@ -1,4 +1,4 @@
-from utils.logging import Logger
+from intelli.utils.logging import Logger
 
 class SequenceFlow:
     def __init__(self, order, log=False):
