@@ -100,9 +100,6 @@ python3 -m unittest intelli.test.integration.test_chatbot
 # mistral
 python3 -m unittest intelli.test.integration.test_mistralai_wrapper
 
-# chatbot
-python3 -m unittest intelli.test.integration.test_chatbot
-
 # ai flows
 python3 -m unittest intelli.test.integration.test_flow_sequence
 ```
