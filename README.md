@@ -62,7 +62,7 @@ call_chatbot("openai", "gpt-4")
 # call mistralai
 call_chatbot("mistral", "mistral-medium")
 
-# call gooogle gemini
+# call google gemini
 call_chatbot("gemini")
 ```
 
@@ -82,6 +82,24 @@ input.attach_reference = True
 response = bot.chat(input)
 ```
 
+## Generate Images
+Use the image controller to generate arts from multiple models with minimum code change:
+```python
+from intelli.controller.remote_image_model import RemoteImageModel
+from intelli.model.input.image_input import ImageModelInput
+
+# model details - change only two words to switch
+provider = "openai"
+model_name = "dall-e-3"
+
+# prepare the input details
+prompts = "cartoonishly-styled solitary snake logo, looping elegantly to form both the body of the python and an abstract play on data nodes."
+image_input = ImageModelInput(prompt=prompt, width=1024, height=1024, model=model_name)
+
+# call the model openai/stability
+wrapper = RemoteImageModel(your_api_key, provider)
+results = wrapper.generate_images(image_input)
+```
 
 # The Repository Setup
 1. Install the requirements.
