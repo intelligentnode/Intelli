@@ -26,7 +26,7 @@ from flow.input.task_input import TextTaskInput
 from flow.processors.basic_processor import TextProcessor
 
 # define agents
-blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-3.5-turbo'})
+blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-4'})
 copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
 artist_agent = Agent(agent_type='image', provider='stability', mission='generate image', model_params={'key': YOUR_STABILITY_API_KEY})
 
@@ -57,7 +57,7 @@ def call_chatbot(provider, model=None):
     response = openai_bot.chat(input)
 
 # call openai
-call_chatbot("openai", "gpt-3.5-turbo")
+call_chatbot("openai", "gpt-4")
 
 # call mistralai
 call_chatbot("mistral", "mistral-medium")
