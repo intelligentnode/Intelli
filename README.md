@@ -28,15 +28,15 @@ from flow.processors.basic_processor import TextProcessor
 # Define agents
 blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts',
                 model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-3.5-turbo'})
-description_agent = Agent(agent_type='text', provider='gemini', mission='generate description',
+copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description',
                         model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
-image_agent = Agent(agent_type='image', provider='stability', mission='generate image',
+artist_agent = Agent(agent_type='image', provider='stability', mission='generate image',
                     model_params={'key': YOUR_STABILITY_API_KEY})
 
 # Define tasks
 task1 = Task(TextTaskInput('blog post about electric cars'), blog_agent, log=True)
-task2 = Task(TextTaskInput('Generate short image description for image model'), description_agent, pre_process=TextProcessor.text_head, log=True)
-task3 = Task(TextTaskInput('Generate cartoon style image'), image_agent, log=True)
+task2 = Task(TextTaskInput('Generate short image description for image model'), copy_agent, pre_process=TextProcessor.text_head, log=True)
+task3 = Task(TextTaskInput('Generate cartoon style image'), artist_agent, log=True)
 
 # Start SequenceFlow
 flow = SequenceFlow([task1, task2, task3], log=True)
@@ -44,7 +44,27 @@ final_result = flow.start()
 ```
 
 ## Create Chatbot
-... WIP ...
+Switch between multiple chatbot providers without changing your code.
+
+```python
+from function.chatbot import Chatbot
+from model.input.chatbot_input import ChatModelInput
+
+def call_chatbot(provider, model=None):
+    # Prepare common input 
+    input = ChatModelInput("You are a helpful assistant.", model)
+    input.add_user_message("What is the capital of France?")
+
+    # Creating Chatbot instance
+    openai_bot = Chatbot(YOUR_OPENAI_API_KEY, "openai")
+    response = openai_bot.chat(input)
+
+# call openai
+call_chatbot("openai", "gpt-3.5-turbo")
+
+# call gooogle gemini
+call_chatbot("gemini")
+```
 
 
 # Connect Your Data 
