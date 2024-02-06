@@ -17,7 +17,6 @@ You can create a flow of tasks executed by different AI models. Here's an exampl
 
 <img src="assets/flow_example.jpg" width="680em">
 
-<br>
 
 ```python
 from flow.agents.agent import Agent
