@@ -23,7 +23,7 @@ class CohereAIWrapper:
             raise Exception(ConnHelper.get_error_message(error))
 
     def generate_chat_text(self, params):
-        url = '/chat'
+        url =  config['url']['cohere']['chat']
         try:
             response = requests.post(f'{self.API_BASE_URL}{url}', json=params, headers=self.headers)
             response.raise_for_status()
