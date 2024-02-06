@@ -1,4 +1,4 @@
-from config import config as default_config
+from intelli.config import config as default_config
 from copy import deepcopy
 
 class ProxyHelper:

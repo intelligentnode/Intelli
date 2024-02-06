@@ -1,7 +1,7 @@
-from model.input.embed_input import EmbedInput
-from wrappers.openai_wrapper import OpenAIWrapper
-from wrappers.mistralai_wrapper import MistralAIWrapper
-from wrappers.geminiai_wrapper import GeminiAIWrapper
+from intelli.model.input.embed_input import EmbedInput
+from intelli.wrappers.openai_wrapper import OpenAIWrapper
+from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
+from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
 
 class RemoteEmbedModel:
     def __init__(self, provider_name, api_key):

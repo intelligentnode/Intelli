@@ -1,5 +1,5 @@
 import unittest
-from wrappers.openai_wrapper import OpenAIWrapper
+from intelli.wrappers.openai_wrapper import OpenAIWrapper
 import os
 import base64
 import json

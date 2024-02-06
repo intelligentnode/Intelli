@@ -1,9 +1,9 @@
-from function.chatbot import Chatbot
-from model.input.chatbot_input import ChatModelInput
-from controller.remote_image_model import RemoteImageModel
-from model.input.image_input import ImageModelInput
+from intelli.function.chatbot import Chatbot
+from intelli.model.input.chatbot_input import ChatModelInput
+from intelli.controller.remote_image_model import RemoteImageModel
+from intelli.model.input.image_input import ImageModelInput
 from abc import ABC, abstractmethod
-from flow.types import AgentTypes
+from intelli.flow.types import AgentTypes
 
 class BasicAgent(ABC):
 

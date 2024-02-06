@@ -1,7 +1,7 @@
 import os
 import requests
-from utils.proxy_helper import ProxyHelper
-from utils.conn_helper import ConnHelper
+from intelli.utils.proxy_helper import ProxyHelper
+from intelli.utils.conn_helper import ConnHelper
 from urllib.parse import urljoin
 
 class OpenAIWrapper:

@@ -1,7 +1,6 @@
 import requests
 import base64
-from config import config
-from urllib.parse import quote
+from intelli.config import config
 
 class GeminiAIWrapper:
 

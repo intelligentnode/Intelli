@@ -19,11 +19,11 @@ You can create a flow of tasks executed by different AI models. Here's an exampl
 
 
 ```python
-from flow.agents.agent import Agent
-from flow.task import Task
-from flow.sequence_flow import SequenceFlow
-from flow.input.task_input import TextTaskInput
-from flow.processors.basic_processor import TextProcessor
+from intelli.flow.agents.agent import Agent
+from intelli.flow.task import Task
+from intelli.flow.sequence_flow import SequenceFlow
+from intelli.flow.input.task_input import TextTaskInput
+from intelli.flow.processors.basic_processor import TextProcessor
 
 # define agents
 blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-4'})
@@ -44,8 +44,8 @@ final_result = flow.start()
 Switch between multiple chatbot providers without changing your code.
 
 ```python
-from function.chatbot import Chatbot
-from model.input.chatbot_input import ChatModelInput
+from intelli.function.chatbot import Chatbot
+from intelli.model.input.chatbot_input import ChatModelInput
 
 def call_chatbot(provider, model=None):
     # prepare common input 
@@ -93,13 +93,19 @@ cd intelli
 3. Run the test cases, examples below.
 ```shell
 # images
-python3 -m unittest test/integration/test_remote_image_model.py
+python3 -m unittest intelli.test.integration.test_remote_image_model
 
 # chatbot
-python3 -m unittest test/integration/test_chatbot.py
+python3 -m unittest intelli.test.integration.test_chatbot
 
 # mistral
-python3 -m unittest test/integration/test_mistralai_wrapper.py
+python3 -m unittest intelli.test.integration.test_mistralai_wrapper
+
+# chatbot
+python3 -m unittest intelli.test.integration.test_chatbot
+
+# ai flows
+python3 -m unittest intelli.test.integration.test_flow_sequence
 ```
 
 # Pillars

@@ -1,7 +1,7 @@
 import unittest
 import os
-from controller.remote_image_model import RemoteImageModel
-from model.input.image_input import ImageModelInput
+from intelli.controller.remote_image_model import RemoteImageModel
+from intelli.model.input.image_input import ImageModelInput
 from pathlib import Path
 import base64
 from dotenv import load_dotenv
@@ -44,7 +44,7 @@ class TestRemoteImageModel(unittest.TestCase):
             self.assertGreater(len(results), 0, "No images were returned from OpenAI")
 
             # save the image
-            output_dir = Path("../temp")
+            output_dir = Path("temp")
             output_dir.mkdir(parents=True, exist_ok=True)
             for i, base64_image in enumerate(results, start=1):
                 self.save_image_from_base64(base64_image, output_dir / f"dale_image_{img_indx}_{i}.png")
