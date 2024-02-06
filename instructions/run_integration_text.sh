@@ -28,3 +28,7 @@ python3 -m unittest test/integration/test_chatbot.py
 
 # chatbot azure
 python3 -m unittest test/integration/test_azure_chatbot.py
+
+## flows
+# basic flow
+python3 -m unittest test/integration/test_flow_sequence.py
