@@ -67,7 +67,7 @@ call_chatbot("gemini")
 ```
 
 
-# Connect Your Data 
+# Chat with Docs
 IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
 
 ```python
