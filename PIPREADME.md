@@ -1,9 +1,18 @@
-<p align="center">
-<img src="https://github.com/intelligentnode/IntelliPy/blob/main/assets/flow_logo-round.png" width="180em">
-</p>
-
-# IntelliPy
+# Intelli
 Create chatbots and AI agent work flows. It allows to connect your data with multiple AI models like OpenAI, Gemini, and Mistral through a unified access layer.
+
+<p>
+<a href="https://github.com/intelligentnode/Intelli/blob/release-documentation/LICENSE" alt="licenses tag">
+    <img src="https://img.shields.io/github/license/Barqawiz/IntelliJava?style=flat-square" />
+</a>
+
+<a href="https://discord.gg/VYgCh2p3Ww" alt="Join our Discord community">
+    <img src="https://img.shields.io/badge/Discord-join%20us-5865F2?style=flat-square&logo=discord&logoColor=white" />
+</a>
+
+![GitHub Stars](https://img.shields.io/github/stars/intelligentnode/Intelli?style=social)
+
+</p>
 
 # Install
 ```bash
@@ -14,9 +23,9 @@ pip install intelli
 
 ## Create AI Flows
 You can create a flow of tasks executed by different AI models. Here's an example of creating a blog post flow:
-
-<img src="assets/flow_example.jpg" width="680em">
-
+- ChatGPT agent to write a post.
+- Google gemini agent to write image description.
+- Stable diffusion to generate images.
 
 ```python
 from intelli.flow.agents.agent import Agent
@@ -78,6 +87,25 @@ input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
 input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
 
 response = bot.chat(input)
+```
+
+## Generate Images
+Use the image controller to generate arts from multiple models with minimum code change:
+```python
+from intelli.controller.remote_image_model import RemoteImageModel
+from intelli.model.input.image_input import ImageModelInput
+
+# model details - change only two words to switch
+provider = "openai"
+model_name = "dall-e-3"
+
+# prepare the input details
+prompts = "cartoonishly-styled solitary snake logo, looping elegantly to form both the body of the python and an abstract play on data nodes."
+image_input = ImageModelInput(prompt=prompt, width=1024, height=1024, model=model_name)
+
+# call the model openai/stability
+wrapper = RemoteImageModel(your_api_key, provider)
+results = wrapper.generate_images(image_input)
 ```
 
 # Pillars
