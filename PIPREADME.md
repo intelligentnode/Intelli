@@ -1,9 +1,18 @@
-<p align="center">
-<img src="https://github.com/intelligentnode/IntelliPy/blob/main/assets/flow_logo-round.png" width="180em">
-</p>
-
-# IntelliPy
+# Intelli
 Create chatbots and AI agent work flows. It allows to connect your data with multiple AI models like OpenAI, Gemini, and Mistral through a unified access layer.
+
+<p>
+<a href="https://opensource.org/licenses/Apache-2.0" alt="licenses tag">
+    <img src="https://img.shields.io/github/license/Barqawiz/IntelliJava?style=flat-square" />
+</a>
+
+<a href="https://discord.gg/VYgCh2p3Ww" alt="licenses tag">
+    <img src="https://img.shields.io/badge/Discord-Community-light?style=flat-square" />
+</a>
+
+![GitHub Stars](https://img.shields.io/github/stars/intelligentnode/Intelli?style=social)
+
+</p>
 
 # Install
 ```bash
@@ -14,9 +23,6 @@ pip install intelli
 
 ## Create AI Flows
 You can create a flow of tasks executed by different AI models. Here's an example of creating a blog post flow:
-
-<img src="assets/flow_example.jpg" width="680em">
-
 
 ```python
 from intelli.flow.agents.agent import Agent

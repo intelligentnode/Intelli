@@ -2,7 +2,19 @@
 <img src="assets/flow_logo-round.png" width="180em">
 </p>
 
-# IntelliPy
+<p align="center">
+
+<a href="https://opensource.org/licenses/Apache-2.0" alt="licenses tag">
+    <img src="https://img.shields.io/github/license/Barqawiz/IntelliJava?style=flat-square" />
+</a>
+
+<a href="https://pypi.org/project/intelli/" alt="PyPI version">
+    <img src="https://img.shields.io/pypi/v/intelli?style=flat-square" />
+</a>
+
+</p>
+
+# Intelli
 Create chatbots and AI agent work flows. It allows to connect your data with multiple AI models like OpenAI, Gemini, and Mistral through a unified access layer.
 
 # Install
