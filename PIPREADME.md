@@ -23,7 +23,7 @@ pip install intelli
 
 ## Create AI Flows
 You can create a flow of tasks executed by different AI models. Here's an example of creating a blog post flow:
-- chatGPT agent to write a post.
+- ChatGPT agent to write a post.
 - Google gemini agent to write image description.
 - Stable diffusion to generate images.
 
