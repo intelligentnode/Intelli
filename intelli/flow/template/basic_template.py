@@ -1,7 +1,8 @@
 from abc import ABC, abstractmethod
 
+
 class Template(ABC):
-    
+
     @abstractmethod
     def apply_input(self, data):
         pass
@@ -9,6 +10,7 @@ class Template(ABC):
     @abstractmethod
     def apply_output(self, data):
         pass
+
 
 class TextInputTemplate(Template):
 

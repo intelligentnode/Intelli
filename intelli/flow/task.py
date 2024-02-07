@@ -2,8 +2,9 @@ from intelli.flow.template.basic_template import TextInputTemplate
 from intelli.flow.types import AgentTypes, InputTypes
 from intelli.utils.logging import Logger
 
+
 class Task:
-    def __init__(self, task_input, agent, exclude=False, pre_process=None, 
+    def __init__(self, task_input, agent, exclude=False, pre_process=None,
                  post_process=None, template=None, log=False):
         self.desc = task_input.desc
         self.agent = agent
@@ -18,11 +19,12 @@ class Task:
             self.template = TextInputTemplate(self.desc)
 
     def execute(self, input_data=None, input_type=None):
-        
+
         # logging
         if input_type in [InputTypes.TEXT.value, InputTypes.IMAGE.value]:
             self.logger.log('- Inside the task with input data head: ', input_data)
-        elif input_type == InputTypes.IMAGE.value and self.agent.type in [AgentTypes.TEXT.value, AgentTypes.IMAGE.value]:
+        elif input_type == InputTypes.IMAGE.value and self.agent.type in [AgentTypes.TEXT.value,
+                                                                          AgentTypes.IMAGE.value]:
             self.logger.log('- Inside the task. the previous step input not supported')
 
         # Run task pre procesing
@@ -44,5 +46,5 @@ class Task:
 
         if self.post_process:
             result = self.post_process(result)
-            
+
         self.output = result

@@ -4,9 +4,11 @@ class TaskInput:
         self.img = img
         self.audio = audio
 
+
 class TextTaskInput(TaskInput):
     def __init__(self, desc):
         super().__init__(desc=desc)
+
 
 class ImageTaskInput(TaskInput):
     def __init__(self, desc, img):
