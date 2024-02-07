@@ -5,13 +5,13 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="0.0.3",
+    version="0.0.4",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Create chatbots and AI agent work flows. It allows to connect your data with multiple AI models like OpenAI, Gemini, and Mistral through a unified access layer.",
     long_description=pip_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/intelligentnode/Intelli/",
+    url="https://www.intellinode.ai/",
     project_urls={
         "Source Code": "https://github.com/intelligentnode/Intelli",
     },
