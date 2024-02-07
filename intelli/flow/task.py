@@ -1,6 +1,7 @@
 from intelli.flow.template.basic_template import TextInputTemplate
 from intelli.flow.types import AgentTypes, InputTypes
 from intelli.utils.logging import Logger
+from intelli.flow.input.agent_input import AgentInput, TextAgentInput, ImageAgentInput
 
 
 class Task:
@@ -33,14 +34,15 @@ class Task:
 
         # Apply template
         if input_data and input_type in [InputTypes.TEXT.value, InputTypes.IMAGE.value]:
-            agent_input = self.template.apply_input(input_data)
+            agent_text = self.template.apply_input(input_data)
             # log
-            self.logger.log('- Input data with template: ', agent_input)
+            self.logger.log('- Input data with template: ', agent_text)
         else:
-            agent_input = self.desc
+            agent_text = self.desc
 
         # Check the agent type and call the appropriate function
-        result = self.agent.execute(agent_input)
+        result = self.agent.execute(TextAgentInput(agent_text))
+
         # log
         self.logger.log('- The task output head: ', result)
 
