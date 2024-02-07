@@ -9,7 +9,11 @@
 </a>
 
 <a href="https://pypi.org/project/intelli/" alt="PyPI version">
-    <img src="https://img.shields.io/pypi/v/intelli?style=flat-square" />
+    <img src="https://img.shields.io/pypi/v/intelli?style=flat-square&color=007ec6" />
+</a>
+
+<a href="https://discord.gg/VYgCh2p3Ww" alt="licenses tag">
+    <img src="https://img.shields.io/badge/Discord-Community-light?style=flat-square" />
 </a>
 
 </p>
