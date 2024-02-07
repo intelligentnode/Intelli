@@ -30,6 +30,7 @@ config = {
         "cohere": {
             "base": "https://api.cohere.ai",
             "completions": "/generate",
+            "chat": "/chat",
             "embed": "/v1/embed",
             "version": "2022-12-06"
         },
