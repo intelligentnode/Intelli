@@ -1,8 +1,8 @@
 import unittest
 import os
 import json
-from wrappers.cohereai_wrapper import CohereAIWrapper
-from utils.coherestreamparser import CohereStreamParser
+from intelli.wrappers.cohereai_wrapper import CohereAIWrapper
+from intelli.utils.cohere_stream_parser import CohereStreamParser
 from dotenv import load_dotenv
 
 
