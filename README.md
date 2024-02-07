@@ -12,8 +12,8 @@
     <img src="https://img.shields.io/pypi/v/intelli?style=flat-square&color=007ec6" />
 </a>
 
-<a href="https://discord.gg/VYgCh2p3Ww" alt="licenses tag">
-    <img src="https://img.shields.io/badge/Discord-Community-light?style=flat-square" />
+<a href="https://discord.gg/VYgCh2p3Ww" alt="Join our Discord community">
+    <img src="https://img.shields.io/badge/Discord-join%20us-5865F2?style=flat-square&logo=discord&logoColor=white" />
 </a>
 
 </p>
