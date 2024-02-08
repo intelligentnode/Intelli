@@ -50,7 +50,7 @@ class TestFlows(unittest.TestCase):
             log=True,
         )
         task3 = Task(
-            TextTaskInput("Generate cartoon style image"), image_agent, log=True
+            TextTaskInput("Generate cartoon style image"), image_agent, exclude=True, log=True
         )
 
         # Start SequenceFlow

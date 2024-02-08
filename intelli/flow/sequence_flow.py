@@ -16,7 +16,7 @@ class SequenceFlow:
         for index, task in enumerate(self.order, start=1):
 
             # log
-            self.logger.log(f"- Executing task: {task.desc}")
+            self.logger.log_head(f"- Executing task: {task.desc}")
 
             task.execute(flow_input, flow_input_type)
 

@@ -14,9 +14,12 @@ class Template(ABC):
 
 class TextInputTemplate(Template):
 
-    def __init__(self, template_text: str):
+    def __init__(self, template_text: str, previous_input_tag='context', user_request_tag='user request'):
         if '{0}' not in template_text:
-            template_text = template_text + ' {0}'
+            context = previous_input_tag + ': {0}\n'
+            request = user_request_tag + ': ' + template_text
+            template_text = context+request
+
         self.template_text = template_text.strip()
 
     def apply_input(self, data):

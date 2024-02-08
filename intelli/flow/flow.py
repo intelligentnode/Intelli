@@ -1,75 +1,69 @@
 import asyncio
-from collections import defaultdict
-from operator import itemgetter
-import concurrent
-
-from intelli.flow.sequence_flow import SequenceFlow
+import networkx as nx
 from intelli.utils.logging import Logger
-
-
-class ValidationsError(Exception):
-    def __init__(self, message):
-        self.message = message
-        super().__init__(self.message)
+from functools import partial
 
 
 class Flow:
-    def __init__(self, agents, map_paths, log=False):
-        self.agents = agents
-        self.map = map_paths
-        self.log = log
+    def __init__(self, tasks, map_paths, log=False):
+        self.tasks = tasks
+        self.map_paths = map_paths
+        self.graph = nx.DiGraph()
+        self.output = {}
         self.logger = Logger(log)
+        self._prepare_graph()
 
-        # perform the validations
-        self._validate_agents()
-        self._validate_map()
+    def _prepare_graph(self):
+        # Initialize the graph with tasks as nodes
+        for task_name in self.tasks:
+            self.graph.add_node(task_name)
+        
+        # Add edges based on map_paths to define dependencies
+        for parent_task, dependencies in self.map_paths.items():
+            for child_task in dependencies:
+                self.graph.add_edge(parent_task, child_task)
+        
+        # Check for cycles in the graph
+        if not nx.is_directed_acyclic_graph(self.graph):
+            raise ValueError("The dependency graph has cycles, please revise map_paths.")
+    
+    async def _execute_task(self, task_name):
+        self.logger.log(f'---- execute task {task_name} ---- ')
 
-    def _validate_agents(self):
-        if len(self.agents) > 10:
-            raise ValidationsError("Can't have more than 10 agents")
+        task = self.tasks[task_name]
+        input_texts = []
 
-        if len(set(self.agents)) != len(self.agents):
-            raise ValidationsError("Agents should be unique")
+        # Gather inputs from previous tasks based on the graph
+        for pred in self.graph.predecessors(task_name):
+            if pred in self.output:
+                input_texts.append(self.output[pred])
+            else:
+                print(f"Warning: Output for predecessor task '{pred}' not found. Skipping...")
 
-    def _validate_map(self):
-        graph = defaultdict(list)
-        for parent, child in self.map.items():
-            graph[parent] += (child,)
-            if self._detect_cycle(graph):
-                raise ValidationsError("Cycle detected in map paths")
+        # Combine the inputs for tasks having multiple dependencies
+        self.logger.log(f'The number of combined inputs for task {task_name} is {input_texts}')
+        merged_input = " ".join(input_texts)
+        
+        # If execute method of task is synchronous, wrap it for async execution
+        loop = asyncio.get_event_loop()
+        # Utilize functools.partial to prepare the function with arguments if necessary
+        execute_task = partial(task.execute, merged_input)
+        
+        # Run the synchronous function
+        result = await loop.run_in_executor(None, execute_task)
 
-    def _detect_cycle(self, graph):
-        """Detect cycle in a graph using DFS"""
-        visited_set = set()
-        recursive_stack = set()
-
-        for node in graph.keys():
-            if self._detect_cycle_util(node, visited_set, recursive_stack, graph):
-                return True
-        return False
-
-    def _detect_cycle_util(self, node, visited, recursive, graph):
-        """Utility function for detecting cycle"""
-        visited.add(node)
-        recursive.add(node)
-
-        for neighbor in graph[node]:
-            if neighbor not in visited:
-                if self._detect_cycle_util(neighbor, visited, recursive, graph):
-                    return True
-            elif neighbor in recursive:
-                return True
+        # Collect outputs
+        self.output[task_name] = task.output
 
     async def start(self, max_workers=10):
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
-        loop = asyncio.get_event_loop()
+        # Topological sorting based on tasks dependencies
+        ordered_tasks = list(nx.topological_sort(self.graph))
+        
+        async with asyncio.Semaphore(max_workers):
+            tasks_coro = [self._execute_task(task_name) for task_name in ordered_tasks]
+            await asyncio.gather(*tasks_coro)
 
-        start, paths = next(iter(self.map.items()))
-        tasks = []
+        filtered_output = {task_name: self.output[task_name] for task_name in self.tasks if not self.tasks[task_name].exclude}
 
-        for path in paths:
-            agent_sequence = list(itemgetter(*path)(self.agents))
-            tasks.append(loop.run_in_executor(executor, SequenceFlow(agent_sequence).start))
-
-        done, pending = await asyncio.wait(tasks)
-        return [result.result() for result in done]
+        # Returning output for logging or further processing
+        return filtered_output

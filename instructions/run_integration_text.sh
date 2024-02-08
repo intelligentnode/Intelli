@@ -32,3 +32,5 @@ python3 -m unittest intelli.test.integration.test_azure_chatbot
 ## flows
 # basic flow
 python3 -m unittest intelli.test.integration.test_flow_sequence
+# map flow
+python3 -m unittest intelli.test.integration.test_flow_map
