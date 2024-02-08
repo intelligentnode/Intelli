@@ -34,6 +34,7 @@ class Flow:
         input_texts = []
 
         # Gather inputs from previous tasks based on the graph
+        input_type = None
         for pred in self.graph.predecessors(task_name):
             if pred in self.output:
                 input_texts.append(self.output[pred])
@@ -41,7 +42,7 @@ class Flow:
                 print(f"Warning: Output for predecessor task '{pred}' not found. Skipping...")
 
         # Combine the inputs for tasks having multiple dependencies
-        self.logger.log(f'The number of combined inputs for task {task_name} is {input_texts}')
+        self.logger.log(f'The number of combined inputs for task {task_name} is {len(input_texts)}')
         merged_input = " ".join(input_texts)
         
         # If execute method of task is synchronous, wrap it for async execution
@@ -56,14 +57,17 @@ class Flow:
         self.output[task_name] = task.output
 
     async def start(self, max_workers=10):
-        # Topological sorting based on tasks dependencies
+
+        # Topological sorting to order tasks based on dependencies
         ordered_tasks = list(nx.topological_sort(self.graph))
-        
+        task_coroutines = {task_name: self._execute_task(task_name) for task_name in ordered_tasks}
+
         async with asyncio.Semaphore(max_workers):
-            tasks_coro = [self._execute_task(task_name) for task_name in ordered_tasks]
-            await asyncio.gather(*tasks_coro)
+            for task_name in ordered_tasks:
+                await task_coroutines[task_name]
 
-        filtered_output = {task_name: self.output[task_name] for task_name in self.tasks if not self.tasks[task_name].exclude}
+        # Filter the outputs of excluded tasks
+        filtered_output = {task_name: self.output[task_name] for task_name in ordered_tasks if not self.tasks[task_name].exclude}
 
-        # Returning output for logging or further processing
+        # Returning filtered output
         return filtered_output

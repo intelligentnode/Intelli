@@ -1,5 +1,5 @@
 class Logger:
-    def __init__(self, enable_logging=True, head_size=80):
+    def __init__(self, enable_logging=True, head_size=200):
         self.enable_logging = enable_logging
         self.head_size = head_size
 

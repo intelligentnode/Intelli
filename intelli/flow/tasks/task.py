@@ -20,7 +20,7 @@ class Task:
             self.template = TextInputTemplate(self.desc)
 
     def execute(self, input_data=None, input_type=None):
-
+        
         # logging
         if input_type in [InputTypes.TEXT.value, InputTypes.IMAGE.value]:
             self.logger.log_head('- Inside the task with input data head: ', input_data)
