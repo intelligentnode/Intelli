@@ -1,17 +1,18 @@
 import os
 import unittest
+import asyncio
 from intelli.flow.processors.basic_processor import TextProcessor
 from intelli.flow.agents.agent import Agent
 from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.processors.basic_processor import TextProcessor
-from intelli.flow.sequence_flow import SequenceFlow
-from intelli.flow.task import Task
+from intelli.flow.flow import Flow
+from intelli.flow.tasks.task import Task
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-class TestAsyncFlow(TestFlows):
+class TestAsyncFlow(unittest.TestCase):
 
     def setUp(self):
         # Initiate the keys
