@@ -124,7 +124,7 @@ class Chatbot:
             ).strip()
 
             # Load the static prompt template for an augmented chatbot response.
-            augmented_message_template = self.system_helper.load_prompt("augmented_chatbot")
+            augmented_message_template = self.system_helper.load_static_prompt("augmented_chatbot")
             augmented_message = augmented_message_template.replace("${semantic_search}", context_data).replace("${user_query}", last_user_message)
             
             # Replace the content of the last user message with the augmented message in the ChatModelInput.
