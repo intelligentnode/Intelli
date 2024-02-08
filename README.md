@@ -56,6 +56,8 @@ flow = SequenceFlow([task1, task2, task3], log=True)
 final_result = flow.start()
 ```
 
+To build async flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
+
 ## Create Chatbot
 Switch between multiple chatbot providers without changing your code.
 
