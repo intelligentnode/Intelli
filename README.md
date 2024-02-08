@@ -56,6 +56,10 @@ flow = SequenceFlow([task1, task2, task3], log=True)
 final_result = flow.start()
 ```
 
+## Graph-Based AI Flows
+
+<img src="assets/flow_graph_example.jpg" width="600em">
+
 To build async flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
 
 ## Create Chatbot
