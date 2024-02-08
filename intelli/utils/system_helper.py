@@ -29,3 +29,22 @@ class SystemHelper:
             prompt_template = file.read()
         
         return prompt_template
+    
+    def load_static_prompt(self, file_type):
+        static_prompts = {
+            "augmented_chatbot": (
+                "Using the provided context, craft a cohesive response that directly addresses the user's query. "
+                "If the context lacks relevance or is absent, focus on generating a knowledgeable and accurate answer "
+                "based on the user's question alone. Aim for clarity and conciseness in your reply.\n"
+                "Context:\n"
+                "${semantic_search}\n"
+                "---------------------------------\n"
+                "User's Question:\n"
+                "${user_query}"
+            ),
+        }
+
+        if file_type in static_prompts:
+            return static_prompts[file_type]
+        else:
+            raise ValueError(f"Static prompt for file type '{file_type}' not defined.")

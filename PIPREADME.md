@@ -29,7 +29,7 @@ You can create a flow of tasks executed by different AI models. Here's an exampl
 
 ```python
 from intelli.flow.agents.agent import Agent
-from intelli.flow.task import Task
+from intelli.flow.tasks.task import Task
 from intelli.flow.sequence_flow import SequenceFlow
 from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.processors.basic_processor import TextProcessor
@@ -49,6 +49,8 @@ flow = SequenceFlow([task1, task2, task3], log=True)
 final_result = flow.start()
 ```
 
+To build async flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
+
 ## Create Chatbot
 Switch between multiple chatbot providers without changing your code.
 
@@ -65,6 +67,8 @@ def call_chatbot(provider, model=None):
     openai_bot = Chatbot(YOUR_OPENAI_API_KEY, "openai")
     response = openai_bot.chat(input)
 
+    return response
+
 # call openai
 call_chatbot("openai", "gpt-4")
 
@@ -76,7 +80,7 @@ call_chatbot("gemini")
 ```
 
 
-## Chat With Docs
+## Connect Your Docs With Chatbot
 IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
 
 ```python
