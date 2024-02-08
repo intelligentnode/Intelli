@@ -29,6 +29,9 @@ python3 -m unittest intelli.test.integration.test_chatbot
 # chatbot azure
 python3 -m unittest intelli.test.integration.test_azure_chatbot
 
+# chatbot with data
+python3 -m unittest intelli.test.integration.test_chatbot_with_data
+
 ## flows
 # basic flow
 python3 -m unittest intelli.test.integration.test_flow_sequence
