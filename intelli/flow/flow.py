@@ -29,45 +29,43 @@ class Flow:
     
     async def _execute_task(self, task_name):
         self.logger.log(f'---- execute task {task_name} ---- ')
-
         task = self.tasks[task_name]
-        input_texts = []
+        predecessor_outputs = []
+        predecessor_types = set()
 
-        # Gather inputs from previous tasks based on the graph
-        input_type = None
+        # Gather inputs and types from previous tasks based on the graph
         for pred in self.graph.predecessors(task_name):
             if pred in self.output:
-                input_texts.append(self.output[pred])
+                predecessor_outputs.append(self.output[pred]['output'])
+                predecessor_types.add(self.output[pred]['type'])
             else:
                 print(f"Warning: Output for predecessor task '{pred}' not found. Skipping...")
 
-        # Combine the inputs for tasks having multiple dependencies
-        self.logger.log(f'The number of combined inputs for task {task_name} is {len(input_texts)}')
-        merged_input = " ".join(input_texts)
-        
-        # If execute method of task is synchronous, wrap it for async execution
+        self.logger.log(f'The number of combined inputs for task {task_name} is {len(predecessor_outputs)}')
+        merged_input = " ".join(predecessor_outputs)
+        merged_type = next(iter(predecessor_types)) if len(predecessor_types) == 1 else None
+
+        # Execute task with merged input
         loop = asyncio.get_event_loop()
-        # Utilize functools.partial to prepare the function with arguments if necessary
-        execute_task = partial(task.execute, merged_input)
+        execute_task = partial(task.execute, merged_input, input_type=merged_type)
         
         # Run the synchronous function
-        result = await loop.run_in_executor(None, execute_task)
+        await loop.run_in_executor(None, execute_task)
 
-        # Collect outputs
-        self.output[task_name] = task.output
+        # Collect outputs and types
+        self.output[task_name] = {'output': task.output, 'type': task.output_type}
 
     async def start(self, max_workers=10):
-
-        # Topological sorting to order tasks based on dependencies
         ordered_tasks = list(nx.topological_sort(self.graph))
         task_coroutines = {task_name: self._execute_task(task_name) for task_name in ordered_tasks}
-
         async with asyncio.Semaphore(max_workers):
             for task_name in ordered_tasks:
                 await task_coroutines[task_name]
 
-        # Filter the outputs of excluded tasks
-        filtered_output = {task_name: self.output[task_name] for task_name in ordered_tasks if not self.tasks[task_name].exclude}
+        # Filter the outputs (and types) of excluded tasks
+        filtered_output = {
+            task_name: { 'output': self.output[task_name]['output'], 'type': self.output[task_name]['type'] }
+            for task_name in ordered_tasks if not self.tasks[task_name].exclude
+        }
 
-        # Returning filtered output
         return filtered_output
