@@ -10,8 +10,6 @@ Create chatbots and AI agent work flows. It allows to connect your data with mul
     <img src="https://img.shields.io/badge/Discord-join%20us-5865F2?style=flat-square&logo=discord&logoColor=white" />
 </a>
 
-![GitHub Stars](https://img.shields.io/github/stars/intelligentnode/Intelli?style=social)
-
 </p>
 
 # Install
@@ -49,7 +47,7 @@ flow = SequenceFlow([task1, task2, task3], log=True)
 final_result = flow.start()
 ```
 
-To build async flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
+To build async AI flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
 
 ## Create Chatbot
 Switch between multiple chatbot providers without changing your code.
