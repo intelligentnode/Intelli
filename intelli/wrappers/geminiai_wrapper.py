@@ -43,8 +43,12 @@ class GeminiAIWrapper:
             ]
         }
 
-        return self.generate_content(params, True)
+        return self.image_to_text_params(params=params)
 
+    def image_to_text_params(self, params):
+
+        return self.generate_content(params, True)
+    
     def get_embeddings(self, params):
         url = f"{self.API_BASE_URL}{config['url']['gemini']['embeddingEndpoint']}"
 
