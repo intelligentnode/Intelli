@@ -32,7 +32,7 @@ class VisionModelInput:
                         {
                             "type": "image_url",
                             "image_url": {
-                                "url": f"data:image/png;base64,{self.image_data}"
+                                "url": f"data:image/{self.extension};base64,{self.image_data}"
                             }
                         }
                     ]
