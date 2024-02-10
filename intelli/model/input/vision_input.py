@@ -1,3 +1,4 @@
+import os
 import base64
 
 class VisionModelInput:
@@ -12,6 +13,7 @@ class VisionModelInput:
         if file_path:
             with open(file_path, "rb") as image_file:
                 self.image_data = base64.b64encode(image_file.read()).decode('utf-8')
+            self.extension = os.path.splitext(file_path)[-1].strip('.')
         else:
             self.image_data = image_data
 
