@@ -12,7 +12,7 @@ class TestGeminiAIWrapper(unittest.TestCase):
         api_key = os.getenv("GEMINI_API_KEY")
         assert api_key is not None, "GEMINI_API_KEY is not set."
         cls.wrapper = GeminiAIWrapper(api_key)
-
+    
     def test_generate_content(self):
         params = {
             "contents": [{
@@ -47,7 +47,7 @@ class TestGeminiAIWrapper(unittest.TestCase):
 
         except Exception as error:
             self.fail(f'Gemini AI Error: {error}')
-
+    
     def test_get_embeddings(self):
         text = "Write a story about a magic backpack."
         params = {
