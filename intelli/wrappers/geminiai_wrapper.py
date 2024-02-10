@@ -25,10 +25,8 @@ class GeminiAIWrapper:
         except Exception as error:
             raise Exception(str(error))
 
-    def image_to_text(self, user_input, file_path, extension):
-        with open(file_path, "rb") as image_file:
-            image_data = base64.b64encode(image_file.read()).decode('utf-8')
-
+    def image_to_text(self, user_input, image_data, extension):
+        
         params = {
             "contents": [
                 {

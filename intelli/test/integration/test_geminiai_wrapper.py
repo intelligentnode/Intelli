@@ -2,7 +2,7 @@ import unittest
 import os
 from dotenv import load_dotenv
 from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
-
+import base64
 load_dotenv()
 
 class TestGeminiAIWrapper(unittest.TestCase):
@@ -27,10 +27,13 @@ class TestGeminiAIWrapper(unittest.TestCase):
         self.assertIsNotNone(result['candidates'][0]['content']['parts'][0]['text'])
     
     def test_image_to_text(self):
-        file_path = 'temp/test_image_desc.png' 
+        file_path = '../temp/test_image_desc.png' 
 
         try:
-            result = self.wrapper.image_to_text('describe the image', file_path, 'png')
+            with open(file_path, "rb") as image_file:
+                image_data = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            result = self.wrapper.image_to_text('describe the image', image_data, 'png')
 
             self.assertTrue('candidates' in result, "The result should have a 'candidates' field.")
             self.assertIsInstance(result['candidates'], list, "Expected 'candidates' to be a list.")
