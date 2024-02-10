@@ -18,6 +18,6 @@ setup(
     packages=find_packages(),
     python_requires='>=3.6',
     install_requires=[
-        "requests-mock==1.11.0", "python-dotenv==1.0.1", "networkx==3.2.1"
+        "python-dotenv==1.0.1", "networkx==3.2.1"
     ],
 )
