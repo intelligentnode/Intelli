@@ -17,9 +17,13 @@ class ImageModelInput:
         self.engine = engine
         self.model = model
 
-        sizes_parts = imageSize.split('x') if imageSize else [None, None]
-        self.width = self.width or sizes_parts[0]
-        self.height = self.height or sizes_parts[1]
+        if imageSize and not width:
+            sizes_parts = imageSize.split('x') if imageSize else [None, None]
+            self.width = self.width or sizes_parts[0]
+            self.height = self.height or sizes_parts[1]
+        
+        if not self.imageSize:
+            self.imageSize = str(self.width) + 'x' + str(self.height)
 
     def get_openai_inputs(self):
         inputs = {

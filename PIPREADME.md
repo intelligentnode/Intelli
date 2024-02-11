@@ -19,36 +19,6 @@ pip install intelli
 
 # Code Examples
 
-## Create AI Flows
-You can create a flow of tasks executed by different AI models. Here's an example of creating a blog post flow:
-- ChatGPT agent to write a post.
-- Google gemini agent to write image description.
-- Stable diffusion to generate images.
-
-```python
-from intelli.flow.agents.agent import Agent
-from intelli.flow.tasks.task import Task
-from intelli.flow.sequence_flow import SequenceFlow
-from intelli.flow.input.task_input import TextTaskInput
-from intelli.flow.processors.basic_processor import TextProcessor
-
-# define agents
-blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-4'})
-copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
-artist_agent = Agent(agent_type='image', provider='stability', mission='generate image', model_params={'key': YOUR_STABILITY_API_KEY})
-
-# define tasks
-task1 = Task(TextTaskInput('blog post about electric cars'), blog_agent, log=True)
-task2 = Task(TextTaskInput('Generate short image description for image model'), copy_agent, pre_process=TextProcessor.text_head, log=True)
-task3 = Task(TextTaskInput('Generate cartoon style image'), artist_agent, log=True)
-
-# start sequence flow
-flow = SequenceFlow([task1, task2, task3], log=True)
-final_result = flow.start()
-```
-
-To build async AI flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
-
 ## Create Chatbot
 Switch between multiple chatbot providers without changing your code.
 
@@ -62,7 +32,7 @@ def call_chatbot(provider, model=None):
     input.add_user_message("What is the capital of France?")
 
     # creating chatbot instance
-    openai_bot = Chatbot(YOUR_OPENAI_API_KEY, "openai")
+    openai_bot = Chatbot(YOUR_API_KEY, provider)
     response = openai_bot.chat(input)
 
     return response
@@ -73,10 +43,9 @@ call_chatbot("openai", "gpt-4")
 # call mistralai
 call_chatbot("mistral", "mistral-medium")
 
-# call gooogle gemini
+# call google gemini
 call_chatbot("gemini")
 ```
-
 
 ## Connect Your Docs With Chatbot
 IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
@@ -109,6 +78,36 @@ image_input = ImageModelInput(prompt=prompt, width=1024, height=1024, model=mode
 wrapper = RemoteImageModel(your_api_key, provider)
 results = wrapper.generate_images(image_input)
 ```
+
+## Create AI Flows
+You can create a flow of tasks executed by different AI models. Here's an example of creating a blog post flow:
+- ChatGPT agent to write a post.
+- Google gemini agent to write image description.
+- Stable diffusion to generate images.
+
+```python
+from intelli.flow.agents.agent import Agent
+from intelli.flow.tasks.task import Task
+from intelli.flow.sequence_flow import SequenceFlow
+from intelli.flow.input.task_input import TextTaskInput
+from intelli.flow.processors.basic_processor import TextProcessor
+
+# define agents
+blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-4'})
+copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
+artist_agent = Agent(agent_type='image', provider='stability', mission='generate image', model_params={'key': YOUR_STABILITY_API_KEY})
+
+# define tasks
+task1 = Task(TextTaskInput('blog post about electric cars'), blog_agent, log=True)
+task2 = Task(TextTaskInput('Generate short image description for image model'), copy_agent, pre_process=TextProcessor.text_head, log=True)
+task3 = Task(TextTaskInput('Generate cartoon style image'), artist_agent, log=True)
+
+# start sequence flow
+flow = SequenceFlow([task1, task2, task3], log=True)
+final_result = flow.start()
+```
+
+To build async AI flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
 
 # Pillars
 - **The wrapper layer** provides low-level access to the latest AI models.

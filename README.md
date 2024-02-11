@@ -28,6 +28,34 @@ pip install intelli
 
 # Code Examples
 
+## Create Chatbot
+Switch between multiple chatbot providers without changing your code.
+
+```python
+from intelli.function.chatbot import Chatbot
+from intelli.model.input.chatbot_input import ChatModelInput
+
+def call_chatbot(provider, model=None):
+    # prepare common input 
+    input = ChatModelInput("You are a helpful assistant.", model)
+    input.add_user_message("What is the capital of France?")
+
+    # creating chatbot instance
+    openai_bot = Chatbot(YOUR_API_KEY, provider)
+    response = openai_bot.chat(input)
+
+    return response
+
+# call openai
+call_chatbot("openai", "gpt-4")
+
+# call mistralai
+call_chatbot("mistral", "mistral-medium")
+
+# call google gemini
+call_chatbot("gemini")
+```
+
 ## Create AI Flows
 You can create a flow of tasks executed by different AI models. Here's an example of creating a blog post flow:
 
@@ -61,34 +89,6 @@ final_result = flow.start()
 <img src="assets/flow_graph_example.jpg" width="600em">
 
 To build async flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
-
-## Create Chatbot
-Switch between multiple chatbot providers without changing your code.
-
-```python
-from intelli.function.chatbot import Chatbot
-from intelli.model.input.chatbot_input import ChatModelInput
-
-def call_chatbot(provider, model=None):
-    # prepare common input 
-    input = ChatModelInput("You are a helpful assistant.", model)
-    input.add_user_message("What is the capital of France?")
-
-    # creating chatbot instance
-    openai_bot = Chatbot(YOUR_OPENAI_API_KEY, "openai")
-    response = openai_bot.chat(input)
-
-    return response
-
-# call openai
-call_chatbot("openai", "gpt-4")
-
-# call mistralai
-call_chatbot("mistral", "mistral-medium")
-
-# call google gemini
-call_chatbot("gemini")
-```
 
 
 ## Connect Your Docs With Chatbot 

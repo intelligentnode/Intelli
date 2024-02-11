@@ -56,7 +56,13 @@ class Chatbot:
     
     def _chat_gemini(self, params):
         response = self.wrapper.generate_content(params)
-        return [candidate["content"]["parts"][0]["text"] for candidate in response["candidates"]]
+        output = []
+        for candidate in response.get("candidates", []):
+            if "content" in candidate:
+                output.append(candidate["content"]["parts"][0]["text"])
+            else:
+                raise Exception("Error when calling gemini: {}".format(response))
+        return output
 
     def stream(self, chat_input):
         """
