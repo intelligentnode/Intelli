@@ -25,8 +25,9 @@ class TestAsyncFlow(unittest.TestCase):
             task.exclude = True
         
         return task
-
+    
     async def async_test_blog_flow(self):
+        print("--- test blog flow ---")
         task1 = self.create_agent_and_task("identify requirements of building a blogging website about environment", 
                                            "text", "gemini", 
                                            "write specifications", 
@@ -75,7 +76,35 @@ class TestAsyncFlow(unittest.TestCase):
         output = await flow.start()
 
         print("Final output:", output)
+    
+    async def async_test_blog_flow(self):
+        print("--- test vision flow ---")
+        
+        task1 = self.create_agent_and_task(task_input_desc="generate arts", 
+                                           agent_type="image", 
+                                           provider="stability", 
+                                           mission="generate a roboto riding a tax from the future.", 
+                                           model_key=self.stability_key,
+                                           model="stable-diffusion-xl-1024-v1-0")
 
+        task2 = self.create_agent_and_task(task_input_desc="explain the image", 
+                                           agent_type="vision", 
+                                           provider="openai", 
+                                           mission="generate description of the image elements", 
+                                           model_key=self.openai_api_key, 
+                                           model="gpt-4-vision-preview")
+        
+        flow = Flow(tasks = {
+                        "task1": task1,
+                        "task2": task2
+                    }, map_paths = {
+                        "task1": ["task2"]
+                    }, log=True)
+        
+        output = await flow.start()
+
+        print("Final output:", output)
+        
     def test_blog_flow(self):
         asyncio.run(self.async_test_blog_flow())
 

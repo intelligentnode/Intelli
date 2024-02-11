@@ -46,7 +46,7 @@ class Agent(BasicAgent):
         elif self.type == AgentTypes.VISION.value:
             vision_input = VisionModelInput(content=self.mission + ": " + agent_input.desc, 
                                             image_data=agent_input.img, 
-                                            extension=self.model_params['extension'],
+                                            extension=self.model_params.get('extension', 'png'),
                                             model=self.model_params['model'])
             
             vision_model = RemoteVisionModel(self.model_params['key'], self.provider)

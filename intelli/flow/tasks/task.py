@@ -26,9 +26,9 @@ class Task:
         if input_type in [InputTypes.TEXT.value]:
             self.logger.log_head('- Inside the task with input data head: ', input_data)
         elif input_type == InputTypes.IMAGE.value and self.agent.type in [AgentTypes.TEXT.value, AgentTypes.IMAGE.value]:
-            self.logger.log_head('- Inside the task. the previous step input not supported')
+            self.logger.log('- Inside the task. the previous step input not supported')
         elif input_type == InputTypes.IMAGE.value:
-            self.logger.log_head('- Inside the task with previous image, size: ', len(input_data))
+            self.logger.log('- Inside the task with previous image, size: ', len(input_data))
 
         # Run task pre procesing
         if self.pre_process:
@@ -50,7 +50,7 @@ class Task:
                 agent_input = ImageAgentInput(desc=agent_text, img=self.task_input.img)
                 agent_inputs.append(agent_input)
             
-            # add second input for image if the output supported
+            # add previous output as input, in case of second input for image, only if the output supported
             if len(agent_inputs) == 0 or Matcher.output[self.agent.type] == InputTypes.TEXT.value:
                 if input_data and input_type == InputTypes.IMAGE.value:
                     agent_input = ImageAgentInput(desc=agent_text, img=input_data)
