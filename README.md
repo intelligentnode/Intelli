@@ -75,7 +75,7 @@ def call_chatbot(provider, model=None):
     input.add_user_message("What is the capital of France?")
 
     # creating chatbot instance
-    openai_bot = Chatbot(YOUR_OPENAI_API_KEY, "openai")
+    openai_bot = Chatbot(YOUR_API_KEY, provider)
     response = openai_bot.chat(input)
 
     return response
