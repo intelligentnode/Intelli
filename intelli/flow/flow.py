@@ -1,6 +1,7 @@
 import asyncio
 import networkx as nx
 from intelli.utils.logging import Logger
+from intelli.flow.types import AgentTypes, InputTypes, Matcher
 from functools import partial
 
 
@@ -42,8 +43,14 @@ class Flow:
                 print(f"Warning: Output for predecessor task '{pred}' not found. Skipping...")
 
         self.logger.log(f'The number of combined inputs for task {task_name} is {len(predecessor_outputs)}')
-        merged_input = " ".join(predecessor_outputs)
         merged_type = next(iter(predecessor_types)) if len(predecessor_types) == 1 else None
+        if merged_type and merged_type == InputTypes.TEXT.value:
+            merged_input = " ".join(predecessor_outputs)
+        elif predecessor_outputs:
+            # get one input if not combined strings
+            merged_input = predecessor_outputs[0]
+        else:
+            merged_input = None
 
         # Execute task with merged input
         loop = asyncio.get_event_loop()

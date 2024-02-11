@@ -3,7 +3,7 @@ import base64
 
 class VisionModelInput:
 
-    def __init__(self, content, image_data=None, file_path=None, model=None, extension='*', max_tokens=300):
+    def __init__(self, content, image_data=None, file_path=None, model=None, extension='png', max_tokens=300):
         
         self.content = content
         self.model = model

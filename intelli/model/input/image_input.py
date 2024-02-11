@@ -23,7 +23,7 @@ class ImageModelInput:
             self.height = self.height or sizes_parts[1]
         
         if not self.imageSize:
-            self.imageSize = self.width + 'x' + self.height
+            self.imageSize = str(self.width) + 'x' + str(self.height)
 
     def get_openai_inputs(self):
         inputs = {

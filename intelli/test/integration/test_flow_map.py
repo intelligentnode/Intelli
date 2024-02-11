@@ -15,11 +15,11 @@ class TestAsyncFlow(unittest.TestCase):
         self.gemini_key = os.getenv("GEMINI_API_KEY")
         self.stability_key = os.getenv("STABILITY_API_KEY")
 
-    def create_agent_and_task(self, task_input_desc, agent_type, provider, mission, model_key, model):
+    def create_agent_and_task(self, task_input_desc, agent_type, provider, mission, model_key, model, log=True):
         task = Task(
             TextTaskInput(task_input_desc),
             Agent(agent_type, provider, mission, {"key": model_key, "model": model}),
-            log=True
+            log=log
         )
         if agent_type == "image":
             task.exclude = True
@@ -55,7 +55,7 @@ class TestAsyncFlow(unittest.TestCase):
         task6 = self.create_agent_and_task("generate code based on combined tasks", 
                                            "text", "gemini", 
                                            "code generation from specifications", 
-                                           self.gemini_key, "gemini")
+                                           self.gemini_key, "gemini", log=True)
 
         flow = Flow(tasks = {
                         "task1": task1,
