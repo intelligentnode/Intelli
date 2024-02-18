@@ -5,7 +5,7 @@
 <p align="center">
 
 <a href="https://opensource.org/licenses/Apache-2.0" alt="licenses tag">
-    <img src="https://img.shields.io/github/license/Barqawiz/IntelliJava?style=flat-square" />
+    <img src="https://img.shields.io/github/license/intelligentnode/Intelli?style=flat-square" />
 </a>
 
 <a href="https://pypi.org/project/intelli/" alt="PyPI version">
