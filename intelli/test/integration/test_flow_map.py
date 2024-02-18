@@ -54,9 +54,9 @@ class TestAsyncFlow(unittest.TestCase):
                                            self.stability_key, "")
 
         task6 = self.create_agent_and_task("generate code based on combined tasks", 
-                                           "text", "gemini", 
+                                           "text", "openai", 
                                            "code generation from specifications", 
-                                           self.gemini_key, "gemini", log=True)
+                                           self.openai_api_key, "gpt-4", log=True)
 
         flow = Flow(tasks = {
                         "task1": task1,
@@ -73,11 +73,13 @@ class TestAsyncFlow(unittest.TestCase):
                         "task6": [],
                     }, log=True)
 
+        flow.generate_graph_img()
+        
         output = await flow.start()
-
+        
         print("Final output:", output)
     
-    async def async_test_blog_flow(self):
+    async def async_test_vision_flow(self):
         print("--- test vision flow ---")
         
         task1 = self.create_agent_and_task(task_input_desc="generate arts", 
@@ -104,9 +106,12 @@ class TestAsyncFlow(unittest.TestCase):
         output = await flow.start()
 
         print("Final output:", output)
-        
+    
     def test_blog_flow(self):
         asyncio.run(self.async_test_blog_flow())
-
+    """
+    def test_vision_flow(self):
+        asyncio.run(self.async_test_vision_flow())
+    """
 if __name__ == "__main__":
     unittest.main()
