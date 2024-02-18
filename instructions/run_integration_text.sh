@@ -27,6 +27,9 @@ python3 -m unittest intelli.test.integration.test_remote_image_model
 # vision
 python3 -m unittest intelli.test.integration.test_remote_vision_model
 
+# speech
+python3 -m unittest intelli.test.integration.test_remote_speech_model
+
 ## functions
 # chatbot
 python3 -m unittest intelli.test.integration.test_chatbot
