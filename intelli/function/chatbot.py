@@ -123,10 +123,10 @@ class Chatbot:
                     references[doc_name] = {'pages': []}
                 # Assuming each 'doc' can contain multiple 'pages' or similar structures, adjust as necessary.
                 references[doc_name]['pages'].extend(doc.get('pages', []))
-
+            
             # Generate context data based on the semantic search results.
             context_data = '\n'.join(
-                doc['data']['text'] for doc in search_results if 'data' in doc and 'text' in doc['data']
+                data['text'] for doc in search_results for data in doc['data'] if 'text' in data
             ).strip()
 
             # Load the static prompt template for an augmented chatbot response.

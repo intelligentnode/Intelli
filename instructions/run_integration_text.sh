@@ -14,6 +14,8 @@ python3 -m unittest intelli.test.integration.test_intellicloud_wrapper
 # stability testing
 python3 -m unittest intelli.test.integration.test_stability_wrapper
 
+# google
+python3 -m unittest intelli.test.integration.test_googleai_wrapper
 
 ## controllers
 # embedding
@@ -24,6 +26,9 @@ python3 -m unittest intelli.test.integration.test_remote_image_model
 
 # vision
 python3 -m unittest intelli.test.integration.test_remote_vision_model
+
+# speech
+python3 -m unittest intelli.test.integration.test_remote_speech_model
 
 ## functions
 # chatbot
