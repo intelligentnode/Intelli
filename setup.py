@@ -18,6 +18,9 @@ setup(
     packages=find_packages(),
     python_requires='>=3.6',
     install_requires=[
-        "python-dotenv==1.0.1", "networkx==3.2.1", "matplotlib==3.4.3"
+        "python-dotenv==1.0.1", "networkx==3.2.1",
     ],
+    extras_require={
+        'visual': ["matplotlib==3.4.3"],
+    }
 )

@@ -4,7 +4,13 @@ import networkx as nx
 from intelli.utils.logging import Logger
 from intelli.flow.types import AgentTypes, InputTypes, Matcher
 from functools import partial
-import matplotlib.pyplot as plt
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 
 
 class Flow:
@@ -80,6 +86,10 @@ class Flow:
         return filtered_output
 
     def generate_graph_img(self, name = 'graph_img', save_path='.', ):
+        
+        if not MATPLOTLIB_AVAILABLE:
+            raise "Install matplotlib to use the visual functionality"
+        
         plt.figure(figsize=(10, 10))
         pos = nx.spring_layout(self.graph)
 
@@ -108,7 +118,7 @@ class Flow:
                     horizontalalignment='center', verticalalignment=verticalalignment)
         
         image_name = name if name.endswith('.png') else f'{name}.png'
-        print(image_name)
+        
         full_path = os.path.join(save_path, image_name)
         plt.savefig(full_path)
         plt.close()

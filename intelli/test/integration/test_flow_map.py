@@ -73,7 +73,7 @@ class TestAsyncFlow(unittest.TestCase):
                         "task6": [],
                     }, log=True)
 
-        flow.generate_graph_img(path='../temp')
+        flow.generate_graph_img(save_path='../temp')
         
         output = await flow.start()
         
