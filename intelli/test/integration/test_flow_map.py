@@ -73,7 +73,7 @@ class TestAsyncFlow(unittest.TestCase):
                         "task6": [],
                     }, log=True)
 
-        flow.generate_graph_img()
+        flow.generate_graph_img(path='../temp')
         
         output = await flow.start()
         
@@ -150,7 +150,7 @@ class TestAsyncFlow(unittest.TestCase):
             },
         )
         
-        flow.generate_graph_img()
+        flow.generate_graph_img(save_path='../temp')
     
     
     def test_blog_flow(self):
