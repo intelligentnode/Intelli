@@ -1,8 +1,16 @@
+import os
 import asyncio
 import networkx as nx
 from intelli.utils.logging import Logger
 from intelli.flow.types import AgentTypes, InputTypes, Matcher
 from functools import partial
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
 
 
 class Flow:
@@ -17,7 +25,7 @@ class Flow:
     def _prepare_graph(self):
         # Initialize the graph with tasks as nodes
         for task_name in self.tasks:
-            self.graph.add_node(task_name)
+            self.graph.add_node(task_name, agent_model=self.tasks[task_name].agent.provider)
         
         # Add edges based on map_paths to define dependencies
         for parent_task, dependencies in self.map_paths.items():
@@ -76,3 +84,42 @@ class Flow:
         }
 
         return filtered_output
+
+    def generate_graph_img(self, name = 'graph_img', save_path='.', ):
+        
+        if not MATPLOTLIB_AVAILABLE:
+            raise "Install matplotlib to use the visual functionality"
+        
+        plt.figure(figsize=(10, 10))
+        pos = nx.spring_layout(self.graph)
+
+        nx.draw(self.graph, pos, node_color='skyblue', node_size=700, edge_color='k', with_labels=False)
+
+        labels = nx.get_node_attributes(self.graph, 'agent_model')
+        for node, model_name in labels.items():
+            predecessors = list(self.graph.predecessors(node))
+            successors = list(self.graph.successors(node))
+            
+            # control the labels shift based on the edges/nodes
+            if predecessors and successors:
+                # shift the label down
+                verticalalignment='top'
+                y_offset = -0.06
+            elif predecessors:
+                # shift the label up
+                verticalalignment='bottom'
+                y_offset = 0.05
+            else:
+                # shift the label down
+                verticalalignment='top'
+                y_offset = -0.02
+        
+            plt.text(pos[node][0], pos[node][1] + y_offset, s=f'{node}\n[{model_name}]',
+                    horizontalalignment='center', verticalalignment=verticalalignment)
+        
+        image_name = name if name.endswith('.png') else f'{name}.png'
+        
+        full_path = os.path.join(save_path, image_name)
+        plt.savefig(full_path)
+        plt.close()
+    

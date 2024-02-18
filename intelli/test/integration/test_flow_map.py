@@ -54,9 +54,9 @@ class TestAsyncFlow(unittest.TestCase):
                                            self.stability_key, "")
 
         task6 = self.create_agent_and_task("generate code based on combined tasks", 
-                                           "text", "gemini", 
+                                           "text", "openai", 
                                            "code generation from specifications", 
-                                           self.gemini_key, "gemini", log=True)
+                                           self.openai_api_key, "gpt-4", log=True)
 
         flow = Flow(tasks = {
                         "task1": task1,
@@ -73,11 +73,13 @@ class TestAsyncFlow(unittest.TestCase):
                         "task6": [],
                     }, log=True)
 
+        flow.generate_graph_img(save_path='../temp')
+        
         output = await flow.start()
-
+        
         print("Final output:", output)
     
-    async def async_test_blog_flow(self):
+    async def async_test_vision_flow(self):
         print("--- test vision flow ---")
         
         task1 = self.create_agent_and_task(task_input_desc="generate arts", 
@@ -104,9 +106,58 @@ class TestAsyncFlow(unittest.TestCase):
         output = await flow.start()
 
         print("Final output:", output)
+    
+    
+    def test_graph_generate(self):
         
+        title_task = self.create_agent_and_task("xxx", 
+                                           "text", "gemini", 
+                                           "yyyy", 
+                                           self.gemini_key, "gemini")
+
+        content_task = self.create_agent_and_task("xxx", 
+                                           "text", "openai", 
+                                           "yyyy", 
+                                           self.openai_api_key, "gpt-3.5-turbo")
+
+        keyword_task = self.create_agent_and_task("xxx", 
+                                           "text", "openai", 
+                                           "yyyy", 
+                                           self.openai_api_key, "gpt-3.5-turbo")
+
+        description_theme_task = self.create_agent_and_task("xxx", 
+                                           "text", "openai", 
+                                           "yyyy", 
+                                           self.openai_api_key, "gpt-3.5-turbo")
+
+        image_task = self.create_agent_and_task("xxx", 
+                                           "image", "stability", 
+                                           "yyyy", 
+                                           self.stability_key, "")
+        
+        flow = Flow(
+            tasks={
+                "title_task": title_task,
+                "content_task": content_task,
+                "keyword_task": keyword_task,
+                "theme_task": description_theme_task,
+                "image_task": image_task,
+            },
+            map_paths={
+                "title_task": ["keyword_task", "content_task"],
+                "content_task": ["theme_task"],
+                "theme_task": ["image_task"],
+            },
+        )
+        
+        flow.generate_graph_img(save_path='../temp')
+    
+    
     def test_blog_flow(self):
         asyncio.run(self.async_test_blog_flow())
-
+    
+    def test_vision_flow(self):
+        asyncio.run(self.async_test_vision_flow())
+    
 if __name__ == "__main__":
     unittest.main()

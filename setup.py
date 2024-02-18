@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="0.0.9",
+    version="0.1.0",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Create chatbots and AI agent work flows. Intelli allows to connect your data with multiple AI models like OpenAI, Gemini, and Mistral through a unified access layer.",
@@ -18,6 +18,9 @@ setup(
     packages=find_packages(),
     python_requires='>=3.6',
     install_requires=[
-        "python-dotenv==1.0.1", "networkx==3.2.1"
+        "python-dotenv==1.0.1", "networkx==3.2.1",
     ],
+    extras_require={
+        'visual': ["matplotlib==3.4.3"],
+    }
 )
