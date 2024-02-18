@@ -3,7 +3,7 @@ Create chatbots and AI agent work flows. It allows to connect your data with mul
 
 <p>
 <a href="https://github.com/intelligentnode/Intelli/blob/release-documentation/LICENSE" alt="licenses tag">
-    <img src="https://img.shields.io/github/license/Barqawiz/IntelliJava?style=flat-square" />
+    <img src="https://img.shields.io/github/license/intelligentnode/Intelli?style=flat-square" />
 </a>
 
 <a href="https://discord.gg/VYgCh2p3Ww" alt="Join our Discord community">
