@@ -164,3 +164,4 @@ temp
 .DS_Store
 **/.DS_Store
 **/._.DS_Store
+intelli/test/integration/test_prod_data.py
