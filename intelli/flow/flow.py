@@ -79,8 +79,8 @@ class Flow:
 
         return filtered_output
 
-    def generate_graph_img(self, save_path='.', image_name='graph_img.png'):
-        plt.figure(figsize=(12, 12))
+    def generate_graph_img(self, name = 'graph_img', save_path='.', ):
+        plt.figure(figsize=(10, 10))
         pos = nx.spring_layout(self.graph)
 
         nx.draw(self.graph, pos, node_color='skyblue', node_size=700, edge_color='k', with_labels=False)
@@ -94,7 +94,7 @@ class Flow:
             if predecessors and successors:
                 # shift the label down
                 verticalalignment='top'
-                y_offset = -0.075
+                y_offset = -0.06
             elif predecessors:
                 # shift the label up
                 verticalalignment='bottom'
@@ -102,11 +102,13 @@ class Flow:
             else:
                 # shift the label down
                 verticalalignment='top'
-                y_offset = -0.025
+                y_offset = -0.02
         
             plt.text(pos[node][0], pos[node][1] + y_offset, s=f'{node}\n[{model_name}]',
                     horizontalalignment='center', verticalalignment=verticalalignment)
         
+        image_name = name if name.endswith('.png') else f'{name}.png'
+        print(image_name)
         full_path = os.path.join(save_path, image_name)
         plt.savefig(full_path)
         plt.close()
