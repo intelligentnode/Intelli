@@ -107,11 +107,57 @@ class TestAsyncFlow(unittest.TestCase):
 
         print("Final output:", output)
     
+    
+    def test_graph_generate(self):
+        
+        title_task = self.create_agent_and_task("xxx", 
+                                           "text", "gemini", 
+                                           "yyyy", 
+                                           self.gemini_key, "gemini")
+
+        content_task = self.create_agent_and_task("xxx", 
+                                           "text", "openai", 
+                                           "yyyy", 
+                                           self.openai_api_key, "gpt-3.5-turbo")
+
+        keyword_task = self.create_agent_and_task("xxx", 
+                                           "text", "openai", 
+                                           "yyyy", 
+                                           self.openai_api_key, "gpt-3.5-turbo")
+
+        description_theme_task = self.create_agent_and_task("xxx", 
+                                           "text", "openai", 
+                                           "yyyy", 
+                                           self.openai_api_key, "gpt-3.5-turbo")
+
+        image_task = self.create_agent_and_task("xxx", 
+                                           "image", "stability", 
+                                           "yyyy", 
+                                           self.stability_key, "")
+        
+        flow = Flow(
+            tasks={
+                "title_task": title_task,
+                "content_task": content_task,
+                "keyword_task": keyword_task,
+                "theme_task": description_theme_task,
+                "image_task": image_task,
+            },
+            map_paths={
+                "title_task": ["keyword_task", "content_task"],
+                "content_task": ["theme_task"],
+                "theme_task": ["image_task"],
+            },
+        )
+        
+        flow.generate_graph_img()
+    
+    
     def test_blog_flow(self):
         asyncio.run(self.async_test_blog_flow())
-    """
+    
     def test_vision_flow(self):
         asyncio.run(self.async_test_vision_flow())
-    """
+    
 if __name__ == "__main__":
     unittest.main()
