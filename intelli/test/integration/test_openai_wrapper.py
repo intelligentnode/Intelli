@@ -127,5 +127,27 @@ class TestOpenAIWrapper(unittest.TestCase):
 
         self.assertTrue(len(value) > 0)
     
+    def test_text_to_speech(self):
+        params = {
+            "model": "tts-1",
+            "input": "The quick brown fox jumped over the lazy dog.",
+            "voice": "alloy",
+            "stream": True
+        }
+        file_path = '../temp/downloaded_openai_audio.mp3'
+        result = self.openai.text_to_speech(params)
+
+        with open(file_path, 'wb') as f:
+            # Write the audio data to the file in chunks
+            for chunk in result:
+                if (len(chunk) > 0):
+                    f.write(chunk)
+                else:
+                    break
+
+        file_exists = os.path.isfile(file_path)
+        self.assertTrue(file_exists, 'file should be generated on finish')
+        print('Audio file downloaded successfully!')
+    
 if __name__ == "__main__":
     unittest.main()
