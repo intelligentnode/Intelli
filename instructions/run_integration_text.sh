@@ -14,6 +14,8 @@ python3 -m unittest intelli.test.integration.test_intellicloud_wrapper
 # stability testing
 python3 -m unittest intelli.test.integration.test_stability_wrapper
 
+# google
+python3 -m unittest intelli.test.integration.test_googleai_wrapper
 
 ## controllers
 # embedding
