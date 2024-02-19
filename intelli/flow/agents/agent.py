@@ -33,7 +33,10 @@ class Agent(BasicAgent):
 
         # Check the agent type and call the appropriate function
         if self.type == AgentTypes.TEXT.value:
-            chat_input = ChatModelInput(self.mission, model=self.model_params.get('model'))
+
+            f_params = {key: value for key, value in self.model_params.items() if hasattr(ChatModelInput("test", None), key)}
+
+            chat_input = ChatModelInput(self.mission, **f_params)
 
             chatbot = Chatbot(self.model_params['key'], self.provider, self.options)
             chat_input.add_user_message(agent_input.desc)
