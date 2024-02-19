@@ -92,7 +92,7 @@ class Flow:
     def generate_graph_img(self, name='graph_img', save_path='.', ):
 
         if not MATPLOTLIB_AVAILABLE:
-            raise "Install matplotlib to use the visual functionality"
+            raise Exception("Install matplotlib to use the visual functionality")c
 
         plt.figure(figsize=(10, 10))
         pos = nx.spring_layout(self.graph)
