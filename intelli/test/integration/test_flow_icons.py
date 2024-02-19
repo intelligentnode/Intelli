@@ -21,7 +21,7 @@ class TestFlows(unittest.TestCase):
         self.stability_key = os.getenv("STABILITY_API_KEY")
 
     def test_icon_generate_flow(self):
-        print("---- start blog portal flow ----")
+        print("---- start icons flow ----")
 
         # Define agents
         desc_agent = Agent(
@@ -35,32 +35,34 @@ class TestFlows(unittest.TestCase):
             agent_type=AgentTypes.IMAGE.value,
             provider="openai",
             mission="generate image",
-            model_params={"key": self.openai_api_key, "model": "dall-e-3"},
+            model_params={"key": self.openai_api_key, "model": "dall-e-3", "width": 1024, "height": 1024},
         )
 
         # Define tasks
         task2 = Task(
-            TextTaskInput("Generate icon about following feature: {0}"), image_agent, exclude=True, log=True
+            TextTaskInput("flat icon about {0}"), image_agent, log=False
         )
 
         task1_list = []
-        topics = ["Any Model Access: connect various AI models, such as OpenAI, Cohere, LLaMa v2, Google Gemini using a unified input layer with minimum change.",
-                  "Evaluation: run continuous evaluation across multiple models with metrics and select the suitable one for your use cases.",
-                  "Optimized Workflow: manage the relations between multiple AI models as a graph to build advanced tasks."]
+        topics = ["unified ai models access", "evaluate large language models", "workflows"]
+
         for topic in topics:
             task1 = Task(
-                TextTaskInput("Write short icon image description for image generation model about {}".format(topic)),
+                TextTaskInput(
+                    "Write simple icon description cartoon style inspired from docusaurus style about: {}".format(
+                        topic)),
                 desc_agent,
-                log=True,
+                log=False,
             )
             task1_list.append(task1)
 
         # Start SequenceFlow
         for index, task1 in enumerate(task1_list):
-            flow = SequenceFlow([task1, task2], log=True)
+            print(f'---- Execute task {index+1} ----')
+            flow = SequenceFlow([task1, task2], log=False)
             final_result = flow.start()
 
-            print("- flow result:", final_result)
+            print(f"{index + 1}- flow result:", final_result)
 
 
 if __name__ == "__main__":
