@@ -1,6 +1,7 @@
 import json
 import requests
 
+
 class ConnHelper:
 
     @staticmethod
@@ -9,10 +10,9 @@ class ConnHelper:
 
     @staticmethod
     def get_error_message(error):
-        
+
         if isinstance(error, requests.exceptions.RequestException):
             if error.response is not None:
                 return f'Unexpected HTTP response: {error.response.status_code} Error details: {error.response.json()}'
-        
-        return str(error)
 
+        return str(error)

@@ -1,6 +1,8 @@
 import requests
+
 from intelli.config import config
 from intelli.utils.conn_helper import ConnHelper
+
 
 class IntellicloudWrapper:
     def __init__(self, api_key, api_base=None):
@@ -10,13 +12,13 @@ class IntellicloudWrapper:
     def semantic_search(self, query_text, k=3, filters=None):
         if filters is None:
             filters = {}
-            
+
         url = f"{self.API_BASE_URL}{config['url']['intellicloud']['semantic_search']}"
         # set the data
         data = {'one_key': self.ONE_KEY, 'query_text': query_text, 'k': k}
         if filters and 'document_name' in filters:
             data['document_name'] = filters['document_name']
-        
+
         # call the document search
         try:
             response = requests.post(url, data=data)

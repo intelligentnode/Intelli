@@ -4,9 +4,10 @@ class ChatMessage:
         self.role = role
         self.name = name
 
+
 class ChatModelInput:
-    def __init__(self, system, model, temperature=1, 
-                 max_tokens=None, search_k=3, attach_reference=False, 
+    def __init__(self, system, model, temperature=1,
+                 max_tokens=None, search_k=3, attach_reference=False,
                  **options):
         self.system = system
         self.model = model

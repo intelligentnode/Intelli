@@ -1,9 +1,11 @@
 import requests
+
 from intelli.config import config
 from intelli.utils.conn_helper import ConnHelper
 
+
 class MistralAIWrapper:
-    
+
     def __init__(self, api_key):
         self.API_BASE_URL = config['url']['mistral']['base']
         self.session = requests.Session()

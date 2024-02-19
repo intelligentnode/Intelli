@@ -1,10 +1,10 @@
 class ImageModelInput:
 
-    def __init__(self, prompt, number_images=1, imageSize=None, 
-                 response_format=None, width=None, height=None, 
-                 diffusion_cfgScale=None, diffusion_style_preset=None, 
+    def __init__(self, prompt, number_images=1, imageSize=None,
+                 response_format=None, width=None, height=None,
+                 diffusion_cfgScale=None, diffusion_style_preset=None,
                  diffusion_steps=None, engine=None, model=None):
-        
+
         self.prompt = prompt
         self.numberOfImages = number_images
         self.imageSize = imageSize
@@ -21,7 +21,7 @@ class ImageModelInput:
             sizes_parts = imageSize.split('x') if imageSize else [None, None]
             self.width = self.width or sizes_parts[0]
             self.height = self.height or sizes_parts[1]
-        
+
         if not self.imageSize:
             self.imageSize = str(self.width) + 'x' + str(self.height)
 
@@ -33,7 +33,7 @@ class ImageModelInput:
             "size": self.imageSize,
             "response_format": self.responseFormat
         }
-        
+
         inputs = {key: value for key, value in inputs.items() if value is not None}
         return inputs
 
@@ -49,7 +49,7 @@ class ImageModelInput:
             "style_preset": self.diffusion_style_preset,
             "steps": self.diffusion_steps
         }
-        
+
         inputs = {key: value for key, value in inputs.items() if value is not None}
         return inputs
 

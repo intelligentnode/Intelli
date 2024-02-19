@@ -1,5 +1,7 @@
-from intelli.config import config as default_config
 from copy import deepcopy
+
+from intelli.config import config as default_config
+
 
 class ProxyHelper:
     _instance = None
@@ -37,7 +39,8 @@ class ProxyHelper:
 
     def get_openai_chat_url(self, model=''):
         if self.openai_type == 'azure':
-            return self.openai_chat_gpt.replace('{deployment-id}', model).replace('{api-version}', ProxyHelper.API_VERSION)
+            return self.openai_chat_gpt.replace('{deployment-id}', model).replace('{api-version}',
+                                                                                  ProxyHelper.API_VERSION)
         else:
             return self.openai_chat_gpt
 
@@ -64,7 +67,8 @@ class ProxyHelper:
         Method to get the OpenAI audio transcriptions URL
         """
         if self.openai_type == 'azure':
-            return self.openai_audio_transcriptions.replace('{deployment-id}', model).replace('{api-version}', ProxyHelper.API_VERSION)
+            return self.openai_audio_transcriptions.replace('{deployment-id}', model).replace('{api-version}',
+                                                                                              ProxyHelper.API_VERSION)
         else:
             return self.openai_audio_transcriptions
 
@@ -73,10 +77,11 @@ class ProxyHelper:
         Method to get the OpenAI audio to speech URL
         """
         if self.openai_type == 'azure':
-            return self.openai_audio_speech.replace('{deployment-id}', model).replace('{api-version}', ProxyHelper.API_VERSION)
+            return self.openai_audio_speech.replace('{deployment-id}', model).replace('{api-version}',
+                                                                                      ProxyHelper.API_VERSION)
         else:
             return self.openai_audio_speech
-    
+
     def get_openai_files_url(self):
         """
         Method to get the OpenAI files endpoint URL
@@ -94,9 +99,9 @@ class ProxyHelper:
             return self.openai_finetuning_job.replace('{api-version}', '2023-10-01-preview')
         else:
             return self.openai_finetuning_job
-    
+
     def set_openai_proxy_values(self, proxy_settings):
-        
+
         self.openai_type = 'custom'
 
         if proxy_settings and (not proxy_settings['base'] and proxy_settings['url']):
@@ -116,9 +121,9 @@ class ProxyHelper:
         }
 
         self.apply_openai_config(adjusted_settings)
-    
+
     def apply_openai_config(self, config):
-        
+
         self.openai_url = config['base']
         self.openai_completion = config['completions']
         self.openai_chat_gpt = config['chatgpt']
@@ -131,7 +136,7 @@ class ProxyHelper:
         self.openai_type = 'openai'
         self.resource_name = ''
         self.organization = config.get('organization', None)
-    
+
     # optional getters - to match the right parameter with the provider
     def get_openai_resource_name(self):
         return self.resource_name
@@ -141,7 +146,6 @@ class ProxyHelper:
 
     def get_openai_type(self):
         return self.openai_type
-    
+
     def get_openai_url(self):
         return self.openai_url
-
