@@ -39,8 +39,10 @@ class Agent(BasicAgent):
             chat_input.add_user_message(agent_input.desc)
             result = chatbot.chat(chat_input)[0]
         elif self.type == AgentTypes.IMAGE.value:
-            image_input = ImageModelInput(prompt=self.mission + ": " + agent_input.desc,
-                                          model=self.model_params.get('model'))
+
+            f_params = {key: value for key, value in self.model_params.items() if hasattr(ImageModelInput("test"), key)}
+
+            image_input = ImageModelInput(prompt=self.mission + ": " + agent_input.desc, **f_params)
 
             image_model = RemoteImageModel(self.model_params['key'], self.provider)
             result = image_model.generate_images(image_input)[0]
