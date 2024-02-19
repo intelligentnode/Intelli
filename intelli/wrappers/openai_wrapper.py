@@ -51,6 +51,8 @@ class OpenAIWrapper:
                 return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            self.session.close()
 
     def generate_images(self, params):
         url = self.proxy_helper.get_openai_image_url()
@@ -60,6 +62,8 @@ class OpenAIWrapper:
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            self.session.close()
 
     def upload_file(self, file_path, purpose):
 
