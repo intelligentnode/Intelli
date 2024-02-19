@@ -18,7 +18,7 @@ class TextInputTemplate(Template):
         if '{0}' not in template_text:
             context = previous_input_tag + ': {0}\n'
             request = user_request_tag + ': ' + template_text
-            template_text = context+request
+            template_text = context + request
 
         self.template_text = template_text.strip()
 
