@@ -1,8 +1,10 @@
 import os
 import requests
-from intelli.utils.proxy_helper import ProxyHelper
-from intelli.utils.conn_helper import ConnHelper
 from urllib.parse import urljoin
+
+from intelli.utils.conn_helper import ConnHelper
+from intelli.utils.proxy_helper import ProxyHelper
+
 
 class OpenAIWrapper:
 
@@ -27,14 +29,14 @@ class OpenAIWrapper:
             organization = self.proxy_helper.get_openai_organization()
             if organization:
                 headers['OpenAI-Organization'] = organization
-        
+
         # define the connection session
         self.session = BaseURLSession(base_url=self.proxy_helper.get_openai_url())
         self.session.headers.update(headers)
 
     def generate_chat_text(self, params, functions=None, function_call=None):
         url = self.proxy_helper.get_openai_chat_url(params['model'])
-        payload = params.copy()  
+        payload = params.copy()
         if functions:
             payload['functions'] = functions
         if function_call:
@@ -44,12 +46,14 @@ class OpenAIWrapper:
             response = self.session.post(url, json=payload, stream=params.get('stream', False))
             response.raise_for_status()
             if params.get('stream', False):
-                return response.iter_lines(decode_unicode=True)  
+                return response.iter_lines(decode_unicode=True)
             else:
-                return response.json()  
+                return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
-    
+        finally:
+            self.session.close()
+
     def generate_images(self, params):
         url = self.proxy_helper.get_openai_image_url()
         try:
@@ -58,13 +62,14 @@ class OpenAIWrapper:
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            self.session.close()
 
     def upload_file(self, file_path, purpose):
 
-        url =  urljoin(self.proxy_helper.openai_url, self.proxy_helper.get_openai_files_url())
+        url = urljoin(self.proxy_helper.openai_url, self.proxy_helper.get_openai_files_url())
 
         with open(file_path, 'rb') as file:
-            
             files = {
                 'file': (os.path.basename(file_path), file, 'application/jsonl')
             }

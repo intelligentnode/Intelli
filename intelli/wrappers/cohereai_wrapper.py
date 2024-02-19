@@ -1,6 +1,8 @@
 import requests
+
 from intelli.config import config
 from intelli.utils.conn_helper import ConnHelper
+
 
 class CohereAIWrapper:
     def __init__(self, api_key):
@@ -23,7 +25,7 @@ class CohereAIWrapper:
             raise Exception(ConnHelper.get_error_message(error))
 
     def generate_chat_text(self, params):
-        url =  config['url']['cohere']['chat']
+        url = config['url']['cohere']['chat']
         try:
             response = requests.post(f'{self.API_BASE_URL}{url}', json=params, headers=self.headers)
             response.raise_for_status()
@@ -39,5 +41,3 @@ class CohereAIWrapper:
             return response.json()
         except requests.exceptions.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
-
-

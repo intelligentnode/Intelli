@@ -1,6 +1,7 @@
+from intelli.model.input.image_input import ImageModelInput
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.stability_wrapper import StabilityAIWrapper
-from intelli.model.input.image_input import ImageModelInput
+
 
 class RemoteImageModel:
     supported_image_models = {
@@ -19,7 +20,8 @@ class RemoteImageModel:
         if isinstance(image_input, dict):
             inputs = image_input
         elif isinstance(image_input, ImageModelInput):
-            inputs = image_input.get_openai_inputs() if isinstance(self.provider, OpenAIWrapper) else image_input.get_stability_inputs()
+            inputs = image_input.get_openai_inputs() if isinstance(self.provider,
+                                                                   OpenAIWrapper) else image_input.get_stability_inputs()
         else:
             raise ValueError("image_input must be an instance of ImageModelInput or a dictionary.")
 
@@ -29,4 +31,3 @@ class RemoteImageModel:
             return [data['url'] if 'url' in data else data['b64_json'] for data in results['data']]
         else:
             return [image_obj['base64'] for image_obj in results['artifacts']]
-

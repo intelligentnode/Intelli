@@ -1,14 +1,15 @@
+from intelli.model.input.text_speech_input import Text2SpeechInput
 from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
-from intelli.model.input.text_speech_input import Text2SpeechInput
 
 SupportedSpeechModels = {
-  'GOOGLE': 'google',
-  'OPENAI': 'openAi',
+    'GOOGLE': 'google',
+    'OPENAI': 'openAi',
 }
 
+
 class RemoteSpeechModel:
-    
+
     def __init__(self, key_value, provider=None):
         if not provider:
             provider = SupportedSpeechModels['GOOGLE']
@@ -20,7 +21,7 @@ class RemoteSpeechModel:
         else:
             models = " - ".join(supported_models)
             raise ValueError(f"The received key value is not supported. Send any model from: {models}")
-    
+
     def initiate(self, key_value, key_type):
         self.key_type = key_type
         if key_type == SupportedSpeechModels['GOOGLE']:
@@ -36,7 +37,7 @@ class RemoteSpeechModel:
     def generate_speech(self, input_params):
         if not isinstance(input_params, Text2SpeechInput):
             raise ValueError('Invalid input: Must be an instance of Text2SpeechInput')
-        
+
         if self.key_type == SupportedSpeechModels['GOOGLE']:
             params = input_params.get_google_input()
             response = self.google_wrapper.generate_speech(params)

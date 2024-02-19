@@ -1,7 +1,9 @@
-import requests
 import os
+import requests
+
 from intelli.config import config
 from intelli.utils.conn_helper import ConnHelper
+
 
 class StabilityAIWrapper:
     def __init__(self, api_key):
@@ -21,4 +23,3 @@ class StabilityAIWrapper:
             return response.json()
         except requests.exceptions.RequestException as e:
             raise Exception(ConnHelper.get_error_message(e))
-

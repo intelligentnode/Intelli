@@ -1,6 +1,8 @@
-import requests
 import base64
+import requests
+
 from intelli.config import config
+
 
 class GeminiAIWrapper:
 
@@ -15,7 +17,7 @@ class GeminiAIWrapper:
     def generate_content(self, params, vision=False):
         endpoint = config['url']['gemini']['visionEndpoint'] if vision else config['url']['gemini']['contentEndpoint']
         url = f"{self.API_BASE_URL}{endpoint}"
-        
+
         try:
             response = self.session.post(url, json=params, params={'key': self.API_KEY})
             response.raise_for_status()
@@ -26,7 +28,7 @@ class GeminiAIWrapper:
             raise Exception(str(error))
 
     def image_to_text(self, user_input, image_data, extension):
-        
+
         params = {
             "contents": [
                 {
@@ -48,7 +50,7 @@ class GeminiAIWrapper:
     def image_to_text_params(self, params):
 
         return self.generate_content(params, True)
-    
+
     def get_embeddings(self, params):
         url = f"{self.API_BASE_URL}{config['url']['gemini']['embeddingEndpoint']}"
 

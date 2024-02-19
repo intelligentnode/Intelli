@@ -1,14 +1,14 @@
 class Text2SpeechInput:
-
     Gender = {
         'FEMALE': 'FEMALE',
-        'MALE':'MALE'
+        'MALE': 'MALE'
     }
 
     def __init__(self, text, language="en-gb", gender="FEMALE", voice=None, model='tts-1', stream=True):
         self.text = text
         self.language = language.lower()
-        self.gender = gender.upper()  # Ensuring gender is in uppercase for consistency with Gender dictionary keys
+        # gender is in uppercase for consistency with Gender dictionary keys
+        self.gender = gender.upper()
         self.voice = voice
         self.model = model
         self.stream = stream
