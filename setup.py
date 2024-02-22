@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="0.1.3",
+    version="0.1.4",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Create chatbots and AI agent workflows. Intelli provide unified layer to connect your data with multiple AI models like OpenAI, Gemini, and Mistral.",
