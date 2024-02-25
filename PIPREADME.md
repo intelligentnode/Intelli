@@ -17,7 +17,7 @@ Create chatbots and AI agent work flows. It allows to connect your data with mul
 pip install intelli
 ```
 
-For detailed usage instructions, refer to the [documentation](https://docs.intellinode.ai/docs/python).
+For detailed usage instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
 
 # Code Examples
 
