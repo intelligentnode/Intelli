@@ -86,7 +86,7 @@ final_result = flow.start()
 
 <img src="assets/flow_graph_example.jpg" width="600em">
 
-To build async flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
+To build async flows with multiple paths, refer to the [flow tutorial](https://doc.intellinode.ai/docs/python/flows/async-flow).
 
 
 ## Connect Your Docs With Chatbot 

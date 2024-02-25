@@ -17,8 +17,6 @@ Create chatbots and AI agent work flows. It allows to connect your data with mul
 pip install intelli
 ```
 
-For detailed usage instructions, refer to the [documentation](https://doc.intellinode.ai/docs/python).
-
 # Code Examples
 
 ## Create Chatbot
@@ -109,7 +107,7 @@ flow = SequenceFlow([task1, task2, task3], log=True)
 final_result = flow.start()
 ```
 
-To build async AI flows with multiple paths, refer to the [flow tutorial](https://github.com/intelligentnode/Intelli/wiki/Flows).
+To build async AI flows with multiple paths, refer to the [flow tutorial](https://doc.intellinode.ai/docs/python/flows/async-flow).
 
 # Pillars
 - **The wrapper layer** provides low-level access to the latest AI models.
