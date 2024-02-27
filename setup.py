@@ -21,6 +21,7 @@ setup(
         "python-dotenv==1.0.1", "networkx==3.2.1",
     ],
     extras_require={
-        'visual': ["matplotlib==3.6.0", "keras>=3", "keras-nlp"],
+        "visual": ["matplotlib==3.6.0"],
+        "offline": ["keras>=3", "keras-nlp"],
     }
 )
