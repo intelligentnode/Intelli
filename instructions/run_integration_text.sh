@@ -45,3 +45,5 @@ python3 -m unittest intelli.test.integration.test_chatbot_with_data
 python3 -m unittest intelli.test.integration.test_flow_sequence
 # map flow
 python3 -m unittest intelli.test.integration.test_flow_map
+# keras nlp
+python3 -m unittest intelli.test.integration.test_keras_agent
