@@ -28,6 +28,7 @@ class TestKerasFlows(unittest.TestCase):
         gemma_agent = KerasAgent(agent_type="text", 
                                  mission="write blog posts",
                                  model_params=gemma_model_params)
+        
         # Define tasks
         task1 = Task(
             TextTaskInput("blog post about electric cars"), gemma_agent, log=True
