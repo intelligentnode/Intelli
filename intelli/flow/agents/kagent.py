@@ -43,9 +43,7 @@ class KerasAgent(BasicAgent):
         Dynamically load a model based on `model_params`.
         This example demonstrates loading Gemma models, but you should add similar logic for other models.
         """
-
-        self.keras_manager = keras
-        os.environ["KERAS_BACKEND"] = "jax"
+        
         model_param = self.model_params["model"]
         
         # set the username and password
