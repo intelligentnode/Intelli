@@ -123,7 +123,10 @@ wrapper = RemoteImageModel(your_api_key, provider)
 results = wrapper.generate_images(image_input)
 ```
 
-# The Repository Setup
+## Keras Agent
+Load gemma or mistral models offline using keras agent, [check the docs](https://docs.intellinode.ai/docs/python/flows/kagent).
+
+# Repository Setup
 1. Install the requirements.
 ```shell
 pip install -r requirements.txt
