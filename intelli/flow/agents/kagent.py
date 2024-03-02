@@ -44,19 +44,19 @@ class KerasAgent(BasicAgent):
         This example demonstrates loading Gemma models, but you should add similar logic for other models.
         """
         
-        model_param = self.model_params["model"]
+        model_name = self.model_params["model"]
         
         # set the username and password
         if "KAGGLE_USERNAME" in self.model_params:
             os.environ["KAGGLE_USERNAME"] = self.model_params["KAGGLE_USERNAME"]
             os.environ["KAGGLE_KEY"] = self.model_params["KAGGLE_KEY"]
         
-        if "gemma" in model_param:
+        if "gemma" in model_name:
             print("start gemma model")
-            return self.nlp_manager.models.GemmaCausalLM.from_preset(model_param)
-        elif "mistral" in model_param:
+            return self.nlp_manager.models.GemmaCausalLM.from_preset(model_name)
+        elif "mistral" in model_name:
             print("start mistral model")
-            return self.nlp_manager.models.MistralCausalLM.from_preset(model_param)
+            return self.nlp_manager.models.MistralCausalLM.from_preset(model_name)
         # ------------------------------------------------------------------ #
         # Add similar conditions for models like Mistral, RoBERTa, or BERT   #
         # ------------------------------------------------------------------ #
