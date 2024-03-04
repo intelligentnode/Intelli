@@ -16,6 +16,9 @@ setup(
         "Source Code": "https://github.com/intelligentnode/Intelli",
     },
     packages=find_packages(),
+    package_data={ 
+        '': ['*.in']
+    },
     python_requires='>=3.6',
     install_requires=[
         "python-dotenv==1.0.1", "networkx==3.2.1",
