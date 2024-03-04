@@ -87,7 +87,8 @@ class KerasAgent(BasicAgent):
         else:
             raise NotImplementedError("Model does not support text generation.")
 
-    def fine_tune_model_with_lora(self, fine_tuning_config, enable_lora=True):
+    def fine_tune_model_with_lora(self, fine_tuning_config, enable_lora=True,
+                                  custom_loss=None, custom_metrics=None):
         """
         Finetunes the model as per the provided config.
         """
@@ -120,17 +121,19 @@ class KerasAgent(BasicAgent):
         optimizer.exclude_from_weight_decay(var_names=["bias", "scale"])
         
         # Compile the model
+        custom_loss = self.keras_manager.losses.SparseCategoricalCrossentropy(from_logits=True) if not custom_loss else custom_loss
+        custom_metrics = [self.keras_manager.metrics.SparseCategoricalAccuracy()] if not custom_metrics else custom_metrics
         self.model.compile(
-            loss=self.keras_manager.losses.SparseCategoricalCrossentropy(from_logits=True),
+            loss=custom_loss,
             optimizer=optimizer,
-            weighted_metrics=[self.keras_manager.metrics.SparseCategoricalAccuracy()],
+            weighted_metrics=custom_metrics,
         )
         
         # Fit using input dataset, epochs and batch size
         dataset = fine_tuning_config.get('dataset')
         epochs = fine_tuning_config.get('epochs', 3)
         batch_size = fine_tuning_config.get("batch_size")
-        if batch_size is not None:
+        if batch_size:
             self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
         else:
             self.model.fit(dataset, epochs=epochs)
