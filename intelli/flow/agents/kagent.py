@@ -87,18 +87,19 @@ class KerasAgent(BasicAgent):
         else:
             raise NotImplementedError("Model does not support text generation.")
 
-    def fine_tune_model_with_lora(self, fine_tuning_config):
+    def fine_tune_model_with_lora(self, fine_tuning_config, enable_lora=True,
+                                  custom_loss=None, custom_metrics=None):
         """
         Finetunes the model as per the provided config.
         """
         print("Fine tuning model...")
         
-        # rank=4 replaces the weights matrix of relevant layers with the product AxB of two matrices of rank 4,
-        # which reduces the number of trainable parameters.
+        # rank=4 reduce the number of trainable parameters.
         lora_rank = fine_tuning_config.get("lora_rank", 4)
         
         # Enable lora for the model learning
-        self.model.backbone.enable_lora(rank=lora_rank)
+        if enable_lora:
+            self.model.backbone.enable_lora(rank=lora_rank)
         
         # Set the preprocessor sequence_length
         self.model.preprocessor.sequence_length = fine_tuning_config.get("sequence_length", 512)
@@ -120,14 +121,19 @@ class KerasAgent(BasicAgent):
         optimizer.exclude_from_weight_decay(var_names=["bias", "scale"])
         
         # Compile the model
+        custom_loss = self.keras_manager.losses.SparseCategoricalCrossentropy(from_logits=True) if not custom_loss else custom_loss
+        custom_metrics = [self.keras_manager.metrics.SparseCategoricalAccuracy()] if not custom_metrics else custom_metrics
         self.model.compile(
-            loss=self.keras_manager.losses.SparseCategoricalCrossentropy(from_logits=True),
+            loss=custom_loss,
             optimizer=optimizer,
-            weighted_metrics=[self.keras_manager.metrics.SparseCategoricalAccuracy()],
+            weighted_metrics=custom_metrics,
         )
         
         # Fit using input dataset, epochs and batch size
         dataset = fine_tuning_config.get('dataset')
         epochs = fine_tuning_config.get('epochs', 3)
-        batch_size = fine_tuning_config.get('batch_size', 1)
-        self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
+        batch_size = fine_tuning_config.get("batch_size")
+        if batch_size:
+            self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
+        else:
+            self.model.fit(dataset, epochs=epochs)
