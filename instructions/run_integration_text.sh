@@ -1,4 +1,4 @@
-## wrapper tesers
+## wrapper tests
 # mistral
 python3 -m unittest intelli.test.integration.test_mistralai_wrapper
 
@@ -16,6 +16,9 @@ python3 -m unittest intelli.test.integration.test_stability_wrapper
 
 # google
 python3 -m unittest intelli.test.integration.test_googleai_wrapper
+
+# anthropic
+python3 -m unittest intelli.test.integration.test_anthropic_wrapper
 
 ## controllers
 # embedding
