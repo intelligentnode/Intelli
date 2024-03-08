@@ -7,16 +7,20 @@ class ChatMessage:
 
 class ChatModelInput:
     def __init__(self, system, model, temperature=1,
-                 max_tokens=None, search_k=3, attach_reference=False,
-                 **options):
+                 max_tokens=None, numberOfOutputs=1, attach_reference=False,
+                 filter_options={}, **options):
         self.system = system
         self.model = model
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.search_k = search_k
-        self.attach_reference = attach_reference
+        self.numberOfOutputs = numberOfOutputs
         self.options = options
         self.messages = []
+        self.add_system_message(self.system)
+        # augemented search parameters
+        self.attach_reference = attach_reference
+        self.doc_name = filter_options.get('doc_name', None)
+        self.search_k = filter_options.get('search_k', 3) 
 
     def add_user_message(self, prompt):
         self.messages.append(ChatMessage(prompt, 'user'))
@@ -60,10 +64,14 @@ class ChatModelInput:
     def get_gemini_input(self):
         """Specific adjustment for Gemini where 'assistant' role is mapped to 'model'"""
         contents = []
+        system = ""
         for msg in self.messages:
             # Adjusting role specifically for Gemini
-            role = 'model' if msg.role == 'assistant' else msg.role
-            contents.append({'role': role, 'parts': [{'text': msg.content}]})
+            if msg.role == 'system' and msg.content:
+                system = msg.content+":"
+            else:
+                role = 'model' if msg.role == 'assistant' else msg.role
+                contents.append({'role': role, 'parts': [{'text': system+msg.content}]})
         params = {
             'contents': contents,
             'generationConfig': {

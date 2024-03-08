@@ -116,7 +116,8 @@ class Chatbot:
         references = []
         if last_user_message:
             # Perform the semantic search based on the last user message.
-            search_results = self.extended_search.semantic_search(last_user_message, chat_input.search_k)
+            filters = {'document_name': chat_input.doc_name} if chat_input.doc_name else None
+            search_results = self.extended_search.semantic_search(last_user_message, chat_input.search_k, filters=filters)
 
             # Accumulate document names from the search results for references.
             references = {}

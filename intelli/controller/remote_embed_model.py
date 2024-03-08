@@ -5,7 +5,7 @@ from intelli.wrappers.openai_wrapper import OpenAIWrapper
 
 
 class RemoteEmbedModel:
-    def __init__(self, provider_name, api_key):
+    def __init__(self, api_key, provider_name):
         self.provider_name = provider_name.lower()
         providers = {
             'openai': OpenAIWrapper,
@@ -15,7 +15,10 @@ class RemoteEmbedModel:
         if self.provider_name in providers:
             self.provider = providers[self.provider_name](api_key)
         else:
-            raise Exception(f"Provider {provider_name} not supported.")
+            if api_key in providers:
+                raise Exception(f"Send the provider name as second parameter (api_key, provider_name).")
+            else:    
+                raise Exception(f"Provider {provider_name} not supported.")
 
     def get_embeddings(self, embed_input):
         if not isinstance(embed_input, EmbedInput):

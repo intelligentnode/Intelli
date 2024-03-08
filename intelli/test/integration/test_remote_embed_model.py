@@ -19,7 +19,7 @@ class TestRemoteEmbedModel(unittest.TestCase):
             self.skipTest("OPENAI_API_KEY environment variable is not set.")
             
         provider = 'openai'
-        model = RemoteEmbedModel(provider, self.OPENAI_API_KEY)
+        model = RemoteEmbedModel(self.OPENAI_API_KEY, provider)
         embed_input = EmbedInput(["This is a test sentence for embeddings."])
         embed_input.set_default_values(provider)
         
@@ -32,7 +32,7 @@ class TestRemoteEmbedModel(unittest.TestCase):
             self.skipTest("GEMINI_API_KEY environment variable is not set.")
             
         provider = 'gemini'
-        model = RemoteEmbedModel(provider, self.GEMINI_API_KEY)
+        model = RemoteEmbedModel( self.GEMINI_API_KEY, provider)
         embed_input = EmbedInput(["Explore Gemini's API for embeddings."], "models/embedding-001")
         
         result = model.get_embeddings(embed_input)
@@ -44,7 +44,7 @@ class TestRemoteEmbedModel(unittest.TestCase):
             self.skipTest("MISTRAL_API_KEY environment variable is not set.")
             
         provider = 'mistral'
-        model = RemoteEmbedModel(provider, self.MISTRAL_API_KEY)
+        model = RemoteEmbedModel(self.MISTRAL_API_KEY, provider)
         embed_input = EmbedInput(["Mistral provides interesting insights."])
         embed_input.set_default_values(provider)
         
