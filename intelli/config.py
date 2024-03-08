@@ -67,7 +67,12 @@ config = {
             "visionEndpoint": "/gemini-pro-vision:generateContent",
             "embeddingEndpoint": "/embedding-001:embedContent",
             "batchEmbeddingEndpoint": "/embedding-001:batchEmbedContents"
-        }
+        },
+        "anthropic": {
+            "base": "https://api.anthropic.com",
+            "messages": "/v1/messages",
+            "version": "2023-06-01"
+        },
     },
     "models": {
         "replicate": {
