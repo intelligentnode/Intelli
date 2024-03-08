@@ -16,6 +16,7 @@ class ChatModelInput:
         self.numberOfOutputs = numberOfOutputs
         self.options = options
         self.messages = []
+        self.add_system_message(self.system)
         # augemented search parameters
         self.attach_reference = attach_reference
         self.doc_name = filter_options.get('doc_name', None)
@@ -63,10 +64,14 @@ class ChatModelInput:
     def get_gemini_input(self):
         """Specific adjustment for Gemini where 'assistant' role is mapped to 'model'"""
         contents = []
+        system = ""
         for msg in self.messages:
             # Adjusting role specifically for Gemini
-            role = 'model' if msg.role == 'assistant' else msg.role
-            contents.append({'role': role, 'parts': [{'text': msg.content}]})
+            if msg.role == 'system' and msg.content:
+                system = msg.content+":"
+            else:
+                role = 'model' if msg.role == 'assistant' else msg.role
+                contents.append({'role': role, 'parts': [{'text': system+msg.content}]})
         params = {
             'contents': contents,
             'generationConfig': {
