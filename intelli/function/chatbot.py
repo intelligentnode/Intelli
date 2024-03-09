@@ -76,20 +76,19 @@ class Chatbot:
         return [message['text'] for message in response['content']]
 
     def stream(self, chat_input):
-        """
-        Streams responses from OpenAI for the given chat input.
-        
-        Each yielded content is the text content alone, extracted from the streamed response.
-        """
-        if self.provider != 'openai':
-            raise NotImplementedError("Streaming is only supported for OpenAI.")
+        """Streams responses from the selected provider for the given chat input."""
+
+        streaming_method = getattr(self, f"_stream_{self.provider}", None)
+
+        if not streaming_method:
+            raise NotImplementedError(f"Streaming is not implemented for {self.provider}.")
 
         if self.extended_search:
             _ = self._augment_with_semantic_search(chat_input)
 
-        params = chat_input.get_openai_input()
+        params = getattr(chat_input, f"get_{self.provider}_input")()
 
-        for content in self._stream_openai(params):
+        for content in streaming_method(params):
             yield content
 
     def _stream_openai(self, params):
@@ -109,6 +108,24 @@ class Chatbot:
                 except json.JSONDecodeError as e:
                     print("Error decoding JSON:", e)
 
+    def _stream_anthropic(self, params):
+        """Stream text from Anthropic and directly yield text content."""
+        params['stream'] = True
+
+        for line in self.wrapper.stream_text(params):
+            # process lines starting with 'data:'
+            if line.startswith("data:"):
+                try:
+
+                    json_payload = line[len("data:"):]
+                    line_data = json.loads(json_payload)
+
+                    if 'type' in line_data and line_data['type'] == 'content_block_delta' and 'text' in line_data[
+                        'delta']:
+                        yield line_data['delta']['text']
+                except json.JSONDecodeError as e:
+                    print("Error decoding JSON from stream:", e)
+
     # helpers
     def _parse_openai_responses(self, results):
         responses = []
@@ -125,7 +142,8 @@ class Chatbot:
         if last_user_message:
             # Perform the semantic search based on the last user message.
             filters = {'document_name': chat_input.doc_name} if chat_input.doc_name else None
-            search_results = self.extended_search.semantic_search(last_user_message, chat_input.search_k, filters=filters)
+            search_results = self.extended_search.semantic_search(last_user_message, chat_input.search_k,
+                                                                  filters=filters)
 
             # Accumulate document names from the search results for references.
             references = {}
