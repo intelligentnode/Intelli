@@ -6,7 +6,14 @@ from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
 from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
+from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
+from enum import Enum
 
+class ChatProvider(Enum):
+    OPENAI = "openai"
+    GEMINI = "gemini"
+    MISTRAL = "mistral"
+    ANTHROPIC = "anthropic"
 
 class Chatbot:
 
@@ -14,21 +21,35 @@ class Chatbot:
         if options is None:
             options = {}
         self.api_key = api_key
-        self.provider = provider.lower()
+        self.provider = self._get_provider(provider)
         self.options = options
         self.wrapper = self._initialize_provider()
         self.extended_search = IntellicloudWrapper(options['one_key'],
                                                    options.get('api_base', None)) if 'one_key' in options else None
         self.system_helper = SystemHelper()
 
+    def _get_provider(self, provider):
+        
+        if isinstance(provider, str):
+            provider = provider.lower()
+            if provider not in (p.value for p in ChatProvider):
+                raise ValueError(f"Unsupported provider: {provider}")
+            return provider
+        elif isinstance(provider, ChatProvider):
+            return provider.value
+        else:
+            raise ValueError(f"Unsupported provider: {provider}")
+    
     def _initialize_provider(self):
-        if self.provider == 'openai':
+        if self.provider == ChatProvider.OPENAI.value:
             proxy_helper = self.options.get('proxy_helper', None)
             return OpenAIWrapper(self.api_key, proxy_helper=proxy_helper)
-        elif self.provider == 'mistral':
+        elif self.provider == ChatProvider.MISTRAL.value:
             return MistralAIWrapper(self.api_key)
-        elif self.provider == 'gemini':
+        elif self.provider == ChatProvider.GEMINI.value:
             return GeminiAIWrapper(self.api_key)
+        elif self.provider == ChatProvider.ANTHROPIC.value:
+            return AnthropicWrapper(self.api_key)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -67,21 +88,25 @@ class Chatbot:
                 raise Exception("Error when calling gemini: {}".format(response))
         return output
 
+    def _chat_anthropic(self, params):
+        response = self.wrapper.generate_text(params)
+
+        return [message['text'] for message in response['content']]
+
     def stream(self, chat_input):
-        """
-        Streams responses from OpenAI for the given chat input.
-        
-        Each yielded content is the text content alone, extracted from the streamed response.
-        """
-        if self.provider != 'openai':
-            raise NotImplementedError("Streaming is only supported for OpenAI.")
+        """Streams responses from the selected provider for the given chat input."""
+
+        streaming_method = getattr(self, f"_stream_{self.provider}", None)
+
+        if not streaming_method:
+            raise NotImplementedError(f"Streaming is not implemented for {self.provider}.")
 
         if self.extended_search:
             _ = self._augment_with_semantic_search(chat_input)
 
-        params = chat_input.get_openai_input()
+        params = getattr(chat_input, f"get_{self.provider}_input")()
 
-        for content in self._stream_openai(params):
+        for content in streaming_method(params):
             yield content
 
     def _stream_openai(self, params):
@@ -101,6 +126,24 @@ class Chatbot:
                 except json.JSONDecodeError as e:
                     print("Error decoding JSON:", e)
 
+    def _stream_anthropic(self, params):
+        """Stream text from Anthropic and directly yield text content."""
+        params['stream'] = True
+
+        for line in self.wrapper.stream_text(params):
+            # process lines starting with 'data:'
+            if line.startswith("data:"):
+                try:
+
+                    json_payload = line[len("data:"):]
+                    line_data = json.loads(json_payload)
+
+                    if 'type' in line_data and line_data['type'] == 'content_block_delta' and 'text' in line_data[
+                        'delta']:
+                        yield line_data['delta']['text']
+                except json.JSONDecodeError as e:
+                    print("Error decoding JSON from stream:", e)
+
     # helpers
     def _parse_openai_responses(self, results):
         responses = []
@@ -117,7 +160,8 @@ class Chatbot:
         if last_user_message:
             # Perform the semantic search based on the last user message.
             filters = {'document_name': chat_input.doc_name} if chat_input.doc_name else None
-            search_results = self.extended_search.semantic_search(last_user_message, chat_input.search_k, filters=filters)
+            search_results = self.extended_search.semantic_search(last_user_message, chat_input.search_k,
+                                                                  filters=filters)
 
             # Accumulate document names from the search results for references.
             references = {}

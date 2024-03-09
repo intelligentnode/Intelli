@@ -4,7 +4,7 @@ from intelli.wrappers.openai_wrapper import OpenAIWrapper
 
 SupportedSpeechModels = {
     'GOOGLE': 'google',
-    'OPENAI': 'openAi',
+    'OPENAI': 'openai',
 }
 
 

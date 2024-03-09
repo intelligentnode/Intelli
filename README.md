@@ -30,7 +30,7 @@ For detailed usage instructions, refer to the [documentation](https://doc.intell
 Switch between multiple chatbot providers without changing your code.
 
 ```python
-from intelli.function.chatbot import Chatbot
+from intelli.function.chatbot import Chatbot, ChatProvider
 from intelli.model.input.chatbot_input import ChatModelInput
 
 def call_chatbot(provider, model=None):
@@ -44,14 +44,17 @@ def call_chatbot(provider, model=None):
 
     return response
 
-# call openai
-call_chatbot("openai", "gpt-4")
+# call chatGPT
+call_chatbot(ChatProvider.OPENAI, "gpt-4")
 
 # call mistralai
-call_chatbot("mistral", "mistral-medium")
+call_chatbot(ChatProvider.MISTRAL, "mistral-medium")
+
+# call claude3
+call_chatbot(ChatProvider.ANTHROPIC, "claude-3-sonnet-20240229")
 
 # call google gemini
-call_chatbot("gemini")
+call_chatbot(ChatProvider.GEMINI)
 ```
 
 ## Create AI Flows

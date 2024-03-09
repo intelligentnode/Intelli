@@ -1,6 +1,4 @@
 # Intelli
-Create chatbots and AI agent work flows. It allows to connect your data with multiple AI models like OpenAI, Gemini, and Mistral through a unified access layer.
-
 <p>
 <a href="https://github.com/intelligentnode/Intelli/blob/release-documentation/LICENSE" alt="licenses tag">
     <img src="https://img.shields.io/github/license/intelligentnode/Intelli?style=flat-square" />
@@ -12,12 +10,18 @@ Create chatbots and AI agent work flows. It allows to connect your data with mul
 
 </p>
 
-# Install
+Create chatbots and AI agent work flows. It allows to connect your data with multiple AI models like OpenAI, Gemini, and Mistral through a unified access layer.
+
+
 ```bash
 pip install intelli
 ```
 
-For detailed usage instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
+# Latest changes
+- Add Anthropic claude 3 to the chatbot providers.
+- Update the agent to send dynamic parameters to the image, vision, and text models.  
+
+For detailed instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
 
 # Code Examples
 
