@@ -7,7 +7,13 @@ from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
+from enum import Enum
 
+class ChatProvider(Enum):
+    OPENAI = "openai"
+    GEMINI = "gemini"
+    MISTRAL = "mistral"
+    ANTHROPIC = "anthropic"
 
 class Chatbot:
 
@@ -15,22 +21,34 @@ class Chatbot:
         if options is None:
             options = {}
         self.api_key = api_key
-        self.provider = provider.lower()
+        self.provider = self._get_provider(provider)
         self.options = options
         self.wrapper = self._initialize_provider()
         self.extended_search = IntellicloudWrapper(options['one_key'],
                                                    options.get('api_base', None)) if 'one_key' in options else None
         self.system_helper = SystemHelper()
 
+    def _get_provider(self, provider):
+        
+        if isinstance(provider, str):
+            provider = provider.lower()
+            if provider not in (p.value for p in ChatProvider):
+                raise ValueError(f"Unsupported provider: {provider}")
+            return provider
+        elif isinstance(provider, ChatProvider):
+            return provider.value
+        else:
+            raise ValueError(f"Unsupported provider: {provider}")
+    
     def _initialize_provider(self):
-        if self.provider == 'openai':
+        if self.provider == ChatProvider.OPENAI.value:
             proxy_helper = self.options.get('proxy_helper', None)
             return OpenAIWrapper(self.api_key, proxy_helper=proxy_helper)
-        elif self.provider == 'mistral':
+        elif self.provider == ChatProvider.MISTRAL.value:
             return MistralAIWrapper(self.api_key)
-        elif self.provider == 'gemini':
+        elif self.provider == ChatProvider.GEMINI.value:
             return GeminiAIWrapper(self.api_key)
-        elif self.provider == 'anthropic':
+        elif self.provider == ChatProvider.ANTHROPIC.value:
             return AnthropicWrapper(self.api_key)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")

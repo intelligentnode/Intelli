@@ -1,7 +1,7 @@
 import unittest
 import os
 import asyncio
-from intelli.function.chatbot import Chatbot
+from intelli.function.chatbot import Chatbot, ChatProvider
 from intelli.model.input.chatbot_input import ChatModelInput
 from dotenv import load_dotenv
 
@@ -16,10 +16,10 @@ class TestChatbot(unittest.TestCase):
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
 
         # Creating Chatbot instances for each AI model
-        self.openai_bot = Chatbot(self.openai_api_key, "openai")
-        self.gemini_bot = Chatbot(self.gemini_api_key, "gemini")
-        self.mistral_bot = Chatbot(self.mistral_api_key, "mistral")
-        self.anthropic_bot = Chatbot(self.anthropic_api_key, "anthropic")
+        self.openai_bot = Chatbot(self.openai_api_key, ChatProvider.OPENAI)
+        self.gemini_bot = Chatbot(self.gemini_api_key, ChatProvider.GEMINI)
+        self.mistral_bot = Chatbot(self.mistral_api_key, ChatProvider.MISTRAL)
+        self.anthropic_bot = Chatbot(self.anthropic_api_key, ChatProvider.ANTHROPIC)
 
     def test_openai_chat(self):
         print('---- start openai ----')
