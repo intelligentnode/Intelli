@@ -6,6 +6,7 @@ from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
 from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
+from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
 
 
 class Chatbot:
@@ -29,6 +30,8 @@ class Chatbot:
             return MistralAIWrapper(self.api_key)
         elif self.provider == 'gemini':
             return GeminiAIWrapper(self.api_key)
+        elif self.provider == 'anthropic':
+            return AnthropicWrapper(self.api_key)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -66,6 +69,11 @@ class Chatbot:
             else:
                 raise Exception("Error when calling gemini: {}".format(response))
         return output
+
+    def _chat_anthropic(self, params):
+        response = self.wrapper.generate_text(params)
+
+        return [message['text'] for message in response['content']]
 
     def stream(self, chat_input):
         """

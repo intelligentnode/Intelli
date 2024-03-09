@@ -81,3 +81,25 @@ class ChatModelInput:
             **self.options
         }
         return params
+
+    def get_anthropic_input(self):
+        # prepare the messages
+        system = ""
+        contents = []
+        for msg in self.messages:
+            if msg.role == 'system':
+                system += msg.content + " "
+            else:
+                contents.append({'role': msg.role, 'content': msg.content})
+
+        # construct params dictionary
+        params = {
+            'model': self.model,
+            'system': system.strip(),  # Use a system prompt
+            'messages': contents,
+            'max_tokens': self.max_tokens or 1024,
+            **({'temperature': self.temperature} if self.temperature is not None else {}),
+            **self.options,
+        }
+
+        return params

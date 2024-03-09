@@ -18,13 +18,15 @@ class AnthropicWrapper:
 
     def generate_text(self, params):
         url = f"{self.API_BASE_URL}{config['url']['anthropic']['messages']}"
-
+        response = self.session.post(url, json=params)
         try:
-            response = self.session.post(url, json=params)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            response.close()
+            self.session.close()
 
     def stream_text(self, params):
         """Yields text from streaming API."""
