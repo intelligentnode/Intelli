@@ -31,7 +31,7 @@ class Agent(BasicAgent):
 
     def execute(self, agent_input: AgentInput, new_params = {}):
         
-        if new_params and isinstance(new_params, dict) and self.model_params:
+        if new_params is not None and isinstance(new_params, dict) and new_params and self.model_params is not None:
             custom_params = dict(new_params)
             custom_params.update(self.model_params)
         else:
