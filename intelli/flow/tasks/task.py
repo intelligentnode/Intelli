@@ -6,7 +6,7 @@ from intelli.utils.logging import Logger
 
 class Task:
     def __init__(self, task_input, agent, exclude=False, pre_process=None,
-                 post_process=None, template=None, log=False):
+                 post_process=None, template=None, model_params={}, log=False):
         self.task_input = task_input
         self.desc = task_input.desc
         self.agent = agent
@@ -17,6 +17,7 @@ class Task:
         self.output_type = Matcher.output[agent.type]
         self.template = template
         self.logger = Logger(log)
+        self.model_params = model_params
         if not template and Matcher.input[agent.type] in [InputTypes.TEXT.value]:
             self.template = TextInputTemplate(self.desc)
 
@@ -65,7 +66,7 @@ class Task:
         combined_results = []
         for current_agent_input in agent_inputs:
 
-            result = self.agent.execute(current_agent_input)
+            result = self.agent.execute(current_agent_input, new_params=self.model_params)
 
             if isinstance(result, list):
                 combined_results.extend(result)

@@ -63,13 +63,19 @@ class KerasAgent(BasicAgent):
         else:
             raise Exception("The received model not supported in this version.")
     
-    def execute(self, agent_input: AgentInput):
+    def execute(self, agent_input: AgentInput, new_params={}):
         """
         Execute the agent task based on input.
         """
         
         if not isinstance(agent_input, TextAgentInput):
             raise ValueError("This agent requires a TextAgentInput.")
+        
+        if new_params and isinstance(new_params, dict) and self.model_params:
+            custom_params = dict(new_params)
+            custom_params.update(self.model_params)
+        else:
+            custom_params = dict(self.model_params)
                 
         max_length = self.model_params.get("max_length", 64)
         model_input = agent_input.desc if not self.mission else self.mission + ": " + agent_input.desc
