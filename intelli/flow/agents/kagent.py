@@ -77,7 +77,7 @@ class KerasAgent(BasicAgent):
         else:
             custom_params = dict(self.model_params)
                 
-        max_length = self.model_params.get("max_length", 64)
+        max_length = self.model_params.get("max_length", 100)
         model_input = agent_input.desc if not self.mission else self.mission + ": " + agent_input.desc
             
         if hasattr(self.model, "generate"):     
