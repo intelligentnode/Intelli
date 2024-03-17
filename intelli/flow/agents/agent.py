@@ -29,33 +29,37 @@ class Agent(BasicAgent):
         self.model_params = model_params
         self.options = options
 
-    def execute(self, agent_input: AgentInput):
-
+    def execute(self, agent_input: AgentInput, new_params = {}):
+        
+        custom_params = dict(self.model_params)
+        if new_params is not None and isinstance(new_params, dict) and new_params and self.model_params is not None:
+            custom_params.update(new_params)
+        
         # Check the agent type and call the appropriate function
         if self.type == AgentTypes.TEXT.value:
 
-            f_params = {key: value for key, value in self.model_params.items() if hasattr(ChatModelInput("test", None), key)}
+            f_params = {key: value for key, value in custom_params.items() if hasattr(ChatModelInput("test", None), key)}
 
             chat_input = ChatModelInput(self.mission, **f_params)
 
-            chatbot = Chatbot(self.model_params['key'], self.provider, self.options)
+            chatbot = Chatbot(custom_params['key'], self.provider, self.options)
             chat_input.add_user_message(agent_input.desc)
             result = chatbot.chat(chat_input)[0]
         elif self.type == AgentTypes.IMAGE.value:
 
-            f_params = {key: value for key, value in self.model_params.items() if hasattr(ImageModelInput("test"), key)}
+            f_params = {key: value for key, value in custom_params.items() if hasattr(ImageModelInput("test"), key)}
 
             image_input = ImageModelInput(prompt=self.mission + ": " + agent_input.desc, **f_params)
 
-            image_model = RemoteImageModel(self.model_params['key'], self.provider)
+            image_model = RemoteImageModel(custom_params['key'], self.provider)
             result = image_model.generate_images(image_input)[0]
         elif self.type == AgentTypes.VISION.value:
             vision_input = VisionModelInput(content=self.mission + ": " + agent_input.desc,
                                             image_data=agent_input.img,
-                                            extension=self.model_params.get('extension', 'png'),
-                                            model=self.model_params['model'])
+                                            extension=custom_params.get('extension', 'png'),
+                                            model=custom_params['model'])
 
-            vision_model = RemoteVisionModel(self.model_params['key'], self.provider)
+            vision_model = RemoteVisionModel(custom_params['key'], self.provider)
             result = vision_model.image_to_text(vision_input)
         else:
             raise ValueError(f"Unsupported agent type: {self.type}.")
