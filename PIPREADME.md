@@ -10,7 +10,7 @@
 
 </p>
 
-Create chatbots and AI agent work flows. It allows to connect your data with multiple AI models like OpenAI, Gemini, and Mistral through a unified access layer.
+Create chatbots and AI agent work flows. Intelli allows to connect your data with multiple AI models like OpenAI, Gemini, Anthropic, Stable Diffusion, or Mistral through a unified access layer.
 
 
 ```bash
@@ -54,7 +54,7 @@ call_chatbot("gemini")
 ```
 
 ## Connect Your Docs With Chatbot
-IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
+Chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
 
 ```python
 # creating chatbot with the intellinode one key
