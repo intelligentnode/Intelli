@@ -31,11 +31,9 @@ class Agent(BasicAgent):
 
     def execute(self, agent_input: AgentInput, new_params = {}):
         
+        custom_params = dict(self.model_params)
         if new_params is not None and isinstance(new_params, dict) and new_params and self.model_params is not None:
-            custom_params = dict(self.model_params)
             custom_params.update(new_params)
-        else:
-            custom_params = dict(self.model_params)
         
         # Check the agent type and call the appropriate function
         if self.type == AgentTypes.TEXT.value:

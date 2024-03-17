@@ -71,11 +71,9 @@ class KerasAgent(BasicAgent):
         if not isinstance(agent_input, TextAgentInput):
             raise ValueError("This agent requires a TextAgentInput.")
         
+        custom_params = dict(self.model_params)
         if new_params is not None and isinstance(new_params, dict) and new_params and self.model_params is not None:
-            custom_params = dict(self.model_params)
             custom_params.update(new_params)
-        else:
-            custom_params = dict(self.model_params)
                 
         max_length = self.model_params.get("max_length", 100)
         model_input = agent_input.desc if not self.mission else self.mission + ": " + agent_input.desc
