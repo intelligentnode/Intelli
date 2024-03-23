@@ -10,7 +10,7 @@
 
 </p>
 
-Create chatbots and AI agent work flows. Intelli allows to connect your data with multiple AI models like OpenAI, Gemini, Anthropic, Stable Diffusion, or Mistral through a unified access layer.
+Create chatbots and AI agent work flows. Intellinode python module connect your data with multiple AI models like OpenAI, Gemini, Anthropic, Stable Diffusion, or Mistral through a unified access layer.
 
 
 ```bash
@@ -18,8 +18,8 @@ pip install intelli
 ```
 
 # Latest changes
-- Add Anthropic claude 3 to the chatbot providers.
-- Update the agent to send dynamic parameters to the image, vision, and text models.  
+- Add Anthropic claude 3 as a chatbot provider.
+- Add KerasAgent to load open source models offline.
 
 For detailed instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
 
@@ -49,11 +49,14 @@ call_chatbot("openai", "gpt-4")
 # call mistralai
 call_chatbot("mistral", "mistral-medium")
 
+# call claude3
+call_chatbot(ChatProvider.ANTHROPIC, "claude-3-sonnet-20240229")
+
 # call google gemini
 call_chatbot("gemini")
 ```
 
-## Connect Your Docs With Chatbot
+## Chat With Docs
 Chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
 
 ```python
