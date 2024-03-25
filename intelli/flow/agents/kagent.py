@@ -75,7 +75,7 @@ class KerasAgent(BasicAgent):
         if new_params is not None and isinstance(new_params, dict) and new_params and self.model_params is not None:
             custom_params.update(new_params)
                 
-        max_length = custom_params.get("max_length", 100)
+        max_length = custom_params.get("max_length", 180)
         model_input = agent_input.desc if not self.mission else self.mission + ": " + agent_input.desc
             
         if hasattr(self.model, "generate"):     
