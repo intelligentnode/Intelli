@@ -29,14 +29,14 @@ class TestAsyncFlow(unittest.TestCase):
     async def async_test_blog_flow(self):
         print("--- test blog flow ---")
         task1 = self.create_agent_and_task("identify requirements of building a blogging website about environment", 
-                                           "text", "gemini", 
+                                           "text", "openai", 
                                            "write specifications", 
-                                           self.gemini_key, "gemini")
+                                           self.openai_api_key, "gpt-3.5-turbo")
 
         task2 = self.create_agent_and_task("build task list for the technical team about the requirements", 
-                                           "text", "openai", 
+                                           "text", "gemini", 
                                            "create task list", 
-                                           self.openai_api_key, "gpt-3.5-turbo")
+                                           self.gemini_key, "gemini")
 
         task3 = self.create_agent_and_task("generate the website description and theme details from the requirements", 
                                            "text", "openai", 

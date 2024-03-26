@@ -79,12 +79,16 @@ class Flow:
         task_coroutines = {task_name: self._execute_task(task_name) for task_name in ordered_tasks}
         async with asyncio.Semaphore(max_workers):
             for task_name in ordered_tasks:
-                await task_coroutines[task_name]
+                try:
+                    await task_coroutines[task_name]
+                except Exception as e:
+                    print(f"Error in task '{task_name}': {e}")
+                    break
 
         # Filter the outputs (and types) of excluded tasks
         filtered_output = {
             task_name: {'output': self.output[task_name]['output'], 'type': self.output[task_name]['type']}
-            for task_name in ordered_tasks if not self.tasks[task_name].exclude
+            for task_name in ordered_tasks if not self.tasks[task_name].exclude and task_name in self.output
         }
 
         return filtered_output
