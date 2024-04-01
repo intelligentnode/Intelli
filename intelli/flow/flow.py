@@ -25,6 +25,7 @@ class Flow:
         self.output = {}
         self.logger = Logger(log)
         self._prepare_graph()
+        self.errors = {}
 
     def _prepare_graph(self):
         # Initialize the graph with tasks as nodes
@@ -75,6 +76,7 @@ class Flow:
         self.output[task_name] = {'output': task.output, 'type': task.output_type}
 
     async def start(self, max_workers=10):
+        self.errors = {}
         ordered_tasks = list(nx.topological_sort(self.graph))
         task_coroutines = {task_name: self._execute_task(task_name) for task_name in ordered_tasks}
         async with asyncio.Semaphore(max_workers):
@@ -82,7 +84,9 @@ class Flow:
                 try:
                     await task_coroutines[task_name]
                 except Exception as e:
+                    error_message = f"Error in task '{task_name}': {e}"
                     print(f"Error in task '{task_name}': {e}")
+                    self.errors[task_name] = error_message
                     break
 
         # Filter the outputs (and types) of excluded tasks
