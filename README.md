@@ -64,11 +64,8 @@ You can create a flow of tasks executed by different AI models. Here's an exampl
 
 
 ```python
-from intelli.flow.agents.agent import Agent
-from intelli.flow.tasks.task import Task
-from intelli.flow.sequence_flow import SequenceFlow
-from intelli.flow.input.task_input import TextTaskInput
-from intelli.flow.processors.basic_processor import TextProcessor
+from intelli.flow import Agent, Task, SequenceFlow, TextTaskInput, TextProcessor
+
 
 # define agents
 blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-4'})
