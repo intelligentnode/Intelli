@@ -2,7 +2,7 @@ import asyncio
 import networkx as nx
 import os
 from functools import partial
-
+import traceback
 from intelli.flow.types import AgentTypes, InputTypes, Matcher
 from intelli.utils.logging import Logger
 
@@ -84,10 +84,11 @@ class Flow:
                 try:
                     await task_coroutines[task_name]
                 except Exception as e:
-                    error_message = f"Error in task '{task_name}': {e}"
-                    print(f"Error in task '{task_name}': {e}")
+                    full_stack_trace = traceback.format_exc()
+                    error_message = f"Error in task '{task_name}': {e}\nFull stack trace:\n{full_stack_trace}"
+                    print(error_message)
                     self.errors[task_name] = error_message
-                    break
+                    continue
 
         # Filter the outputs (and types) of excluded tasks
         filtered_output = {
