@@ -8,7 +8,7 @@ setup(
     version="0.3.2",
     author="Intellinode",
     author_email="admin@intellinode.ai",
-    description="Create chatbots and AI agent workflows. Intelli provide unified layer to connect your data with multiple AI models.",
+    description="Create chatbots and AI agents using Intellinode. We make any model smarter.",
     long_description=pip_description,
     long_description_content_type="text/markdown",
     url="https://www.intellinode.ai/",
