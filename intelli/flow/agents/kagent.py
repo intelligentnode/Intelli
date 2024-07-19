@@ -2,6 +2,7 @@ from intelli.flow.agents.agent import BasicAgent
 from intelli.flow.input.agent_input import AgentInput, TextAgentInput, ImageAgentInput
 import os  
 
+
 class KerasAgent(BasicAgent):
     def __init__(self, agent_type, provider="", mission="", model_params={}, options=None, log=False, external=False):
         super().__init__()
@@ -57,6 +58,9 @@ class KerasAgent(BasicAgent):
         elif "mistral" in model_name:
             print("start mistral model")
             return self.nlp_manager.models.MistralCausalLM.from_preset(model_name)
+        elif "llama" in model_name:
+            print("start llama model")
+            return self.nlp_manager.models.Llama3CausalLM.from_preset(model_name)
         # ------------------------------------------------------------------ #
         # Add similar conditions for models like Mistral, RoBERTa, or BERT   #
         # ------------------------------------------------------------------ #
