@@ -103,3 +103,31 @@ class ChatModelInput:
         }
 
         return params
+
+    def get_keras_input(self):
+        instructions = ""
+        if any(msg.role == 'system' for msg in self.messages):
+            instructions += "instructions: " + " ".join([msg.content for msg in self.messages if msg.role == 'system']) + "\n"
+
+        chat_history = []
+        for msg in self.messages:
+            if msg.role == 'user':
+                chat_history.append(f"user: {msg.content}")
+            elif msg.role == 'assistant':
+                chat_history.append(f"assistant: {msg.content}")
+
+        # at least one user message
+        if not any(msg.role == 'user' for msg in self.messages):
+            raise "Send at least one user message."
+
+        # end with 'assistant: '
+        if not chat_history or not chat_history[-1].startswith("assistant:"):
+            chat_history.append("assistant: ")
+
+        prompt = instructions + "\n".join(chat_history)
+        params = {
+            'prompt': prompt,
+            'max_length': self.max_tokens or 180,
+            **self.options
+        }
+        return params

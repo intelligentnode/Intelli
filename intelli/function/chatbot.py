@@ -75,7 +75,7 @@ class Chatbot:
         return {'result': result, 'references': references} if chat_input.attach_reference else result
 
     def _chat_keras(self, params):
-        response = self.wrapper.generate(params['prompt'])
+        response = self.wrapper.generate(params['prompt'], params['max_length'])
         return [response]
 
     def _chat_openai(self, params):
