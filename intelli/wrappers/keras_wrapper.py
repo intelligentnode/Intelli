@@ -2,10 +2,10 @@ import os
 
 class KerasWrapper:
     
-    def __init__(self, model_name, model_params):
+    def __init__(self, model_name=None, model_params=None):
         self.model_name = model_name
         self.model_params = model_params
-        self.model = self.load_model()
+        self.model = self.load_model() if model_name else None
 
     def load_model(self):
         try:
@@ -29,13 +29,21 @@ class KerasWrapper:
         else:
             raise ValueError(f"Unsupported model name: {self.model_name}")
 
+    def set_model(self, model, model_params):
+        self.model = model
+        self.model_params = model_params
+
     def generate(self, input_text, max_length=180):
+        if not self.model:
+            raise ValueError("Model is not set.")
         generated_output = self.model.generate(input_text, max_length=max_length)
         if isinstance(generated_output, str) and generated_output.startswith(input_text):
             generated_output = generated_output.replace(input_text, "", 1).strip()
         return generated_output
 
     def fine_tune(self, dataset, fine_tuning_config, custom_loss=None, custom_metrics=None):
+        if not self.model:
+            raise ValueError("Model is not set.")
         try:
             import keras_nlp
             import keras
