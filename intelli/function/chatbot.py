@@ -7,6 +7,7 @@ from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
+from intelli.wrappers.keras_wrapper import KerasWrapper
 from enum import Enum
 
 class ChatProvider(Enum):
@@ -14,6 +15,7 @@ class ChatProvider(Enum):
     GEMINI = "gemini"
     MISTRAL = "mistral"
     ANTHROPIC = "anthropic"
+    KERAS = "keras"
 
 class Chatbot:
 
@@ -50,6 +52,8 @@ class Chatbot:
             return GeminiAIWrapper(self.api_key)
         elif self.provider == ChatProvider.ANTHROPIC.value:
             return AnthropicWrapper(self.api_key)
+        elif self.provider == ChatProvider.KERAS.value:
+            return KerasWrapper(self.options['model_name'], self.options.get('model_params', {}))
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -69,6 +73,10 @@ class Chatbot:
         params = getattr(chat_input, get_input_method)()
         result = chat_method(params)
         return {'result': result, 'references': references} if chat_input.attach_reference else result
+
+    def _chat_keras(self, params):
+        response = self.wrapper.generate(params['prompt'])
+        return [response]
 
     def _chat_openai(self, params):
         results = self.wrapper.generate_chat_text(params)

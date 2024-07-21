@@ -1,3 +1,5 @@
+import os
+
 class KerasWrapper:
     
     def __init__(self, model_name, model_params):
@@ -14,6 +16,10 @@ class KerasWrapper:
         except ImportError as e:
             raise ImportError("keras_nlp is not installed or model is not supported.") from e
 
+        if "KAGGLE_USERNAME" in self.model_params:
+            os.environ["KAGGLE_USERNAME"] = self.model_params["KAGGLE_USERNAME"]
+            os.environ["KAGGLE_KEY"] = self.model_params["KAGGLE_KEY"]
+        
         if "gemma" in self.model_name:
             return self.nlp_manager.models.GemmaCausalLM.from_preset(self.model_name)
         elif "mistral" in self.model_name:
