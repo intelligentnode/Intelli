@@ -29,6 +29,9 @@ class KerasWrapper:
         else:
             raise ValueError(f"Unsupported model name: {self.model_name}")
 
+    def update_model_params(self, model_params):
+        self.model_params = model_params
+    
     def set_model(self, model, model_params):
         self.model = model
         self.model_params = model_params
@@ -41,7 +44,7 @@ class KerasWrapper:
             generated_output = generated_output.replace(input_text, "", 1).strip()
         return generated_output
 
-    def fine_tune(self, dataset, fine_tuning_config, custom_loss=None, custom_metrics=None):
+    def fine_tune(self, dataset, fine_tuning_config, enable_lora=True, custom_loss=None, custom_metrics=None):
         if not self.model:
             raise ValueError("Model is not set.")
         try:
@@ -51,7 +54,8 @@ class KerasWrapper:
             raise ImportError("keras_nlp is not installed or model is not supported.") from e
 
         lora_rank = fine_tuning_config.get("lora_rank", 4)
-        self.model.backbone.enable_lora(rank=lora_rank)
+        if enable_lora:
+            self.model.backbone.enable_lora(rank=lora_rank)
         self.model.preprocessor.sequence_length = fine_tuning_config.get("sequence_length", 512)
 
         learning_rate = fine_tuning_config.get("learning_rate", 0.001)
@@ -79,3 +83,4 @@ class KerasWrapper:
         epochs = fine_tuning_config.get('epochs', 3)
         batch_size = fine_tuning_config.get("batch_size", 32)
         self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
+
