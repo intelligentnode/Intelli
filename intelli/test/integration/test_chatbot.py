@@ -14,7 +14,7 @@ class TestChatbot(unittest.TestCase):
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.mistral_api_key = os.getenv("MISTRAL_API_KEY")
         self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
-
+        
         # Creating Chatbot instances for each AI model
         self.openai_bot = Chatbot(self.openai_api_key, ChatProvider.OPENAI)
         self.gemini_bot = Chatbot(self.gemini_api_key, ChatProvider.GEMINI)
@@ -108,4 +108,5 @@ class TestChatbot(unittest.TestCase):
         return full_text
 
 if __name__ == '__main__':
+    print('test')
     unittest.main()
