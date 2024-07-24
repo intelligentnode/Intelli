@@ -6,7 +6,7 @@ class ChatMessage:
 
 
 class ChatModelInput:
-    def __init__(self, system, model, temperature=1,
+    def __init__(self, system, model=None, temperature=1,
                  max_tokens=None, numberOfOutputs=1, attach_reference=False,
                  filter_options={}, **options):
         self.system = system

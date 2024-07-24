@@ -19,17 +19,21 @@ class ChatProvider(Enum):
 
 class Chatbot:
 
-    def __init__(self, api_key, provider, options=None):
+    def __init__(self, api_key=None, provider=None, options=None):
         if options is None:
             options = {}
+        
         self.api_key = api_key
         self.provider = self._get_provider(provider)
         self.options = options
         self.wrapper = self._initialize_provider()
-        self.extended_search = IntellicloudWrapper(options['one_key'],
-                                                   options.get('api_base', None)) if 'one_key' in options else None
+        self.add_rag(options)
         self.system_helper = SystemHelper()
 
+    def add_rag(self, options):
+        self.extended_search = IntellicloudWrapper(options['one_key'],
+                                                   options.get('api_base', None)) if 'one_key' in options else None
+    
     def _get_provider(self, provider):
         
         if isinstance(provider, str):
