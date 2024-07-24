@@ -34,12 +34,12 @@ class SystemHelper:
     def load_static_prompt(self, file_type):
         static_prompts = {
             "augmented_chatbot": (
-                "Using the provided context, craft a cohesive response that directly addresses the user's query. "
-                "If the context lacks relevance or is absent, focus on generating a knowledgeable and accurate answer "
-                "based on the user's question alone. Aim for clarity and conciseness in your reply.\n"
+                "Using the provided context, craft a cohesive response that addresses the user's query. "
+                "If the context lacks relevance, focus on generating accurate answer "
+                "based on the user's question alone. Aim for clarity in your reply.\n"
                 "Context:\n"
                 "${semantic_search}\n"
-                "---------------------------------\n"
+                "------------------\n"
                 "User's Question:\n"
                 "${user_query}"
             ),
