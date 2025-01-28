@@ -26,6 +26,11 @@ class KerasWrapper:
             return self.nlp_manager.models.MistralCausalLM.from_preset(self.model_name)
         elif "llama" in self.model_name:
             return self.nlp_manager.models.Llama3CausalLM.from_preset(self.model_name)
+        elif "whisper" in self.model_name:
+            try:
+                return self.nlp_manager.models.WhisperBackbone.from_preset(self.model_name)
+            except Exception as e:
+                raise ValueError(f"Error loading Whisper model: {e}")
         else:
             raise ValueError(f"Unsupported model name: {self.model_name}")
 
