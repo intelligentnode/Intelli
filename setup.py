@@ -25,6 +25,6 @@ setup(
     ],
     extras_require={
         "visual": ["matplotlib==3.6.0"],
-        "offline": ["keras-nlp", "keras>=3"],
+        "offline": ["keras-nlp", "keras>=3", "soundfile"],
     }
 )

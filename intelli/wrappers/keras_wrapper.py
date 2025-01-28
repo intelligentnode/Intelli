@@ -28,6 +28,7 @@ class KerasWrapper:
             return self.nlp_manager.models.Llama3CausalLM.from_preset(self.model_name)
         elif "whisper" in self.model_name:
             try:
+                print('---> whisper')
                 return self.nlp_manager.models.WhisperBackbone.from_preset(self.model_name)
             except Exception as e:
                 raise ValueError(f"Error loading Whisper model: {e}")
@@ -88,4 +89,14 @@ class KerasWrapper:
         epochs = fine_tuning_config.get('epochs', 3)
         batch_size = fine_tuning_config.get("batch_size", 32)
         self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
+
+    def transcript(self, audio_data, language="<|en|>", max_steps=50, verbose=False):
+        if not hasattr(self.model, "transcribe_frame"):
+            raise ValueError("Transcription not supported for this model.")
+        return self.model.transcribe_frame(
+            audio_data,
+            language=language,
+            max_steps=max_steps,
+            verbose=verbose
+        )
 
