@@ -1,3 +1,4 @@
+from intelli.utils.whisper_helper import WhisperHelper
 import os
 
 class KerasWrapper:
@@ -5,9 +6,11 @@ class KerasWrapper:
     def __init__(self, model_name=None, model_params=None):
         self.model_name = model_name
         self.model_params = model_params
-        self.model = self.load_model() if model_name else None
+        self.whisper_helper = None
+        self.model = None
+        self._load_model()
 
-    def load_model(self):
+    def _load_model(self):
         try:
             import keras_nlp
             import keras
@@ -21,15 +24,20 @@ class KerasWrapper:
             os.environ["KAGGLE_KEY"] = self.model_params["KAGGLE_KEY"]
         
         if "gemma" in self.model_name:
-            return self.nlp_manager.models.GemmaCausalLM.from_preset(self.model_name)
+            self.model = self.nlp_manager.models.GemmaCausalLM.from_preset(self.model_name)
         elif "mistral" in self.model_name:
-            return self.nlp_manager.models.MistralCausalLM.from_preset(self.model_name)
+            self.model = self.nlp_manager.models.MistralCausalLM.from_preset(self.model_name)
         elif "llama" in self.model_name:
-            return self.nlp_manager.models.Llama3CausalLM.from_preset(self.model_name)
+            self.model = self.nlp_manager.models.Llama3CausalLM.from_preset(self.model_name)
         elif "whisper" in self.model_name:
             try:
                 print('---> whisper')
-                return self.nlp_manager.models.WhisperBackbone.from_preset(self.model_name)
+                import keras_hub as hub
+                backbone = hub.models.WhisperBackbone.from_preset(self.model_name)
+                self.whisper_helper = WhisperHelper(
+                    model_name=self.model_name, 
+                    backbone=backbone
+                )
             except Exception as e:
                 raise ValueError(f"Error loading Whisper model: {e}")
         else:
@@ -90,13 +98,8 @@ class KerasWrapper:
         batch_size = fine_tuning_config.get("batch_size", 32)
         self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
 
-    def transcript(self, audio_data, language="<|en|>", max_steps=50, verbose=False):
-        if not hasattr(self.model, "transcribe_frame"):
-            raise ValueError("Transcription not supported for this model.")
-        return self.model.transcribe_frame(
-            audio_data,
-            language=language,
-            max_steps=max_steps,
-            verbose=verbose
-        )
-
+    def transcript(self, audio_data, sample_rate=16000):
+        """Convert speech to text using Whisper."""
+        if not self.whisper_helper:
+            raise ValueError("Whisper model not initialized")
+        return self.whisper_helper.transcribe(audio_data, sample_rate)
