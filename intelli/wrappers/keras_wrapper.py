@@ -129,14 +129,14 @@ class KerasWrapper:
         self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
 
     def transcript(
-    self,
-    audio_data,
-    sample_rate=16000,
-    language=None,
-    user_prompt=None,
-    condition_on_previous_text=False,
-    max_steps=100,
-    max_chunk_sec=30,
+        self,
+        audio_data,
+        sample_rate=16000,
+        language=None,
+        user_prompt=None,
+        condition_on_previous_text=False,
+        max_steps=100,
+        max_chunk_sec=30,
     ):
         """
         Convert speech to text using the Whisper model.
@@ -155,4 +155,3 @@ class KerasWrapper:
             user_prompt=user_prompt,
             condition_on_previous_text=condition_on_previous_text,
         )
-

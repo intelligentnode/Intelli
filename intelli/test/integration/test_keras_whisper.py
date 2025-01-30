@@ -22,12 +22,12 @@ def test_whisper_real_audio():
     )
 
     result = wrapper.transcript(
-                audio_data,
-                sample_rate=sample_rate,
-                language="<|en|>",
-                user_prompt="You are a medical expert responsible for transcribing notes from a doctor’s speech.",
-                condition_on_previous_text=True
-            )
+        audio_data,
+        sample_rate=sample_rate,
+        language="<|en|>",
+        user_prompt="You are a medical expert responsible for transcribing notes from a doctor’s speech.",
+        condition_on_previous_text=True,
+    )
     assert result is not None, "Transcription result is None."
     print("Transcription output:", result)
 

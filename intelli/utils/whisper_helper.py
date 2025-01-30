@@ -148,7 +148,7 @@ class WhisperHelper:
         running_prompt = user_prompt or ""
         results = []
 
-        for (start, end) in final_chunks:
+        for start, end in final_chunks:
             chunk_data = audio_data[start:end]
 
             text = self._transcribe_single_chunk(
@@ -212,9 +212,7 @@ class WhisperHelper:
 
         # final check - everything is an integer
         if any(not isinstance(x, int) for x in start_ids):
-            raise ValueError(
-                f"start_ids contains a non-integer. start_ids={start_ids}"
-            )
+            raise ValueError(f"start_ids contains a non-integer. start_ids={start_ids}")
 
         # convert to TF tensor
         decoder_ids = self.tf.constant([start_ids], dtype=self.tf.int32)
@@ -244,6 +242,6 @@ class WhisperHelper:
                 break
 
         # slice out generated tokens - ignore the "start_ids"
-        final_ids = decoder_ids[0, len(start_ids):]
+        final_ids = decoder_ids[0, len(start_ids) :]
         text = self.tokenizer.detokenize(final_ids)
         return text.replace("<|endoftext|>", "").strip()
