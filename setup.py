@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="0.4.2",
+    version="0.5.0",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Create your chatbot or AI agent using Intellinode. We make any model smarter.",
@@ -15,7 +15,7 @@ setup(
     project_urls={
         "Source Code": "https://github.com/intelligentnode/Intelli",
     },
-    packages=find_packages(),
+    packages=find_packages(exclude=["test", "test.*"]),
     package_data={ 
         '': ['*.in']
     },
@@ -25,6 +25,6 @@ setup(
     ],
     extras_require={
         "visual": ["matplotlib==3.6.0"],
-        "offline": ["keras-nlp", "keras>=3"],
+        "offline": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text"],
     }
 )
