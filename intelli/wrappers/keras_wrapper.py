@@ -22,7 +22,7 @@ class KerasWrapper:
                 "keras_nlp is not installed or model is not supported."
             ) from e
 
-        if "KAGGLE_USERNAME" in self.model_params:
+        if self.model_params and "KAGGLE_USERNAME" in self.model_params:
             os.environ["KAGGLE_USERNAME"] = self.model_params["KAGGLE_USERNAME"]
             os.environ["KAGGLE_KEY"] = self.model_params["KAGGLE_KEY"]
 
@@ -40,7 +40,6 @@ class KerasWrapper:
             )
         elif "whisper" in self.model_name:
             try:
-                print("---> whisper")
                 backbone = self.nlp_manager.models.WhisperBackbone.from_preset(
                     self.model_name
                 )
@@ -129,14 +128,14 @@ class KerasWrapper:
         self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
 
     def transcript(
-    self,
-    audio_data,
-    sample_rate=16000,
-    language=None,
-    user_prompt=None,
-    condition_on_previous_text=False,
-    max_steps=100,
-    max_chunk_sec=30,
+        self,
+        audio_data,
+        sample_rate=16000,
+        language=None,
+        user_prompt=None,
+        condition_on_previous_text=False,
+        max_steps=80,
+        max_chunk_sec=30,
     ):
         """
         Convert speech to text using the Whisper model.
@@ -155,4 +154,3 @@ class KerasWrapper:
             user_prompt=user_prompt,
             condition_on_previous_text=condition_on_previous_text,
         )
-
