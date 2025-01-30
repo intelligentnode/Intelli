@@ -10,7 +10,7 @@ class WhisperHelper:
             import keras_hub as hub
         except ImportError as e:
             raise ImportError(
-                "Missing optional libraries"
+                "Missing optional libraries. "
                 "Install via:\n\n  pip install intelli[offline]\n"
             ) from e
 
@@ -41,66 +41,29 @@ class WhisperHelper:
             )
         return audio_data.astype("float32")
 
-    def transcribe(
-        self,
-        audio_data,
-        sample_rate=16000,
-        language=None,
-        max_steps=100,
-        min_chunk_sec=20,
-        max_chunk_sec=30,
-        silence_top_db=40,
-    ):
-        """
-        Transcribe using:
-          1) Silence-based segmentation (librosa.effects.split).
-          2) Merge segments so each chunk is ideally [20s, 30s] in length.
-          3) Transcribe each chunk individually.
-
-        Args:
-            audio_data: 1D (or 2D) np.array of raw audio.
-            sample_rate: Input sample rate.
-            language: Optional language token for multilingual models (e.g. "<|en|>").
-            max_steps: Max decoding steps per chunk
-            min_chunk_sec: Minimum chunk length (20s).
-            max_chunk_sec: Maximum chunk length (30s)
-            silence_top_db: Threshold (in dB) below reference to consider silence. Larger = more silence recognized.
-        Returns:
-            String containing the concatenated transcription of all chunks.
-        """
-        audio_data = self._prepare_audio(audio_data, sr=sample_rate, target_sr=16000)
-        sr = 16000
-        segments = self.librosa.effects.split(y=audio_data, top_db=silence_top_db)
-        if len(segments) == 0:
-            return ""
-        min_chunk_samples = int(min_chunk_sec * sr)
-        max_chunk_samples = int(max_chunk_sec * sr)
-        final_chunks = self._merge_segments(
-            segments, audio_data, sr, min_chunk_samples, max_chunk_samples
-        )
-        results = []
-        for start, end in final_chunks:
-            chunk_data = audio_data[start:end]
-            text = self._transcribe_single_chunk(chunk_data, sr, language, max_steps)
-            results.append(text)
-        return " ".join(results).strip()
-
     def _merge_segments(
         self, segments, audio_data, sr, min_chunk_samples, max_chunk_samples
     ):
         """
-        Merge consecutive non-silent segments into final chunks of length in [min_chunk_samples, max_chunk_samples].
+        Merge consecutive non-silent segments into final chunks of length
+        in [min_chunk_samples, max_chunk_samples].
         """
         final_chunks = []
         current_start = None
         current_end = None
+
         for seg_start, seg_end in segments:
             seg_len = seg_end - seg_start
+
+            # If this single segment is larger than max_chunk_samples,
+            # we have to split it forcibly into sub-chunks.
             if seg_len > max_chunk_samples:
+                # If we had something in progress, finalize it
                 if current_start is not None and current_end is not None:
-                    final_len = current_end - current_start
-                    if final_len > 0:
+                    chunk_len = current_end - current_start
+                    if chunk_len > 0:
                         final_chunks.append((current_start, current_end))
+                # Now split the big segment
                 start_pos = seg_start
                 while start_pos < seg_end:
                     end_pos = min(start_pos + max_chunk_samples, seg_end)
@@ -109,14 +72,14 @@ class WhisperHelper:
                 current_start = None
                 current_end = None
                 continue
+
             if current_start is None:
                 current_start = seg_start
                 current_end = seg_end
             else:
-                extended_end = seg_end
-                extended_len = extended_end - current_start
+                extended_len = seg_end - current_start
                 if extended_len <= max_chunk_samples:
-                    current_end = extended_end
+                    current_end = seg_end
                 else:
                     chunk_len = current_end - current_start
                     if chunk_len < min_chunk_samples:
@@ -127,29 +90,138 @@ class WhisperHelper:
                         final_chunks.append((current_start, current_end))
                         current_start = seg_start
                         current_end = seg_end
+
+        # leftover chunk
         if current_start is not None and current_end is not None:
             final_chunks.append((current_start, current_end))
+
         return final_chunks
 
-    def _transcribe_single_chunk(
-        self, chunk_audio_data, sample_rate=16000, language=None, max_steps=100
+    def transcribe(
+        self,
+        audio_data,
+        sample_rate=16000,
+        language=None,
+        max_steps=100,
+        min_chunk_sec=20,
+        max_chunk_sec=30,
+        silence_top_db=40,
+        keep_last_n_tokens=80,
+        user_prompt=None,
+        condition_on_previous_text=False,
     ):
         """
-        Transcribe a single chunk (<=30s).
+        Transcribe entire audio by:
+          1) Splitting on silence
+          2) Merging short segments ~[min_chunk_sec, max_chunk_sec]
+          3) Decoding each chunk with `_transcribe_single_chunk()`
+          4) Optionally carrying prompt context from one chunk to the next.
+
+        Args:
+            audio_data: 1D or 2D NumPy array (audio).
+            sample_rate: Original sample rate of `audio_data`.
+            language: E.g. "<|en|>". If None, you can skip or auto-detect.
+            max_steps: Maximum decoding steps per chunk (usually up to ~448 tokens).
+            min_chunk_sec, max_chunk_sec: chunk sizes from segments.
+            silence_top_db: threshold for silence detection (dB).
+            keep_last_n_tokens: prompt context window (if condition_on_previous_text=True).
+            user_prompt: (str) optional user-provided prompt for custom vocab.
+            condition_on_previous_text: carry context forward across chunks.
+
+        Returns:
+            Full transcription as a string.
+        """
+        audio_data = self._prepare_audio(audio_data, sr=sample_rate, target_sr=16000)
+        sr = 16000
+
+        # Identify non-silent segments
+        segments = self.librosa.effects.split(y=audio_data, top_db=silence_top_db)
+        if len(segments) == 0:
+            return ""
+
+        # Merge small segments
+        min_chunk_samples = int(min_chunk_sec * sr)
+        max_chunk_samples = int(max_chunk_sec * sr)
+        final_chunks = self._merge_segments(
+            segments, audio_data, sr, min_chunk_samples, max_chunk_samples
+        )
+
+        running_prompt = user_prompt or ""
+        results = []
+
+        for (start, end) in final_chunks:
+            chunk_data = audio_data[start:end]
+
+            text = self._transcribe_single_chunk(
+                chunk_audio_data=chunk_data,
+                sample_rate=sr,
+                language=language,
+                max_steps=max_steps,
+                user_prompt=running_prompt,
+            )
+            results.append(text)
+
+            # Optionally carry forward the newly decoded text
+            if condition_on_previous_text and text.strip():
+                # append new text
+                running_prompt = (running_prompt + " " + text).strip()
+
+                # limit prompt tokens
+                if keep_last_n_tokens > 0:
+                    last_tokens = self.tokenizer.tokenize(running_prompt)
+                    last_tokens = last_tokens[-keep_last_n_tokens:]
+                    running_prompt = self.tokenizer.detokenize(last_tokens)
+
+        return " ".join(results).strip()
+
+    def _transcribe_single_chunk(
+        self,
+        chunk_audio_data,
+        sample_rate=16000,
+        language=None,
+        max_steps=100,
+        user_prompt=None,
+    ):
+        """
+        Decode a single chunk (<= 30s).
+        Inject user_prompt tokens right after the standard start IDs if provided.
         """
         audio_tensor = self.tf.convert_to_tensor(
             chunk_audio_data, dtype=self.tf.float32
         )[self.tf.newaxis, ...]
         encoder_features = self.converter(audio_tensor)
+
+        # Basic start tokens
         start_ids = [self.tokenizer.token_to_id("<|startoftranscript|>")]
         if language:
             try:
-                start_ids.append(self.tokenizer.token_to_id(language))
+                # Append language token if recognized
+                lang_id = self.tokenizer.token_to_id(language)
+                if isinstance(lang_id, int):
+                    start_ids.append(lang_id)
             except KeyError:
                 pass
+
         start_ids.append(self.tokenizer.token_to_id("<|transcribe|>"))
         start_ids.append(self.tokenizer.token_to_id("<|notimestamps|>"))
+
+        # If the user provided a prompt or some previous context
+        if user_prompt:
+            prompt_ids = self.tokenizer.tokenize(" " + user_prompt.strip())
+            # Ensure they are all integers
+            prompt_ids = [int(pid) for pid in prompt_ids if isinstance(pid, int)]
+            start_ids.extend(prompt_ids)
+
+        # Final check that everything is an integer
+        if any(not isinstance(x, int) for x in start_ids):
+            raise ValueError(
+                f"start_ids contains a non-integer. start_ids={start_ids}"
+            )
+
+        # Convert to TF tensor
         decoder_ids = self.tf.constant([start_ids], dtype=self.tf.int32)
+
+        # Autoregressive decoding loop
         for _ in range(max_steps):
             outputs = self.backbone(
                 {
@@ -164,11 +236,16 @@ class WhisperHelper:
             next_id = self.tf.argmax(
                 logits[:, -1, :], axis=-1, output_type=self.tf.int32
             )
+            # Append next token
             decoder_ids = self.tf.concat(
                 [decoder_ids, next_id[:, self.tf.newaxis]], axis=1
             )
+
+            # Break on <|endoftext|>
             if self.tf.reduce_any(self.tf.equal(next_id, self.end_token_id)):
                 break
-        final_ids = decoder_ids[0, len(start_ids) :]
+
+        # Slice out only newly-generated tokens, ignoring the "start_ids"
+        final_ids = decoder_ids[0, len(start_ids):]
         text = self.tokenizer.detokenize(final_ids)
         return text.replace("<|endoftext|>", "").strip()

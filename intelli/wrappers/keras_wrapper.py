@@ -128,7 +128,16 @@ class KerasWrapper:
         batch_size = fine_tuning_config.get("batch_size", 32)
         self.model.fit(dataset, epochs=epochs, batch_size=batch_size)
 
-    def transcript(self, audio_data, sample_rate=16000, language=None):
+    def transcript(
+    self,
+    audio_data,
+    sample_rate=16000,
+    language=None,
+    user_prompt=None,
+    condition_on_previous_text=False,
+    max_steps=100,
+    max_chunk_sec=30,
+    ):
         """
         Convert speech to text using the Whisper model.
         """
@@ -136,10 +145,14 @@ class KerasWrapper:
             raise ValueError(
                 "Whisper is not initialized. Make sure you used a 'whisper_*' model_name."
             )
+
         return self.whisper_helper.transcribe(
-            audio_data,
+            audio_data=audio_data,
             sample_rate=sample_rate,
             language=language,
-            max_steps=100,
-            max_chunk_sec=30,
+            max_steps=max_steps,
+            max_chunk_sec=max_chunk_sec,
+            user_prompt=user_prompt,
+            condition_on_previous_text=condition_on_previous_text,
         )
+
