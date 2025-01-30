@@ -134,7 +134,7 @@ class KerasWrapper:
         language=None,
         user_prompt=None,
         condition_on_previous_text=False,
-        max_steps=100,
+        max_steps=80,
         max_chunk_sec=30,
     ):
         """
