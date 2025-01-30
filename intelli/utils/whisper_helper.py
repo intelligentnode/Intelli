@@ -55,15 +55,14 @@ class WhisperHelper:
         for seg_start, seg_end in segments:
             seg_len = seg_end - seg_start
 
-            # If this single segment is larger than max_chunk_samples,
-            # we have to split it forcibly into sub-chunks.
+            # split if single segment is larger than max_chunk_samples
             if seg_len > max_chunk_samples:
-                # If we had something in progress, finalize it
+                # in progress, finalize it
                 if current_start is not None and current_end is not None:
                     chunk_len = current_end - current_start
                     if chunk_len > 0:
                         final_chunks.append((current_start, current_end))
-                # Now split the big segment
+                # split the big segment
                 start_pos = seg_start
                 while start_pos < seg_end:
                     end_pos = min(start_pos + max_chunk_samples, seg_end)
@@ -134,12 +133,12 @@ class WhisperHelper:
         audio_data = self._prepare_audio(audio_data, sr=sample_rate, target_sr=16000)
         sr = 16000
 
-        # Identify non-silent segments
+        # identify non-silent segments
         segments = self.librosa.effects.split(y=audio_data, top_db=silence_top_db)
         if len(segments) == 0:
             return ""
 
-        # Merge small segments
+        # merge small segments
         min_chunk_samples = int(min_chunk_sec * sr)
         max_chunk_samples = int(max_chunk_sec * sr)
         final_chunks = self._merge_segments(
@@ -161,9 +160,8 @@ class WhisperHelper:
             )
             results.append(text)
 
-            # Optionally carry forward the newly decoded text
+            # optionally carry forward the newly decoded text
             if condition_on_previous_text and text.strip():
-                # append new text
                 running_prompt = (running_prompt + " " + text).strip()
 
                 # limit prompt tokens
@@ -191,11 +189,11 @@ class WhisperHelper:
         )[self.tf.newaxis, ...]
         encoder_features = self.converter(audio_tensor)
 
-        # Basic start tokens
+        # basic start tokens
         start_ids = [self.tokenizer.token_to_id("<|startoftranscript|>")]
         if language:
             try:
-                # Append language token if recognized
+                # append language token if recognized
                 lang_id = self.tokenizer.token_to_id(language)
                 if isinstance(lang_id, int):
                     start_ids.append(lang_id)
@@ -205,23 +203,23 @@ class WhisperHelper:
         start_ids.append(self.tokenizer.token_to_id("<|transcribe|>"))
         start_ids.append(self.tokenizer.token_to_id("<|notimestamps|>"))
 
-        # If the user provided a prompt or some previous context
+        # if the user provided a prompt or previous context
         if user_prompt:
             prompt_ids = self.tokenizer.tokenize(" " + user_prompt.strip())
-            # Ensure they are all integers
+            # convert to integers
             prompt_ids = [int(pid) for pid in prompt_ids if isinstance(pid, int)]
             start_ids.extend(prompt_ids)
 
-        # Final check that everything is an integer
+        # final check - everything is an integer
         if any(not isinstance(x, int) for x in start_ids):
             raise ValueError(
                 f"start_ids contains a non-integer. start_ids={start_ids}"
             )
 
-        # Convert to TF tensor
+        # convert to TF tensor
         decoder_ids = self.tf.constant([start_ids], dtype=self.tf.int32)
 
-        # Autoregressive decoding loop
+        # autoregressive decoding loop
         for _ in range(max_steps):
             outputs = self.backbone(
                 {
@@ -236,16 +234,16 @@ class WhisperHelper:
             next_id = self.tf.argmax(
                 logits[:, -1, :], axis=-1, output_type=self.tf.int32
             )
-            # Append next token
+            # append next token
             decoder_ids = self.tf.concat(
                 [decoder_ids, next_id[:, self.tf.newaxis]], axis=1
             )
 
-            # Break on <|endoftext|>
+            # break on <|endoftext|>
             if self.tf.reduce_any(self.tf.equal(next_id, self.end_token_id)):
                 break
 
-        # Slice out only newly-generated tokens, ignoring the "start_ids"
+        # slice out generated tokens - ignore the "start_ids"
         final_ids = decoder_ids[0, len(start_ids):]
         text = self.tokenizer.detokenize(final_ids)
         return text.replace("<|endoftext|>", "").strip()
