@@ -15,7 +15,7 @@ setup(
     project_urls={
         "Source Code": "https://github.com/intelligentnode/Intelli",
     },
-    packages=find_packages(),
+    packages=find_packages(exclude=["test", "test.*"]),
     package_data={ 
         '': ['*.in']
     },
