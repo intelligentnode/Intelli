@@ -6,6 +6,7 @@ class WhisperHelper:
         try:
             import numpy as np
             import tensorflow as tf
+            tf.config.optimizer.set_jit(True)
             import librosa
             import keras_hub as hub
         except ImportError as e:
@@ -101,7 +102,7 @@ class WhisperHelper:
         audio_data,
         sample_rate=16000,
         language=None,
-        max_steps=100,
+        max_steps=80,
         min_chunk_sec=20,
         max_chunk_sec=30,
         silence_top_db=40,
@@ -172,12 +173,13 @@ class WhisperHelper:
 
         return " ".join(results).strip()
 
+    
     def _transcribe_single_chunk(
         self,
         chunk_audio_data,
         sample_rate=16000,
         language=None,
-        max_steps=100,
+        max_steps=80,
         user_prompt=None,
     ):
         """
