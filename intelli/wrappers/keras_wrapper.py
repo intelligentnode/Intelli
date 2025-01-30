@@ -22,7 +22,7 @@ class KerasWrapper:
                 "keras_nlp is not installed or model is not supported."
             ) from e
 
-        if "KAGGLE_USERNAME" in self.model_params:
+        if self.model_params and "KAGGLE_USERNAME" in self.model_params:
             os.environ["KAGGLE_USERNAME"] = self.model_params["KAGGLE_USERNAME"]
             os.environ["KAGGLE_KEY"] = self.model_params["KAGGLE_KEY"]
 
