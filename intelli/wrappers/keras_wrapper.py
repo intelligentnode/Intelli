@@ -40,7 +40,6 @@ class KerasWrapper:
             )
         elif "whisper" in self.model_name:
             try:
-                print("---> whisper")
                 backbone = self.nlp_manager.models.WhisperBackbone.from_preset(
                     self.model_name
                 )
