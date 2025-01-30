@@ -7,15 +7,16 @@ from intelli.wrappers.keras_wrapper import KerasWrapper
 def test_whisper_real_audio():
     import soundfile as sf
 
-    if not os.path.exists("/Users/ahmad/Downloads/harvard.wav"):
-        pytest.skip("harvard.wav not found.")
-    audio_data, sample_rate = sf.read("/Users/ahmad/Downloads/harvard.wav")
+    test_file = "temp/long_audio.ogg"
+    if not os.path.exists(test_file):
+        pytest.skip("The file not found.")
+    audio_data, sample_rate = sf.read(test_file)
 
     wrapper = KerasWrapper(
         model_name="whisper_tiny_en",
         model_params={
-            "KAGGLE_USERNAME": "<username>",
-            "KAGGLE_KEY": "<password>",
+            "KAGGLE_USERNAME": "",
+            "KAGGLE_KEY": "",
         },
     )
 
