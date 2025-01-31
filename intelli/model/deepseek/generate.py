@@ -8,7 +8,7 @@ import torch.distributed as dist
 from transformers import AutoTokenizer
 from safetensors.torch import load_model
 
-from model import Transformer, ModelArgs
+from .model import Transformer, ModelArgs
 
 
 def sample(logits, temperature: float = 1.0):

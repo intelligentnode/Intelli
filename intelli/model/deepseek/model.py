@@ -7,7 +7,7 @@ from torch import nn
 import torch.nn.functional as F
 import torch.distributed as dist
 
-from kernel import act_quant, weight_dequant, fp8_gemm
+from .kernel import act_quant, weight_dequant, fp8_gemm
 
 
 world_size = 1

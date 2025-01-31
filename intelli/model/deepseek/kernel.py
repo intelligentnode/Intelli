@@ -1,9 +1,12 @@
 from typing import Tuple
 
 import torch
-import triton
-import triton.language as tl
-from triton import Config
+try:
+    import triton
+    import triton.language as tl
+    from triton import Config
+except ImportError as e:
+    raise ImportError("Triton is required for DeepSeek and is only supported on Linux.") from e
 
 
 @triton.jit
