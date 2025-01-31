@@ -51,37 +51,80 @@ class DeepSeekWrapper:
 
     def _load_model(self):
         """
-        Loads the DeepSeek model using local DeepSeek inference code.
+        Load or initialize the DeepSeek model in single-GPU mode
+        using the code from model.py, generate.py, etc.
         """
-        # Use a default config path if none was provided.
+        import torch
+        from intelli.model.deepseek.model import ModelArgs, Transformer
+        import json
+
         if not self.config_path:
+            # fallback if user doesn't pass config
             self.config_path = os.path.join(self.model_path, "configs", "config_671B.json")
-        if not os.path.exists(self.config_path):
-            raise ValueError(f"Config file not found: {self.config_path}")
 
         with open(self.config_path, "r") as f:
-            config_data = json.load(f)
+            hf_config = json.load(f)
 
-        # Import model definitions from your local deepseek module.
-        from intelli.model.deepseek.model import ModelArgs, Transformer
+        # Map HF config keys to the ones expected by ModelArgs.
+        # (For example, your small offline config expects keys like "dim" but HF config uses "hidden_size".)
+        mapping = {
+            "vocab_size": "vocab_size",               # same key
+            "dim": "hidden_size",                     # HF: hidden_size → our: dim
+            "inter_dim": "intermediate_size",         # HF: intermediate_size → our: inter_dim
+            "moe_inter_dim": "moe_intermediate_size", # HF: moe_intermediate_size → our: moe_inter_dim
+            "n_layers": "num_hidden_layers",          # HF: num_hidden_layers → our: n_layers
+            "n_dense_layers": "n_dense_layers",       # If not present, we’ll add a default below.
+            "n_heads": "num_attention_heads",         # HF: num_attention_heads → our: n_heads
+            "n_routed_experts": "n_routed_experts",     # same key
+            "n_shared_experts": "n_shared_experts",     # same key
+            "n_activated_experts": "num_experts_per_tok",  # HF: num_experts_per_tok → our: n_activated_experts
+            "route_scale": "routed_scaling_factor",     # HF: routed_scaling_factor → our: route_scale
+            "q_lora_rank": "q_lora_rank",              # same key
+            "kv_lora_rank": "kv_lora_rank",            # same key
+            "qk_nope_head_dim": "qk_nope_head_dim",    # same key
+            "qk_rope_head_dim": "qk_rope_head_dim",    # same key
+            "v_head_dim": "v_head_dim",                # same key
+            # For mscale, we need to extract it from inside the "rope_scaling" dictionary.
+            "mscale": lambda cfg: cfg.get("rope_scaling", {}).get("mscale", 1.0)
+        }
 
-        self.args = ModelArgs(**config_data)
-        # Set default dtype according to the config.
-        if self.args.dtype == "fp8":
+        mapped_config = {}
+        for our_key, hf_key in mapping.items():
+            if isinstance(hf_key, str):
+                if hf_key in hf_config:
+                    mapped_config[our_key] = hf_config[hf_key]
+            else:
+                # if hf_key is a callable (for example, for mscale)
+                mapped_config[our_key] = hf_key(hf_config)
+
+        # If n_dense_layers is not in the config, add a default value (e.g., 1).
+        if "n_dense_layers" not in mapped_config:
+            mapped_config["n_dense_layers"] = 1
+
+        # Optionally, you can print or log the mapped configuration for debugging:
+        # print("Mapped config for ModelArgs:", mapped_config)
+
+        # Set default dtype based on our configuration.
+        if mapped_config.get("dtype", "bf16") == "fp8":
             torch.set_default_dtype(torch.float32)
         else:
             torch.set_default_dtype(torch.bfloat16)
         torch.set_num_threads(8)
 
-        # Initialize the model on GPU.
+        # Initialize the model using the mapped configuration.
+        self.args = ModelArgs(**mapped_config)
         self.model = Transformer(self.args).cuda()
 
-        # Assume single shard (model0-mp1.safetensors) in the model directory.
-        model_file = os.path.join(self.model_path, "model0-mp1.safetensors")
+        # For single GPU usage, we assume a single weight file.
+        # (Here, we try to load the file we downloaded. Adjust the file name as needed.)
+        from safetensors.torch import load_model
+        # Here we assume the weight file is "model-00001-of-000163.safetensors"
+        model_file = os.path.join(self.model_path, "model-00001-of-000163.safetensors")
         if not os.path.exists(model_file):
             raise ValueError(f"Model file not found: {model_file}")
         load_model(self.model, model_file)
         self.model.eval()
+
 
     def _sample(self, logits):
         """
