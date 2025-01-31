@@ -26,5 +26,7 @@ setup(
     extras_require={
         "visual": ["matplotlib==3.6.0"],
         "offline": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text"],
+        "extended": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text",
+                     "torch==2.4.1", "triton==3.0.0", "safetensors==0.4.5", "matplotlib==3.6.0"]
     }
 )
