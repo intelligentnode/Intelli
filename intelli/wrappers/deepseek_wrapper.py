@@ -44,8 +44,8 @@ class DeepSeekWrapper:
 
     def _maybe_convert_model(self):
         """
-        If converted weights (files matching "model*-mp*.safetensors") are not found,
-        run the conversion script.
+        Check if converted weights (files matching "model*-mp*.safetensors") exist.
+        If not—and if original HF checkpoint shards exist—run the conversion script.
         """
         converted_files = glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors"))
         hf_shard_files = glob.glob(os.path.join(self.model_path, "model-000*-of-*.safetensors"))
@@ -58,8 +58,9 @@ class DeepSeekWrapper:
                 with open(self.config_path, "r") as f:
                     hf_config = json.load(f)
                 n_experts = hf_config.get("n_routed_experts", 256)
-            mp = 1
-            # Fix the conversion script path: assume it's at <project_root>/model/deepseek/convert.py
+            mp = 1  # For single-GPU inference.
+            # Compute the conversion script path relative to the project layout.
+            # Assuming conversion script is at <project_root>/model/deepseek/convert.py
             conversion_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "deepseek", "convert.py")
             cmd = [
                 sys.executable,
@@ -78,6 +79,10 @@ class DeepSeekWrapper:
     def _load_model(self):
         from intelli.model.deepseek.model import ModelArgs, Transformer
 
+        # Clear any GPU cached memory before loading.
+        self.torch.cuda.empty_cache()
+
+        # Use the provided config file or fall back to a default.
         if not self.config_path:
             self.config_path = os.path.join(self.model_path, "configs", "config_671B.json")
         with open(self.config_path, "r") as f:
@@ -120,7 +125,10 @@ class DeepSeekWrapper:
         self.torch.set_num_threads(8)
 
         self.args = ModelArgs(**mapped_config)
-        self.model = Transformer(self.args).cuda()
+        # Instantiate the model on CPU first.
+        self.model = Transformer(self.args)
+        # Move the model to GPU.
+        self.model = self.model.cuda()
 
         shard_files = sorted(glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors")))
         if not shard_files:
