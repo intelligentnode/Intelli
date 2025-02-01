@@ -31,7 +31,7 @@ class DeepSeekTokenizer:
         return " ".join(f"<{tid}>" for tid in token_ids if tid != self.eos_id)
 
 
-class UniversalWrapper:
+class DeepSeekWrapper:
     def __init__(
         self,
         model_path,
@@ -48,7 +48,7 @@ class UniversalWrapper:
 
         :param model_path: Path to the checkpoint directory.
             - For DeepSeek‑style models, this directory should contain many checkpoint shards.
-            - For Qwen2.5‑Math‑1.5B, it will contain a single file named "model.safetensors".
+            - For Qwen2.5‑Math‑1.5B (or DeepSeek‑R1‑Distill‑Qwen‑1.5B), it will contain a single file named "model.safetensors".
         :param config_path: Path to the configuration file (e.g., config.json).
         :param temperature: Sampling temperature.
         :param max_new_tokens: Maximum tokens to generate.
@@ -93,7 +93,7 @@ class UniversalWrapper:
         """
         For DeepSeek-style checkpoints, check if converted weight files exist.
         If not—and if multiple checkpoint shards exist—run the conversion script.
-        For single-file checkpoints (like Qwen2.5‑Math‑1.5B where "model.safetensors" exists)
+        For single-file checkpoints (like DeepSeek‑R1‑Distill‑Qwen‑1.5B where "model.safetensors" exists)
         conversion is skipped.
         """
         # Check for a single checkpoint file.
