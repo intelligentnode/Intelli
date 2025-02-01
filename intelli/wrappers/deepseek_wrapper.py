@@ -27,11 +27,11 @@ class DeepSeekTokenizer:
         return token_ids
 
     def detokenize(self, token_ids):
-        # For demonstration, join token ids as strings.
+        # For demonstration, simply join token ids.
         return " ".join(f"<{tid}>" for tid in token_ids if tid != self.eos_id)
 
 
-class DeepSeekWrapper:
+class UniversalWrapper:
     def __init__(
         self,
         model_path,
@@ -44,17 +44,18 @@ class DeepSeekWrapper:
         use_fp8=False,
     ):
         """
-        Offline wrapper for DeepSeek.
+        Universal inference wrapper.
 
-        :param model_path: Path to the model checkpoint (HF weights or converted).
-        :param config_path: Path to the DeepSeek config file.
+        :param model_path: Path to the checkpoint directory.
+            - For DeepSeek‑style models, this directory should contain many checkpoint shards.
+            - For Qwen2.5‑Math‑1.5B, it will contain a single file named "model.safetensors".
+        :param config_path: Path to the configuration file (e.g., config.json).
         :param temperature: Sampling temperature.
         :param max_new_tokens: Maximum tokens to generate.
-        :param model_parallel: Number of GPUs over which to split the model.
-                               (For 8B models, a value >1 is recommended on multi-GPU systems.)
-        :param device: Device to load the model onto ("cuda" or "cpu").
-        :param enable_dp_attention: If True, enable data-parallel attention mode.
-        :param use_fp8: If True, try to use FP8 quantization for inference.
+        :param model_parallel: Model parallelism factor.
+        :param device: "cuda" or "cpu".
+        :param enable_dp_attention: Enable data-parallel attention (if supported by the model).
+        :param use_fp8: Attempt to use FP8 quantization.
         """
         import torch
 
@@ -73,7 +74,7 @@ class DeepSeekWrapper:
         self.tokenizer = DeepSeekTokenizer()
         self.eos_id = self.tokenizer.eos_id
 
-        # Optionally set FP8 as default dtype (if supported)
+        # Try to set FP8 dtype if requested.
         if self.use_fp8:
             try:
                 self.torch.set_default_dtype(self.torch.float8_e4m3fn)
@@ -84,14 +85,26 @@ class DeepSeekWrapper:
         else:
             self.torch.set_default_dtype(self.torch.bfloat16)
 
+        # For DeepSeek-style models (with many shards) we may need to run conversion.
         self._maybe_convert_model()
         self._load_model()
 
     def _maybe_convert_model(self):
         """
-        Check if converted weights (files matching "model*-mp*.safetensors") exist.
-        If not—and if original HF checkpoint shards exist—run the conversion script.
+        For DeepSeek-style checkpoints, check if converted weight files exist.
+        If not—and if multiple checkpoint shards exist—run the conversion script.
+        For single-file checkpoints (like Qwen2.5‑Math‑1.5B where "model.safetensors" exists)
+        conversion is skipped.
         """
+        # Check for a single checkpoint file.
+        single_checkpoint = glob.glob(
+            os.path.join(self.model_path, "model.safetensors")
+        )
+        if single_checkpoint:
+            print("Single checkpoint detected; no conversion needed.")
+            return
+
+        # Otherwise, check if converted files exist.
         converted_files = glob.glob(
             os.path.join(self.model_path, "model*-mp*.safetensors")
         )
@@ -107,11 +120,8 @@ class DeepSeekWrapper:
                 with open(self.config_path, "r") as f:
                     hf_config = json.load(f)
                 n_experts = hf_config.get("n_routed_experts", 256)
-            mp = self.model_parallel  # use the provided model parallelism factor
-
-            # Compute the conversion script path relative to the project layout.
-            # Here we assume the conversion script is located at:
-            # <project_root>/model/deepseek/convert.py
+            mp = self.model_parallel
+            # Assume the conversion script is located at <project_root>/model/deepseek/convert.py.
             conversion_script = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
                 "model",
@@ -132,41 +142,60 @@ class DeepSeekWrapper:
             ]
             print("Running conversion command:", " ".join(cmd))
             subprocess.run(cmd, check=True)
-            # Update model_path to the converted directory.
             self.model_path = converted_dir
         elif not converted_files and not hf_shard_files:
             raise ValueError("No valid weight files found in the model path.")
 
     def _load_model(self):
         """
-        Load and initialize the DeepSeek model using the converted weights.
+        Load the model and weights. Dynamically select the model class based on config.
+        For Qwen-style models, the config's "model_type" field should indicate "qwen2".
         """
-        from intelli.model.deepseek.model import ModelArgs, Transformer
+        from_path = self.config_path
+        if not from_path:
+            # Fall back to a default if no config is provided.
+            from_path = os.path.join(self.model_path, "configs", "config_671B.json")
+        with open(from_path, "r") as f:
+            hf_config = json.load(f)
 
-        # Clear any cached GPU memory.
+        model_type = hf_config.get("model_type", "").lower()
+        if "qwen2" in model_type:
+            # Dynamically import Qwen model definitions.
+            try:
+                from intelli.model.qwen.model import (
+                    ModelArgs,
+                    QwenForCausalLM as Transformer,
+                )
+
+                print("Loading Qwen2 model.")
+            except ImportError as e:
+                raise ImportError(
+                    "Failed to import Qwen model implementation. "
+                    "Ensure intelli/model/qwen/model.py exists."
+                ) from e
+        else:
+            from intelli.model.deepseek.model import ModelArgs, Transformer
+
+            print("Loading DeepSeek model.")
+
+        # Clear cached GPU memory if using CUDA.
         if self.device == "cuda":
             self.torch.cuda.empty_cache()
 
-        # Use provided config or fall back to default.
-        if not self.config_path:
-            self.config_path = os.path.join(
-                self.model_path, "configs", "config_671B.json"
-            )
-        with open(self.config_path, "r") as f:
-            hf_config = json.load(f)
-
+        # Instantiate model arguments.
+        mapped_config = {}
         mapping = {
             "vocab_size": "vocab_size",
             "dim": "hidden_size",  # HF: hidden_size → our: dim
             "inter_dim": "intermediate_size",  # HF: intermediate_size → our: inter_dim
             "moe_inter_dim": "moe_intermediate_size",  # HF: moe_intermediate_size → our: moe_inter_dim
             "n_layers": "num_hidden_layers",  # HF: num_hidden_layers → our: n_layers
-            "n_dense_layers": "n_dense_layers",  # Default to 1 if not present
+            "n_dense_layers": "n_dense_layers",  # default to 1 if missing
             "n_heads": "num_attention_heads",  # HF: num_attention_heads → our: n_heads
             "n_routed_experts": "n_routed_experts",
             "n_shared_experts": "n_shared_experts",
-            "n_activated_experts": "num_experts_per_tok",  # HF: num_experts_per_tok → our: n_activated_experts
-            "route_scale": "routed_scaling_factor",  # HF: routed_scaling_factor → our: route_scale
+            "n_activated_experts": "num_experts_per_tok",
+            "route_scale": "routed_scaling_factor",
             "q_lora_rank": "q_lora_rank",
             "kv_lora_rank": "kv_lora_rank",
             "qk_nope_head_dim": "qk_nope_head_dim",
@@ -174,7 +203,6 @@ class DeepSeekWrapper:
             "v_head_dim": "v_head_dim",
             "mscale": lambda cfg: cfg.get("rope_scaling", {}).get("mscale", 1.0),
         }
-        mapped_config = {}
         for our_key, hf_key in mapping.items():
             if isinstance(hf_key, str):
                 if hf_key in hf_config:
@@ -184,32 +212,44 @@ class DeepSeekWrapper:
         if "n_dense_layers" not in mapped_config:
             mapped_config["n_dense_layers"] = 1
 
-        # Instantiate model arguments.
         self.args = ModelArgs(**mapped_config)
 
-        # Instantiate the model on CPU first.
+        # Instantiate the model (on CPU first).
         self.model = Transformer(self.args)
-
-        # If DP attention is enabled, set a flag on the model (your attention modules must check this flag).
+        # Optionally set a flag for DP attention.
         if self.enable_dp_attention:
             print("Enabling data-parallel attention mode.")
             self.model.enable_dp_attention = True
 
-        # Move model to the chosen device.
+        # Move the model to the specified device.
         self.model = self.model.to(self.device)
 
-        # Optionally compile the model with torch.compile (requires PyTorch 2.0+)
+        # If available, attempt to compile the model.
         try:
             self.model = self.torch.compile(self.model)
-            print("Model compiled with torch.compile()")
+            print("Model compiled with torch.compile().")
         except Exception as e:
-            print("torch.compile() failed or not supported; continuing without it.", e)
+            print(
+                "torch.compile() failed or not supported; proceeding without compilation.",
+                e,
+            )
 
-        shard_files = sorted(
-            glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors"))
+        # Determine which weight files to load.
+        # For Qwen2.5-Math-1.5B, there is a single file "model.safetensors".
+        single_checkpoint = glob.glob(
+            os.path.join(self.model_path, "model.safetensors")
         )
-        if not shard_files:
-            raise ValueError("No converted weight shard files found in the model path.")
+        if single_checkpoint:
+            shard_files = single_checkpoint
+        else:
+            shard_files = sorted(
+                glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors"))
+            )
+            if not shard_files:
+                raise ValueError(
+                    "No converted weight shard files found in the model path."
+                )
+
         for shard_file in shard_files:
             print(f"Loading weights from {shard_file}")
             from safetensors.torch import load_model
