@@ -31,7 +31,7 @@ class TestDeepSeekQwenIntegration(unittest.TestCase):
         
         # Instantiate the universal wrapper.
         # Since this is a 1.5B model, it should comfortably run on a single GPU.
-        self.wrapper = UniversalWrapper(
+        self.wrapper = DeepSeekWrapper(
             model_path=self.model_dir,
             config_path=os.path.join(self.model_dir, "config.json"),
             temperature=0.7,
