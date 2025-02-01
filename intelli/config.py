@@ -73,6 +73,11 @@ config = {
             "messages": "/v1/messages",
             "version": "2023-06-01"
         },
+        "nvidia": {
+            "base": "https://integrate.api.nvidia.com",
+            "chat": "/v1/chat/completions",
+            "embeddings": "/v1/embeddings"
+        },
     },
     "models": {
         "replicate": {
