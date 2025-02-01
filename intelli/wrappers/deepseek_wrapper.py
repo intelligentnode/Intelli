@@ -187,9 +187,10 @@ class DeepSeekWrapper:
 
         self.args = ModelArgs(**mapped_config)
 
-        # Instantiate the model (on CPU first).
+        # Instantiate the model on CPU first.
         self.model = Transformer(self.args)
-        # Optionally set a flag for DP attention.
+
+        # Optionally set a flag for data-parallel attention.
         if self.enable_dp_attention:
             print("Enabling data-parallel attention mode.")
             self.model.enable_dp_attention = True
@@ -197,18 +198,7 @@ class DeepSeekWrapper:
         # Move the model to the specified device.
         self.model = self.model.to(self.device)
 
-        # If available, attempt to compile the model.
-        try:
-            self.model = self.torch.compile(self.model)
-            print("Model compiled with torch.compile().")
-        except Exception as e:
-            print(
-                "torch.compile() failed or not supported; proceeding without compilation.",
-                e,
-            )
-
         # Determine which weight files to load.
-        # For DeepSeek‑R1‑Distill‑Qwen‑1.5B, there is a single file "model.safetensors".
         single_checkpoint = glob.glob(os.path.join(self.model_path, "model.safetensors"))
         if single_checkpoint:
             shard_files = single_checkpoint
@@ -217,11 +207,20 @@ class DeepSeekWrapper:
             if not shard_files:
                 raise ValueError("No converted weight shard files found in the model path.")
 
+        # Load the weights into the model.
         for shard_file in shard_files:
             print(f"Loading weights from {shard_file}")
             from safetensors.torch import load_model
             load_model(self.model, shard_file)
         self.model.eval()
+
+        # Now (optionally) compile the model.
+        try:
+            self.model = self.torch.compile(self.model)
+            print("Model compiled with torch.compile().")
+        except Exception as e:
+            print("torch.compile() failed or not supported; proceeding without compilation.", e)
+
 
     def _sample(self, logits):
         if self.temperature <= 0.0:
