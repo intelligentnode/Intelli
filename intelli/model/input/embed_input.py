@@ -21,6 +21,16 @@ class EmbedInput:
                 "parts": [{"text": text} for text in self.texts]
             }
         }
+    
+    def get_nvidia_inputs(self):
+        inputs = {
+            "input": self.texts,
+            "model": self.model,
+            "input_type": "query",
+            "encoding_format": "float",
+            "truncate": "NONE"
+        }
+        return inputs
 
     def set_default_values(self, provider):
         if provider == "openai":

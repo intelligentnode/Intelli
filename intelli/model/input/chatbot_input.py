@@ -131,3 +131,15 @@ class ChatModelInput:
             **self.options
         }
         return params
+
+    def get_nvidia_input(self):
+        messages = [{'role': msg.role, 'content': msg.content} for msg in self.messages]
+        params = {
+            'model': self.model,
+            'messages': messages,
+            **({'temperature': self.temperature} if self.temperature is not None else {}),
+            **({'max_tokens': self.max_tokens} if self.max_tokens is not None else {}),
+            **self.options
+        }
+        return params
+

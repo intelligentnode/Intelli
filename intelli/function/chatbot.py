@@ -8,6 +8,7 @@ from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
 from intelli.wrappers.keras_wrapper import KerasWrapper
+from intelli.wrappers.nvidia_wrapper import NvidiaWrapper
 from enum import Enum
 
 class ChatProvider(Enum):
@@ -16,6 +17,7 @@ class ChatProvider(Enum):
     MISTRAL = "mistral"
     ANTHROPIC = "anthropic"
     KERAS = "keras"
+    NVIDIA = "nvidia"
 
 class Chatbot:
 
@@ -58,6 +60,8 @@ class Chatbot:
             return AnthropicWrapper(self.api_key)
         elif self.provider == ChatProvider.KERAS.value:
             return KerasWrapper(self.options['model_name'], self.options.get('model_params', {}))
+        elif self.provider == ChatProvider.NVIDIA.value:
+            return NvidiaWrapper(self.api_key)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -104,6 +108,13 @@ class Chatbot:
         response = self.wrapper.generate_text(params)
 
         return [message['text'] for message in response['content']]
+    
+    def _chat_nvidia(self, params):
+        result = self.wrapper.generate_text(params)
+        choices = result.get("choices", [])
+        if not choices:
+            raise Exception("No choices returned from NVIDIA API")
+        return [choices[0]["message"]["content"]]
 
     def stream(self, chat_input):
         """Streams responses from the selected provider for the given chat input."""
@@ -156,6 +167,20 @@ class Chatbot:
                 except json.JSONDecodeError as e:
                     print("Error decoding JSON from stream:", e)
 
+    def _stream_nvidia(self, params):
+        params["stream"] = True
+        stream = self.wrapper.generate_text_stream(params)
+        for line in stream:
+            if line.strip() and line.startswith("data: ") and line != "data: [DONE]":
+                json_content = line[len("data: "):].strip()
+                try:
+                    data_chunk = json.loads(json_content)
+                    content = data_chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                    if content:
+                        yield content
+                except json.JSONDecodeError as e:
+                    print("Error decoding JSON:", e)
+    
     # helpers
     def _parse_openai_responses(self, results):
         responses = []
