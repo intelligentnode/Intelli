@@ -32,6 +32,9 @@ class Chatbot:
         self.add_rag(options)
         self.system_helper = SystemHelper()
 
+        if self.provider and self.provider == ChatProvider.NVIDIA.value and not api_key:
+            print("Please obtain NVIDIA API Key from https://build.nvidia.com/")
+
     def add_rag(self, options):
         self.extended_search = IntellicloudWrapper(options['one_key'],
                                                    options.get('api_base', None)) if 'one_key' in options else None

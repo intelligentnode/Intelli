@@ -10,7 +10,7 @@
 
 </p>
 
-Create chatbots and AI agent work flows. Intellinode python module connect your data with multiple AI models like OpenAI, Gemini, Anthropic, Stable Diffusion, or Mistral through a unified access layer.
+A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer.
 
 
 ```bash
@@ -32,13 +32,13 @@ Switch between multiple chatbot providers without changing your code.
 from intelli.function.chatbot import Chatbot
 from intelli.model.input.chatbot_input import ChatModelInput
 
-def call_chatbot(provider, model=None):
+def call_chatbot(provider, model=None, api_key='YOUR_API_KEY'):
     # prepare common input 
     input = ChatModelInput("You are a helpful assistant.", model)
     input.add_user_message("What is the capital of France?")
 
     # creating chatbot instance
-    openai_bot = Chatbot(YOUR_API_KEY, provider)
+    openai_bot = Chatbot(api_key, provider)
     response = openai_bot.chat(input)
 
     return response
@@ -51,6 +51,9 @@ call_chatbot("mistral", "mistral-medium")
 
 # call claude3
 call_chatbot(ChatProvider.ANTHROPIC, "claude-3-sonnet-20240229")
+
+# Call NVIDIA Deepseek.
+call_chatbot(ChatProvider.NVIDIA, "deepseek-ai/deepseek-r1")
 
 # call google gemini
 call_chatbot("gemini")
