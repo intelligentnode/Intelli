@@ -78,7 +78,7 @@ class DeepSeekWrapper:
             try:
                 self.torch.set_default_dtype(self.torch.float8_e4m3fn)
                 print("Using FP8 quantization.")
-            except AttributeError:
+            except (AttributeError, TypeError):
                 print("FP8 dtype not available; falling back to BF16.")
                 self.torch.set_default_dtype(self.torch.bfloat16)
         else:
