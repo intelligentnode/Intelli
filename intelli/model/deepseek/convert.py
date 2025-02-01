@@ -7,7 +7,6 @@ from tqdm import tqdm, trange
 import torch
 from safetensors.torch import safe_open, save_file
 
-
 mapping = {
     "embed_tokens": ("embed", 0),
     "input_layernorm": ("attn_norm", None),
@@ -29,7 +28,6 @@ mapping = {
     "scale": ("scale", None),
 }
 
-
 def main(hf_ckpt_path, save_path, n_experts, mp):
     """
     Converts and saves model checkpoint files into a specified format.
@@ -39,9 +37,6 @@ def main(hf_ckpt_path, save_path, n_experts, mp):
         save_path (str): Path to the directory where the converted checkpoint files will be saved.
         n_experts (int): Total number of experts in the model.
         mp (int): Model parallelism factor.
-        
-    Returns:
-        None
     """
     torch.set_num_threads(8)
     n_local_experts = n_experts // mp
@@ -83,7 +78,6 @@ def main(hf_ckpt_path, save_path, n_experts, mp):
     for file_path in glob(os.path.join(hf_ckpt_path, "*token*")):
         new_file_path = os.path.join(save_path, os.path.basename(file_path))
         shutil.copyfile(file_path, new_file_path)
-
 
 if __name__ == "__main__":
     parser = ArgumentParser()
