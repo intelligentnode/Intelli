@@ -10,7 +10,6 @@ class TestDeepSeekIntegration(unittest.TestCase):
         os.makedirs(self.model_dir, exist_ok=True)
         
         # Download the config file.
-        # The official DeepSeek-R1 repo does not have "config_16B.json", so we use "config.json".
         self.config_filename = "config.json"
         self.config_path = os.path.join(self.model_dir, self.config_filename)
         if not os.path.exists(self.config_path):
@@ -36,8 +35,6 @@ class TestDeepSeekIntegration(unittest.TestCase):
             )
         
         # Initialize the DeepSeek wrapper with the downloaded files.
-        # (Your wrapper's _load_model() should translate the downloaded config.json keys
-        # into the keys expected by ModelArgs.)
         self.wrapper = DeepSeekWrapper(
             model_path=self.model_dir,
             config_path=self.config_path,

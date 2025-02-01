@@ -1,7 +1,6 @@
 import os
 import json
 import torch
-from safetensors.torch import load_model
 
 # A very basic tokenizer for demonstration.
 # In production you should use a robust tokenizer.
@@ -66,7 +65,7 @@ class DeepSeekWrapper:
             hf_config = json.load(f)
 
         # Map HF config keys to the ones expected by ModelArgs.
-        # (For example, your small offline config expects keys like "dim" but HF config uses "hidden_size".)
+        # (expects keys like "dim" but HF config uses "hidden_size".)
         mapping = {
             "vocab_size": "vocab_size",               # same key
             "dim": "hidden_size",                     # HF: hidden_size → our: dim
@@ -101,7 +100,7 @@ class DeepSeekWrapper:
         if "n_dense_layers" not in mapped_config:
             mapped_config["n_dense_layers"] = 1
 
-        # Optionally, you can print or log the mapped configuration for debugging:
+        # print or log the mapped configuration for debugging:
         # print("Mapped config for ModelArgs:", mapped_config)
 
         # Set default dtype based on our configuration.
@@ -116,7 +115,6 @@ class DeepSeekWrapper:
         self.model = Transformer(self.args).cuda()
 
         # For single GPU usage, we assume a single weight file.
-        # (Here, we try to load the file we downloaded. Adjust the file name as needed.)
         from safetensors.torch import load_model
         # Here we assume the weight file is "model-00001-of-000163.safetensors"
         model_file = os.path.join(self.model_path, "model-00001-of-000163.safetensors")
