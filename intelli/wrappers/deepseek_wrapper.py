@@ -44,11 +44,11 @@ class DeepSeekWrapper:
         use_fp8=False,
     ):
         """
-        Universal inference wrapper.
+        Universal inference wrapper for DeepSeek models.
 
         :param model_path: Path to the checkpoint directory.
             - For DeepSeek‑style models, this directory should contain many checkpoint shards.
-            - For Qwen2.5‑Math‑1.5B (or DeepSeek‑R1‑Distill‑Qwen‑1.5B), it will contain a single file named "model.safetensors".
+            - For DeepSeek‑R1‑Distill‑Qwen‑1.5B, it will contain a single file named "model.safetensors".
         :param config_path: Path to the configuration file (e.g., config.json).
         :param temperature: Sampling temperature.
         :param max_new_tokens: Maximum tokens to generate.
@@ -93,24 +93,18 @@ class DeepSeekWrapper:
         """
         For DeepSeek-style checkpoints, check if converted weight files exist.
         If not—and if multiple checkpoint shards exist—run the conversion script.
-        For single-file checkpoints (like DeepSeek‑R1‑Distill‑Qwen‑1.5B where "model.safetensors" exists)
+        For single-file checkpoints (e.g., DeepSeek‑R1‑Distill‑Qwen‑1.5B with "model.safetensors"),
         conversion is skipped.
         """
         # Check for a single checkpoint file.
-        single_checkpoint = glob.glob(
-            os.path.join(self.model_path, "model.safetensors")
-        )
+        single_checkpoint = glob.glob(os.path.join(self.model_path, "model.safetensors"))
         if single_checkpoint:
             print("Single checkpoint detected; no conversion needed.")
             return
 
         # Otherwise, check if converted files exist.
-        converted_files = glob.glob(
-            os.path.join(self.model_path, "model*-mp*.safetensors")
-        )
-        hf_shard_files = glob.glob(
-            os.path.join(self.model_path, "model-000*-of-*.safetensors")
-        )
+        converted_files = glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors"))
+        hf_shard_files = glob.glob(os.path.join(self.model_path, "model-000*-of-*.safetensors"))
         if not converted_files and hf_shard_files:
             print("Converted model weights not found. Running conversion...")
             converted_dir = os.path.join(self.model_path, "converted")
@@ -131,14 +125,10 @@ class DeepSeekWrapper:
             cmd = [
                 sys.executable,
                 conversion_script,
-                "--hf-ckpt-path",
-                self.model_path,
-                "--save-path",
-                converted_dir,
-                "--n-experts",
-                str(n_experts),
-                "--model-parallel",
-                str(mp),
+                "--hf-ckpt-path", self.model_path,
+                "--save-path", converted_dir,
+                "--n-experts", str(n_experts),
+                "--model-parallel", str(mp),
             ]
             print("Running conversion command:", " ".join(cmd))
             subprocess.run(cmd, check=True)
@@ -148,8 +138,7 @@ class DeepSeekWrapper:
 
     def _load_model(self):
         """
-        Load the model and weights. Dynamically select the model class based on config.
-        For Qwen-style models, the config's "model_type" field should indicate "qwen2".
+        Load the model and weights. Always loads the general DeepSeek model.
         """
         from_path = self.config_path
         if not from_path:
@@ -158,25 +147,9 @@ class DeepSeekWrapper:
         with open(from_path, "r") as f:
             hf_config = json.load(f)
 
-        model_type = hf_config.get("model_type", "").lower()
-        if "qwen2" in model_type:
-            # Dynamically import Qwen model definitions.
-            try:
-                from intelli.model.qwen.model import (
-                    ModelArgs,
-                    QwenForCausalLM as Transformer,
-                )
-
-                print("Loading Qwen2 model.")
-            except ImportError as e:
-                raise ImportError(
-                    "Failed to import Qwen model implementation. "
-                    "Ensure intelli/model/qwen/model.py exists."
-                ) from e
-        else:
-            from intelli.model.deepseek.model import ModelArgs, Transformer
-
-            print("Loading DeepSeek model.")
+        # Always load the DeepSeek model.
+        from intelli.model.deepseek.model import ModelArgs, Transformer
+        print("Loading DeepSeek model.")
 
         # Clear cached GPU memory if using CUDA.
         if self.device == "cuda":
@@ -235,25 +208,18 @@ class DeepSeekWrapper:
             )
 
         # Determine which weight files to load.
-        # For Qwen2.5-Math-1.5B, there is a single file "model.safetensors".
-        single_checkpoint = glob.glob(
-            os.path.join(self.model_path, "model.safetensors")
-        )
+        # For DeepSeek‑R1‑Distill‑Qwen‑1.5B, there is a single file "model.safetensors".
+        single_checkpoint = glob.glob(os.path.join(self.model_path, "model.safetensors"))
         if single_checkpoint:
             shard_files = single_checkpoint
         else:
-            shard_files = sorted(
-                glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors"))
-            )
+            shard_files = sorted(glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors")))
             if not shard_files:
-                raise ValueError(
-                    "No converted weight shard files found in the model path."
-                )
+                raise ValueError("No converted weight shard files found in the model path.")
 
         for shard_file in shard_files:
             print(f"Loading weights from {shard_file}")
             from safetensors.torch import load_model
-
             load_model(self.model, shard_file)
         self.model.eval()
 
@@ -274,11 +240,9 @@ class DeepSeekWrapper:
                 logits = self.model(tokens_tensor, start_pos=0)
                 last_logits = logits[0]
                 next_token = self._sample(last_logits)
-                tokens_tensor = self.torch.cat(
-                    [tokens_tensor, next_token.unsqueeze(0)], dim=1
-                )
+                tokens_tensor = self.torch.cat([tokens_tensor, next_token.unsqueeze(0)], dim=1)
                 if next_token.item() == self.eos_id:
                     break
-        generated_tokens = tokens_tensor[0].tolist()[len(tokens) :]
+        generated_tokens = tokens_tensor[0].tolist()[len(tokens):]
         output_text = self.tokenizer.detokenize(generated_tokens)
         return output_text
