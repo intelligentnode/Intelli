@@ -31,11 +31,14 @@ class TestDeepSeekIntegration8B(unittest.TestCase):
 
         # Initialize the DeepSeek wrapper.
         self.wrapper = DeepSeekWrapper(
-            model_path=self.model_dir,
-            config_path=os.path.join(self.model_dir, "config.json"),
-            temperature=0.7,
-            max_new_tokens=20,
-        )
+                    model_path=self.model_dir,
+                    config_path=os.path.join(self.model_dir, "config.json"),
+                    temperature=0.7,
+                    max_new_tokens=20,
+                    model_parallel=1,
+                    device="cuda",
+                    enable_dp_attention=True,
+                    use_fp8=True)
 
     def test_basic_generate(self):
         prompt = "Hello from Intelli with the 8B model. How are you?"
