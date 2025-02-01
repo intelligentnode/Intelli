@@ -10,12 +10,10 @@ class DeepSeekTokenizer:
         self.eos_token = eos_token
         # Reserve token id 0 as EOS.
         self.eos_id = 0
-        # For demonstration, we build a simple vocabulary.
         self.vocab = {}
 
     def _get_token_id(self, token):
         if token not in self.vocab:
-            # A simple hash-based id (in production load a fixed vocabulary).
             self.vocab[token] = (hash(token) % 50000) + 1
         return self.vocab[token]
 
@@ -26,19 +24,10 @@ class DeepSeekTokenizer:
         return token_ids
 
     def detokenize(self, token_ids):
-        # For demonstration, simply join token ids (in production, map back to tokens)
         return " ".join(f"<{tid}>" for tid in token_ids if tid != self.eos_id)
-
 
 class DeepSeekWrapper:
     def __init__(self, model_path, config_path=None, temperature=0.2, max_new_tokens=200):
-        """
-        Offline wrapper for DeepSeek.
-        :param model_path: Path to the model checkpoint (HF weights or converted).
-        :param config_path: Path to the DeepSeek config file.
-        :param temperature: Sampling temperature.
-        :param max_new_tokens: Maximum tokens to generate.
-        """
         import torch
         self.torch = torch
 
@@ -50,31 +39,27 @@ class DeepSeekWrapper:
         self.tokenizer = DeepSeekTokenizer()
         self.eos_id = self.tokenizer.eos_id
 
-        # Check if conversion is needed (if the weights are still in HF checkpoint format)
         self._maybe_convert_model()
         self._load_model()
 
     def _maybe_convert_model(self):
         """
-        Check if converted weights (files matching "model*-mp*.safetensors")
-        exist. If not, assume that the model_path contains original HF checkpoint shards
-        and run the conversion script.
+        If converted weights (files matching "model*-mp*.safetensors") are not found,
+        run the conversion script.
         """
         converted_files = glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors"))
         hf_shard_files = glob.glob(os.path.join(self.model_path, "model-000*-of-*.safetensors"))
         if not converted_files and hf_shard_files:
             print("Converted model weights not found. Running conversion...")
-            # Create a subfolder for the converted weights
             converted_dir = os.path.join(self.model_path, "converted")
             os.makedirs(converted_dir, exist_ok=True)
-            # Determine n_experts from the config if available; otherwise use default 256.
             n_experts = 256
             if self.config_path and os.path.exists(self.config_path):
                 with open(self.config_path, "r") as f:
                     hf_config = json.load(f)
                 n_experts = hf_config.get("n_routed_experts", 256)
-            mp = 1  # For single-GPU inference.
-            # Fix the conversion script path: move up from "intelli/wrappers" to "intelli" then "model/deepseek"
+            mp = 1
+            # Fix the conversion script path: assume it's at <project_root>/model/deepseek/convert.py
             conversion_script = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "deepseek", "convert.py")
             cmd = [
                 sys.executable,
@@ -86,37 +71,30 @@ class DeepSeekWrapper:
             ]
             print("Running conversion command:", " ".join(cmd))
             subprocess.run(cmd, check=True)
-            # Update the model_path to point to the converted directory.
             self.model_path = converted_dir
         elif not converted_files and not hf_shard_files:
             raise ValueError("No valid weight files found in the model path.")
 
     def _load_model(self):
-        """
-        Load and initialize the DeepSeek model using the converted weights.
-        """
-        # Import your model definitions from your local package.
         from intelli.model.deepseek.model import ModelArgs, Transformer
 
-        # Use fallback config if none provided.
         if not self.config_path:
             self.config_path = os.path.join(self.model_path, "configs", "config_671B.json")
         with open(self.config_path, "r") as f:
             hf_config = json.load(f)
 
-        # Map HF config keys to those expected by ModelArgs.
         mapping = {
             "vocab_size": "vocab_size",
-            "dim": "hidden_size",                     # HF: hidden_size → our: dim
-            "inter_dim": "intermediate_size",         # HF: intermediate_size → our: inter_dim
-            "moe_inter_dim": "moe_intermediate_size", # HF: moe_intermediate_size → our: moe_inter_dim
-            "n_layers": "num_hidden_layers",          # HF: num_hidden_layers → our: n_layers
-            "n_dense_layers": "n_dense_layers",       # if not present, we will default to 1
-            "n_heads": "num_attention_heads",         # HF: num_attention_heads → our: n_heads
+            "dim": "hidden_size",
+            "inter_dim": "intermediate_size",
+            "moe_inter_dim": "moe_intermediate_size",
+            "n_layers": "num_hidden_layers",
+            "n_dense_layers": "n_dense_layers",
+            "n_heads": "num_attention_heads",
             "n_routed_experts": "n_routed_experts",
             "n_shared_experts": "n_shared_experts",
-            "n_activated_experts": "num_experts_per_tok",  # HF: num_experts_per_tok → our: n_activated_experts
-            "route_scale": "routed_scaling_factor",     # HF: routed_scaling_factor → our: route_scale
+            "n_activated_experts": "num_experts_per_tok",
+            "route_scale": "routed_scaling_factor",
             "q_lora_rank": "q_lora_rank",
             "kv_lora_rank": "kv_lora_rank",
             "qk_nope_head_dim": "qk_nope_head_dim",
@@ -135,7 +113,6 @@ class DeepSeekWrapper:
         if "n_dense_layers" not in mapped_config:
             mapped_config["n_dense_layers"] = 1
 
-        # Set default dtype based on config.
         if mapped_config.get("dtype", "bf16") == "fp8":
             self.torch.set_default_dtype(self.torch.float32)
         else:
@@ -145,7 +122,6 @@ class DeepSeekWrapper:
         self.args = ModelArgs(**mapped_config)
         self.model = Transformer(self.args).cuda()
 
-        # Load converted weight shards.
         shard_files = sorted(glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors")))
         if not shard_files:
             raise ValueError("No converted weight shard files found in the model path.")
@@ -156,9 +132,6 @@ class DeepSeekWrapper:
         self.model.eval()
 
     def _sample(self, logits):
-        """
-        Sample one token id from logits using temperature-based sampling.
-        """
         if self.temperature <= 0.0:
             return self.torch.argmax(logits, dim=-1, keepdim=True)
         scaled_logits = logits / max(self.temperature, 1e-5)
@@ -166,15 +139,11 @@ class DeepSeekWrapper:
         return self.torch.multinomial(probs, num_samples=1)
 
     def generate(self, prompt):
-        """
-        Generate text autoregressively from a given prompt.
-        """
         tokens = self.tokenizer.tokenize(prompt)
         tokens_tensor = self.torch.tensor([tokens], dtype=self.torch.long, device="cuda")
         with self.torch.no_grad():
             for _ in range(self.max_new_tokens):
-                # The model expects the full sequence (for efficiency, caching past activations could be added)
-                logits = self.model(tokens_tensor, start_pos=0)  # (batch_size, vocab_size)
+                logits = self.model(tokens_tensor, start_pos=0)
                 last_logits = logits[0]
                 next_token = self._sample(last_logits)
                 tokens_tensor = self.torch.cat([tokens_tensor, next_token.unsqueeze(0)], dim=1)

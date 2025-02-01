@@ -7,6 +7,7 @@ from tqdm import tqdm, trange
 import torch
 from safetensors.torch import safe_open, save_file
 
+# Mapping from original HF weight keys to the ones used internally.
 mapping = {
     "embed_tokens": ("embed", 0),
     "input_layernorm": ("attn_norm", None),
@@ -31,12 +32,6 @@ mapping = {
 def main(hf_ckpt_path, save_path, n_experts, mp):
     """
     Converts and saves model checkpoint files into a specified format.
-
-    Args:
-        hf_ckpt_path (str): Path to the directory containing the input checkpoint files.
-        save_path (str): Path to the directory where the converted checkpoint files will be saved.
-        n_experts (int): Total number of experts in the model.
-        mp (int): Model parallelism factor.
     """
     torch.set_num_threads(8)
     n_local_experts = n_experts // mp
@@ -55,7 +50,9 @@ def main(hf_ckpt_path, save_path, n_experts, mp):
                 name = name.replace("weight_scale_inv", "scale")
                 name = name.replace("e_score_correction_bias", "bias")
                 key = name.split(".")[-2]
-                assert key in mapping
+                if key not in mapping:
+                    print(f"Warning: Key '{key}' not in mapping. Skipping parameter {name}.")
+                    continue
                 new_key, dim = mapping[key]
                 name = name.replace(key, new_key)
                 for i in range(mp):
