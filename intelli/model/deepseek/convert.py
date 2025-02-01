@@ -51,7 +51,7 @@ def main(hf_ckpt_path, save_path, n_experts, mp):
                 name = name.replace("e_score_correction_bias", "bias")
                 key = name.split(".")[-2]
                 if key not in mapping:
-                    print(f"Warning: Key '{key}' not in mapping. Skipping parameter {name}.")
+                    # print(f"Warning: Key '{key}' not in mapping. Skipping parameter {name}.")
                     continue
                 new_key, dim = mapping[key]
                 name = name.replace(key, new_key)

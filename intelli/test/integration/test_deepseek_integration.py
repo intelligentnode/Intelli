@@ -32,7 +32,8 @@ class TestDeepSeekIntegration(unittest.TestCase):
             config_path=os.path.join(self.model_dir, "config.json"),
             temperature=0.7,
             max_new_tokens=20,
-        )
+            enable_dp_attention=True,
+            use_fp8=True)
 
     def test_basic_generate(self):
         prompt = "Hello from Intelli. How are you?"
