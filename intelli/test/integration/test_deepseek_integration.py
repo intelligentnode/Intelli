@@ -5,36 +5,35 @@ from intelli.wrappers.deepseek_wrapper import DeepSeekWrapper
 
 class TestDeepSeekIntegration(unittest.TestCase):
     def setUp(self):
-        # Install the DeepSeek files into "./temp/deepseek_model"
+        # Directory for DeepSeek-R1 files.
         self.model_dir = os.path.join(os.getcwd(), "temp", "deepseek_model")
         os.makedirs(self.model_dir, exist_ok=True)
         
-        # Download the config file.
+        # Download the config file from the DeepSeek-R1 repository.
         self.config_filename = "config.json"
         self.config_path = os.path.join(self.model_dir, self.config_filename)
         if not os.path.exists(self.config_path):
-            print("Downloading config.json from Hugging Face...")
+            print("Downloading config.json from Hugging Face for DeepSeek-R1...")
             hf_hub_download(
                 repo_id="deepseek-ai/DeepSeek-R1",
                 filename=self.config_filename,
                 local_dir=self.model_dir,
-                local_dir_use_symlinks=False,
+                local_dir_use_symlinks=False
             )
         
-        # Download one model weight file.
-        # For single-GPU inference we choose one shard – here "model-00001-of-000163.safetensors".
+        # Download one weight shard file.
         self.model_filename = "model-00001-of-000163.safetensors"
         self.model_file_path = os.path.join(self.model_dir, self.model_filename)
         if not os.path.exists(self.model_file_path):
-            print("Downloading model weight file from Hugging Face (this may take a while)...")
+            print("Downloading model weight file from Hugging Face for DeepSeek-R1 (this may take a while)...")
             hf_hub_download(
                 repo_id="deepseek-ai/DeepSeek-R1",
                 filename=self.model_filename,
                 local_dir=self.model_dir,
-                local_dir_use_symlinks=False,
+                local_dir_use_symlinks=False
             )
         
-        # Initialize the DeepSeek wrapper with the downloaded files.
+        # Initialize the DeepSeek wrapper.
         self.wrapper = DeepSeekWrapper(
             model_path=self.model_dir,
             config_path=self.config_path,
