@@ -1,7 +1,7 @@
 import os
 import unittest
 from huggingface_hub import hf_hub_download, list_repo_files
-from intelli.wrappers.universal_wrapper import DeepSeekWrapper
+from intelli.wrappers.deepseek_wrapper import DeepSeekWrapper
 
 class TestDeepSeekQwenIntegration(unittest.TestCase):
     def setUp(self):
