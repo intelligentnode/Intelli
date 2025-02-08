@@ -18,8 +18,8 @@ pip install intelli
 ```
 
 # Latest changes
-- Add deepseek and Llama3 integration (doc)[https://docs.intellinode.ai/docs/python/chatbot/nvidia-chat].
-- Add offline speech2text Whisper (doc)[https://docs.intellinode.ai/docs/python/offline-chatbot/whisper].
+- Add deepseek and Llama3 integration [doc](https://docs.intellinode.ai/docs/python/chatbot/nvidia-chat).
+- Add offline speech2text Whisper [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/whisper).
 - Add Anthropic claude 3.5 as a chatbot provider.
 - Add KerasAgent to load open source models offline.
 

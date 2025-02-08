@@ -3,9 +3,10 @@ from intelli.config import config
 
 
 class NvidiaWrapper:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str, base_url: str = None):
         self.api_key = api_key
-        self.base_url = config["url"]["nvidia"]["base"]
+        # support local url or cloud nvidia builder by default
+        self.base_url = base_url if base_url is not None else config["url"]["nvidia"]["base"]
         self.chat_endpoint = config["url"]["nvidia"]["chat"]
         self.embeddings_endpoint = config["url"]["nvidia"]["embeddings"]
         self.headers = {

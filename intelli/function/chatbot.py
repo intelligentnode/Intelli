@@ -64,7 +64,14 @@ class Chatbot:
         elif self.provider == ChatProvider.KERAS.value:
             return KerasWrapper(self.options['model_name'], self.options.get('model_params', {}))
         elif self.provider == ChatProvider.NVIDIA.value:
-            return NvidiaWrapper(self.api_key)
+            nvidia_options = self.options.get("nvidiaOptions", {})
+            base_url = self.options.get("baseUrl", {})
+            if "baseUrl" in nvidia_options and nvidia_options["baseUrl"]:
+                return NvidiaWrapper(self.api_key, base_url=nvidia_options["baseUrl"])
+            elif base_url:
+                return NvidiaWrapper(self.api_key, base_url=base_url)
+            else:
+                return NvidiaWrapper(self.api_key)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
