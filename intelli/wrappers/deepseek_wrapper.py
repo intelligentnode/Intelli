@@ -6,32 +6,38 @@ import subprocess
 import sys
 
 
+# Use BPE or SentencePiece-based tokenizer for production.
 class DeepSeekTokenizer:
     def __init__(self, eos_token="<|endoftext|>"):
         self.eos_token = eos_token
-        # Reserve token id 0 as EOS.
+        # We'll reserve token id 0 as the EOS token.
         self.eos_id = 0
-        # For demonstration, we build a simple vocabulary.
+        # Minimal "vocab" as a dictionary, purely for demonstration.
         self.vocab = {}
 
     def _get_token_id(self, token):
+        # This is a naive approach. In production, load a real vocab file or use an actual tokenizer.
         if token not in self.vocab:
-            # A simple hash-based id (in production, load a fixed vocabulary)
             self.vocab[token] = (hash(token) % 50000) + 1
         return self.vocab[token]
 
     def tokenize(self, text):
+        # Lowercase and split by words/punctuation as a demonstration.
         text = text.lower()
         tokens = re.findall(r"\w+|[^\w\s]", text, re.UNICODE)
-        token_ids = [self._get_token_id(token) for token in tokens]
+        token_ids = [self._get_token_id(tok) for tok in tokens]
         return token_ids
 
     def detokenize(self, token_ids):
-        # For demonstration, simply join token ids.
+        # For demonstration, join as <id> except skip the eos token (0).
         return " ".join(f"<{tid}>" for tid in token_ids if tid != self.eos_id)
 
 
 class DeepSeekWrapper:
+    """
+    Offline inference wrapper for DeepSeek (R1 or variants).
+    """
+
     def __init__(
         self,
         model_path,
@@ -44,21 +50,17 @@ class DeepSeekWrapper:
         use_fp8=False,
     ):
         """
-        Universal inference wrapper for DeepSeek models.
-
         :param model_path: Path to the checkpoint directory.
-            - For DeepSeek‑style models, this directory should contain many checkpoint shards.
-            - For DeepSeek‑R1‑Distill‑Qwen‑1.5B, it will contain a single file named "model.safetensors".
-        :param config_path: Path to the configuration file (e.g., config.json).
-        :param temperature: Sampling temperature.
-        :param max_new_tokens: Maximum tokens to generate.
-        :param model_parallel: Model parallelism factor.
+            e.g. the directory containing 'model.safetensors' or multiple shards.
+        :param config_path: Path to a config.json (or similar). If None, tries a default config.
+        :param temperature: Sampling temperature. Set to <=0.0 for greedy.
+        :param max_new_tokens: Max number of tokens to generate.
+        :param model_parallel: Model parallel factor (if the model or code supports it).
         :param device: "cuda" or "cpu".
-        :param enable_dp_attention: Enable data-parallel attention (if supported by the model).
-        :param use_fp8: Attempt to use FP8 quantization.
+        :param enable_dp_attention: Some advanced 'data-parallel attention' modes if your code supports it.
+        :param use_fp8: Attempt to use FP8. Fallback to BF16 if not available.
         """
         import torch
-
         self.torch = torch
 
         self.model_path = model_path
@@ -70,58 +72,67 @@ class DeepSeekWrapper:
         self.enable_dp_attention = enable_dp_attention
         self.use_fp8 = use_fp8
 
-        self.model = None
+        # Prepare a minimal tokenizer placeholder.
         self.tokenizer = DeepSeekTokenizer()
         self.eos_id = self.tokenizer.eos_id
 
-        # Try to set FP8 dtype if requested.
+        # Attempt FP8 if requested, else BF16 (fallback if your GPU doesn't support it).
+        # If your system doesn't have torch.float8_e4m3fn, the except block will fallback.
         if self.use_fp8:
             try:
                 self.torch.set_default_dtype(self.torch.float8_e4m3fn)
-                print("Using FP8 quantization.")
+                print("[DeepSeek] Using FP8 quantization (float8_e4m3fn).")
             except (AttributeError, TypeError):
-                print("FP8 dtype not available; falling back to BF16.")
+                print("[DeepSeek] FP8 not available; falling back to BF16.")
                 self.torch.set_default_dtype(self.torch.bfloat16)
         else:
             self.torch.set_default_dtype(self.torch.bfloat16)
 
-        # For DeepSeek-style models (with many shards) we may need to run conversion.
+        self.model = None
         self._maybe_convert_model()
         self._load_model()
 
     def _maybe_convert_model(self):
         """
-        For DeepSeek-style checkpoints, check if converted weight files exist.
-        If not—and if multiple checkpoint shards exist—run the conversion script.
-        For single-file checkpoints (e.g., DeepSeek‑R1‑Distill‑Qwen‑1.5B with "model.safetensors"),
-        conversion is skipped.
+        If needed, run the local `convert.py` script to create unified safetensor shards.
+        This is typically done if you have multiple HF shards (model-00001-of-000xx.safetensors).
+        If you already have a single 'model.safetensors' or 'model0-mp1.safetensors' file, no conversion is done.
         """
-        # Check for a single checkpoint file.
-        single_checkpoint = glob.glob(os.path.join(self.model_path, "model.safetensors"))
-        if single_checkpoint:
-            print("Single checkpoint detected; no conversion needed.")
+        # 1) If there's exactly one 'model.safetensors' file, assume no conversion needed.
+        single_ckpt = glob.glob(os.path.join(self.model_path, "model.safetensors"))
+        if single_ckpt:
+            print("[DeepSeek] Single checkpoint file found; skipping conversion.")
             return
 
-        # Otherwise, check if converted files exist.
+        # 2) If we have a "converted" directory with 'model*-mp*.safetensors', skip.
         converted_files = glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors"))
+
+        # 3) If we have multiple HF shards "model-000x-of-xxxx.safetensors" but no converted shard, do conversion.
         hf_shard_files = glob.glob(os.path.join(self.model_path, "model-000*-of-*.safetensors"))
         if not converted_files and hf_shard_files:
-            print("Converted model weights not found. Running conversion...")
+            print("[DeepSeek] Multiple HF shards found, no converted weights. Converting now...")
             converted_dir = os.path.join(self.model_path, "converted")
             os.makedirs(converted_dir, exist_ok=True)
+
+            # Read n_experts from config if present:
             n_experts = 256
             if self.config_path and os.path.exists(self.config_path):
                 with open(self.config_path, "r") as f:
-                    hf_config = json.load(f)
-                n_experts = hf_config.get("n_routed_experts", 256)
+                    config_data = json.load(f)
+                # Some DeepSeek configs might have "n_routed_experts" or similar.
+                n_experts = config_data.get("n_routed_experts", 256)
+
             mp = self.model_parallel
-            # Assume the conversion script is located at <project_root>/model/deepseek/convert.py.
+            # prepare convert path
             conversion_script = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)),
                 "model",
                 "deepseek",
                 "convert.py",
             )
+            if not os.path.isfile(conversion_script):
+                raise FileNotFoundError(f"Conversion script not found at: {conversion_script}")
+
             cmd = [
                 sys.executable,
                 conversion_script,
@@ -130,118 +141,119 @@ class DeepSeekWrapper:
                 "--n-experts", str(n_experts),
                 "--model-parallel", str(mp),
             ]
-            print("Running conversion command:", " ".join(cmd))
+            print("[DeepSeek] Running conversion command:", " ".join(cmd))
             subprocess.run(cmd, check=True)
             self.model_path = converted_dir
         elif not converted_files and not hf_shard_files:
-            raise ValueError("No valid weight files found in the model path.")
+            # If there's no single file, no "converted" shards, no HF shards, error out.
+            raise ValueError("[DeepSeek] No valid checkpoint files found.")
 
     def _load_model(self):
         """
-        Load the model and weights. Always loads the general DeepSeek model.
+        Load the final local DeepSeek model from safetensors shards.
+        The model code is in `intelli.model.deepseek`.
         """
-        from_path = self.config_path
-        if not from_path:
-            # Fall back to a default if no config is provided.
-            from_path = os.path.join(self.model_path, "configs", "config_671B.json")
-        with open(from_path, "r") as f:
-            hf_config = json.load(f)
+        print("[DeepSeek] Loading model config...")
 
-        # Always load the DeepSeek model.
+        # If user didn't specify a config, try a default:
+        if not self.config_path:
+            default_cfg = os.path.join(self.model_path, "config.json")
+            if os.path.isfile(default_cfg):
+                self.config_path = default_cfg
+            else:
+                # Or fallback to a known config name. Adjust as needed (e.g. config_671B.json).
+                fallback_cfg = os.path.join(self.model_path, "configs", "config_671B.json")
+                if os.path.isfile(fallback_cfg):
+                    self.config_path = fallback_cfg
+
+        if not self.config_path or not os.path.exists(self.config_path):
+            raise FileNotFoundError(f"[DeepSeek] Config file not found: {self.config_path}")
+
+        with open(self.config_path, "r") as f:
+            config_data = json.load(f)
+
+        # import local code.
         from intelli.model.deepseek.model import ModelArgs, Transformer
-        print("Loading DeepSeek model.")
 
-        # Clear cached GPU memory if using CUDA.
+        # Create ModelArgs from config_data.
+        self.args = ModelArgs(**config_data)
+
+        # Optionally, if the user wants a special property for dp_attention:
+        if self.enable_dp_attention:
+            print("[DeepSeek] Data-parallel attention is requested. (Custom usage)")
+
+        # Clear CUDA cache if device is "cuda":
         if self.device == "cuda":
             self.torch.cuda.empty_cache()
 
-        # Instantiate model arguments.
-        mapped_config = {}
-        mapping = {
-            "vocab_size": "vocab_size",
-            "dim": "hidden_size",  # HF: hidden_size → our: dim
-            "inter_dim": "intermediate_size",  # HF: intermediate_size → our: inter_dim
-            "moe_inter_dim": "moe_intermediate_size",  # HF: moe_intermediate_size → our: moe_inter_dim
-            "n_layers": "num_hidden_layers",  # HF: num_hidden_layers → our: n_layers
-            "n_dense_layers": "n_dense_layers",  # default to 1 if missing
-            "n_heads": "num_attention_heads",  # HF: num_attention_heads → our: n_heads
-            "n_routed_experts": "n_routed_experts",
-            "n_shared_experts": "n_shared_experts",
-            "n_activated_experts": "num_experts_per_tok",
-            "route_scale": "routed_scaling_factor",
-            "q_lora_rank": "q_lora_rank",
-            "kv_lora_rank": "kv_lora_rank",
-            "qk_nope_head_dim": "qk_nope_head_dim",
-            "qk_rope_head_dim": "qk_rope_head_dim",
-            "v_head_dim": "v_head_dim",
-            "mscale": lambda cfg: cfg.get("rope_scaling", {}).get("mscale", 1.0),
-        }
-        for our_key, hf_key in mapping.items():
-            if isinstance(hf_key, str):
-                if hf_key in hf_config:
-                    mapped_config[our_key] = hf_config[hf_key]
-            else:
-                mapped_config[our_key] = hf_key(hf_config)
-        if "n_dense_layers" not in mapped_config:
-            mapped_config["n_dense_layers"] = 1
-
-        self.args = ModelArgs(**mapped_config)
-
-        # Instantiate the model on CPU first.
-        self.model = Transformer(self.args)
-
-        # Optionally set a flag for data-parallel attention.
-        if self.enable_dp_attention:
-            print("Enabling data-parallel attention mode.")
-            self.model.enable_dp_attention = True
-
-        # Move the model to the specified device.
-        self.model = self.model.to(self.device)
-
-        # Determine which weight files to load.
-        single_checkpoint = glob.glob(os.path.join(self.model_path, "model.safetensors"))
-        if single_checkpoint:
-            shard_files = single_checkpoint
-        else:
-            shard_files = sorted(glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors")))
-            if not shard_files:
-                raise ValueError("No converted weight shard files found in the model path.")
-
-        # Load the weights into the model.
-        for shard_file in shard_files:
-            print(f"Loading weights from {shard_file}")
-            from safetensors.torch import load_model
-            load_model(self.model, shard_file)
+        # Instantiate the model on CPU first or directly on GPU:
+        self.model = Transformer(self.args).to(self.device)
         self.model.eval()
 
-        # Now (optionally) compile the model.
+        # Gather safetensor shards to load.
+        # 1) Single-file case "model.safetensors"
+        single_ckpt = glob.glob(os.path.join(self.model_path, "model.safetensors"))
+        if single_ckpt:
+            shard_files = single_ckpt
+        else:
+            # 2) Already-converted shards e.g. "model0-mp1.safetensors", "model1-mp1.safetensors", etc.
+            shard_files = sorted(glob.glob(os.path.join(self.model_path, "model*-mp*.safetensors")))
+            if not shard_files:
+                raise ValueError("[DeepSeek] No final shards (model*-mp*.safetensors) found.")
+
+        # Load weights:
+        from safetensors.torch import load_model
+        for sf in shard_files:
+            print(f"[DeepSeek] Loading weight shard: {sf}")
+            load_model(self.model, sf)
+
+        # Attempt torch.compile for optimization:
         try:
             self.model = self.torch.compile(self.model)
-            print("Model compiled with torch.compile().")
+            print("[DeepSeek] Model compiled with torch.compile()")
         except Exception as e:
-            print("torch.compile() failed or not supported; proceeding without compilation.", e)
+            print("[DeepSeek] torch.compile() not used or failed. Reason:", e)
 
+        print("[DeepSeek] Model loaded successfully.")
 
     def _sample(self, logits):
-        if self.temperature <= 0.0:
+        """
+        Sample next token index from the final logits, factoring temperature.
+        """
+        if self.temperature <= 0.0:  # Greedy
             return self.torch.argmax(logits, dim=-1, keepdim=True)
-        scaled_logits = logits / max(self.temperature, 1e-5)
+        scaled_logits = logits / max(self.temperature, 1e-9)
         probs = self.torch.softmax(scaled_logits, dim=-1)
         return self.torch.multinomial(probs, num_samples=1)
 
     def generate(self, prompt):
+        """
+        Minimal auto-regressive generation loop.
+        If your local model uses: model(tokens_tensor, start_pos=some_index),
+        adapt accordingly.  The snippet below is naive, calling forward
+        for each step. For large models, you want a kv-cache approach.
+        """
         tokens = self.tokenizer.tokenize(prompt)
-        tokens_tensor = self.torch.tensor(
-            [tokens], dtype=self.torch.long, device=self.device
-        )
+        tokens_tensor = self.torch.tensor([tokens], dtype=self.torch.long, device=self.device)
+
+        new_tokens = []
         with self.torch.no_grad():
             for _ in range(self.max_new_tokens):
+                # pass the entire seq. Not memory efficient for large context.
                 logits = self.model(tokens_tensor, start_pos=0)
-                last_logits = logits[0]
-                next_token = self._sample(last_logits)
-                tokens_tensor = self.torch.cat([tokens_tensor, next_token.unsqueeze(0)], dim=1)
-                if next_token.item() == self.eos_id:
+                # logits shape might be: (batch_size=1, seq_len, vocab_size)
+                # If so, we want the last token's logits.
+                last_token_logits = logits[0, -1, :]
+
+                next_token_id = self._sample(last_token_logits.unsqueeze(0)).squeeze(0)
+                # next_token_id shape: (1,)
+                token_int = next_token_id.item()
+                tokens_tensor = self.torch.cat([tokens_tensor, next_token_id.view(1,1)], dim=1)
+
+                if token_int == self.eos_id:
                     break
-        generated_tokens = tokens_tensor[0].tolist()[len(tokens):]
-        output_text = self.tokenizer.detokenize(generated_tokens)
+                new_tokens.append(token_int)
+
+        # Convert the newly generated tokens to text:
+        output_text = self.tokenizer.detokenize(new_tokens)
         return output_text
