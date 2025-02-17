@@ -43,6 +43,10 @@ python3 -m unittest intelli.test.integration.test_azure_chatbot
 # chatbot with data
 python3 -m unittest intelli.test.integration.test_chatbot_with_data
 
+# chatbot with llama.cpp
+pytest -s intelli/test/integration/test_chatbot_cpp.py
+
+
 ## flows
 # basic flow
 python3 -m unittest intelli.test.integration.test_flow_sequence

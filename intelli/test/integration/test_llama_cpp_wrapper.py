@@ -22,7 +22,9 @@ class TestIntelliLlamaCPPWrapper(unittest.TestCase):
         os.makedirs(cls.temp_dir, exist_ok=True)
 
         if hf_hub_download is None:
-            raise ImportError("huggingface_hub is not installed. Use 'pip install intelli[llamacpp]'.")
+            raise ImportError(
+                "huggingface_hub is not installed. Use 'pip install intelli[llamacpp]'."
+            )
 
         # Use TheBloke's TinyLlama model for testing
         cls.repo_id = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
@@ -31,9 +33,7 @@ class TestIntelliLlamaCPPWrapper(unittest.TestCase):
         try:
             print(f"Downloading {cls.filename} from {cls.repo_id} to {cls.temp_dir}")
             cls.model_path = hf_hub_download(
-                repo_id=cls.repo_id,
-                filename=cls.filename,
-                local_dir=cls.temp_dir
+                repo_id=cls.repo_id, filename=cls.filename, local_dir=cls.temp_dir
             )
             print(f"Model downloaded: {cls.model_path}")
         except Exception as e:
@@ -56,7 +56,7 @@ class TestIntelliLlamaCPPWrapper(unittest.TestCase):
         """
         wrapper = IntelliLlamaCPPWrapper(
             model_path=self.model_path,
-            model_params={"n_threads": 2, "n_ctx": 512, "n_batch": 256}
+            model_params={"n_threads": 2, "n_ctx": 512, "n_batch": 256},
         )
         params = {
             "prompt": "User: Hello Llama, how are you?\nAssistant:",
@@ -66,7 +66,9 @@ class TestIntelliLlamaCPPWrapper(unittest.TestCase):
         }
         result = wrapper.generate_text(params)
         self.assertIn("choices", result, "Result should have 'choices' key.")
-        self.assertGreater(len(result["choices"]), 0, "Should have at least one choice.")
+        self.assertGreater(
+            len(result["choices"]), 0, "Should have at least one choice."
+        )
         text_out = result["choices"][0]["text"]
         self.assertIsInstance(text_out, str, "The generated text should be a string.")
         self.assertGreater(len(text_out), 0, "Output text should not be empty.")
@@ -78,7 +80,7 @@ class TestIntelliLlamaCPPWrapper(unittest.TestCase):
         """
         wrapper = IntelliLlamaCPPWrapper(
             model_path=self.model_path,
-            model_params={"n_threads": 2, "n_ctx": 512, "n_batch": 256}
+            model_params={"n_threads": 2, "n_ctx": 512, "n_batch": 256},
         )
         # Update prompt to follow a chat format for consistent output.
         params = {
@@ -102,23 +104,22 @@ class TestIntelliLlamaCPPWrapper(unittest.TestCase):
         """
         wrapper = IntelliLlamaCPPWrapper()
         # "embedding": True is required for offline embedding mode.
-        model_params = {
-            "embedding": True,
-            "n_threads": 2,
-            "n_ctx": 256,
-            "n_batch": 128
-        }
+        model_params = {"embedding": True, "n_threads": 2, "n_ctx": 256, "n_batch": 128}
         wrapper.load_local_model(self.model_path, model_params)
 
         text = "Hello from TinyLlama"
         emb_result = wrapper.get_embeddings({"input": text})
 
         # Expecting a simplified dict with key "embedding" (a flat list of floats).
-        self.assertIsInstance(emb_result, dict, "Should be a dict for single input embedding.")
+        self.assertIsInstance(
+            emb_result, dict, "Should be a dict for single input embedding."
+        )
         self.assertIn("embedding", emb_result, "Result must have 'embedding' key.")
         emb = emb_result["embedding"]
         self.assertIsInstance(emb, list, "'embedding' should be a list of floats.")
-        self.assertGreater(len(emb), 10, "Embedding vector should have more than 10 dimensions.")
+        self.assertGreater(
+            len(emb), 10, "Embedding vector should have more than 10 dimensions."
+        )
         print(f"Embedding vector sample (first 5 dims): {emb[:5]} ...\n")
 
     def test_server_mode_generation(self):
@@ -142,7 +143,9 @@ class TestIntelliLlamaCPPWrapper(unittest.TestCase):
             self.assertGreater(len(text_out), 0)
             print(f"Server generation output:\n{text_out}\n")
         except Exception as e:
-            self.skipTest(f"Skipping server mode test. Server not available or failed: {e}")
+            self.skipTest(
+                f"Skipping server mode test. Server not available or failed: {e}"
+            )
 
 
 if __name__ == "__main__":

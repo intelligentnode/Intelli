@@ -70,7 +70,9 @@ class IntelliLlamaCPPWrapper:
             if model_path is not None:
                 self.load_local_model(model_path, self.model_params)
 
-    def download_model(self, repo_id: str, filename: str, local_dir: str = "models") -> str:
+    def download_model(
+        self, repo_id: str, filename: str, local_dir: str = "models"
+    ) -> str:
         """
         Download a GGUF model file from Hugging Face Hub into local_dir.
 
@@ -82,13 +84,13 @@ class IntelliLlamaCPPWrapper:
             The local file path to the downloaded model.
         """
         if hf_hub_download is None:
-            raise ImportError("huggingface_hub is not installed; use 'pip install intelli[llamacpp]'")
+            raise ImportError(
+                "huggingface_hub is not installed; use 'pip install intelli[llamacpp]'"
+            )
 
         self.logger.info(f"Downloading {filename} from {repo_id} to {local_dir}")
         file_path = hf_hub_download(
-            repo_id=repo_id,
-            filename=filename,
-            local_dir=local_dir
+            repo_id=repo_id, filename=filename, local_dir=local_dir
         )
         self.logger.info(f"Model downloaded to: {file_path}")
         return file_path
@@ -102,7 +104,9 @@ class IntelliLlamaCPPWrapper:
             model_params: Additional parameters for llama-cpp (n_ctx, n_gpu_layers, embedding, etc.)
         """
         if llama_cpp is None:
-            raise ImportError("llama-cpp-python not installed; use 'pip install intelli[llamacpp]'")
+            raise ImportError(
+                "llama-cpp-python not installed; use 'pip install intelli[llamacpp]'"
+            )
 
         self.logger.info(f"Loading local llama.cpp model from: {model_path}")
 
@@ -112,6 +116,7 @@ class IntelliLlamaCPPWrapper:
         embedding_mode = model_params.get("embedding", False)
         seed = model_params.get("seed", -1)
         n_batch = model_params.get("n_batch", 512)
+        verbose = model_params.get("verbose", False)  # Set verbose to False by default
 
         self.model = llama_cpp.Llama(
             model_path=model_path,
@@ -120,7 +125,8 @@ class IntelliLlamaCPPWrapper:
             n_threads=n_threads,
             embedding=embedding_mode,
             seed=seed,
-            n_batch=n_batch
+            n_batch=n_batch,
+            verbose=verbose,
         )
         self.logger.info("Llama model loaded offline successfully.")
 
@@ -149,9 +155,13 @@ class IntelliLlamaCPPWrapper:
         top_p = params.get("top_p", 0.95)
 
         if self.server_url:
-            return self._generate_text_server(prompt, max_tokens, temperature, top_p, params)
+            return self._generate_text_server(
+                prompt, max_tokens, temperature, top_p, params
+            )
         else:
-            return self._generate_text_local(prompt, max_tokens, temperature, top_p, params)
+            return self._generate_text_local(
+                prompt, max_tokens, temperature, top_p, params
+            )
 
     def _generate_text_local(self, prompt, max_tokens, temperature, top_p, params):
         if not self.model:
@@ -181,7 +191,7 @@ class IntelliLlamaCPPWrapper:
             "prompt": prompt,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "top_p": top_p
+            "top_p": top_p,
         }
         try:
             resp = requests.post(url, json=payload)
@@ -210,7 +220,7 @@ class IntelliLlamaCPPWrapper:
             "max_tokens": params.get("max_tokens", 128),
             "temperature": params.get("temperature", 0.7),
             "top_p": params.get("top_p", 0.95),
-            "stream": True
+            "stream": True,
         }
         try:
             with requests.post(url, json=payload, stream=True) as r:
@@ -219,7 +229,7 @@ class IntelliLlamaCPPWrapper:
                     if line and line.startswith("data: "):
                         if line == "data: [DONE]":
                             break
-                        yield line[len("data: "):].strip()
+                        yield line[len("data: ") :].strip()
         except requests.RequestException as e:
             raise RuntimeError(f"Llama server streaming error: {e}")
 
@@ -236,7 +246,7 @@ class IntelliLlamaCPPWrapper:
         full_text = res["choices"][0]["text"]
         chunk_size = 16
         for i in range(0, len(full_text), chunk_size):
-            yield full_text[i:i+chunk_size]
+            yield full_text[i : i + chunk_size]
 
     def get_embeddings(self, params: Dict) -> Union[Dict, List[Dict]]:
         """
@@ -256,7 +266,9 @@ class IntelliLlamaCPPWrapper:
             return self._get_embeddings_server(params)
         else:
             if not self.model:
-                raise RuntimeError("Local model not loaded; cannot retrieve embeddings.")
+                raise RuntimeError(
+                    "Local model not loaded; cannot retrieve embeddings."
+                )
 
             input_data = params.get("input", None)
             if not input_data:
@@ -295,14 +307,22 @@ class IntelliLlamaCPPWrapper:
         Returns:
             A dict with key "embedding" containing a flat list of floats.
         """
-        if isinstance(raw_emb, dict) and raw_emb.get("object") == "list" and "data" in raw_emb:
+        if (
+            isinstance(raw_emb, dict)
+            and raw_emb.get("object") == "list"
+            and "data" in raw_emb
+        ):
             data = raw_emb["data"]
             if isinstance(data, list) and len(data) > 0:
                 first_item = data[0]
                 if "embedding" in first_item:
                     emb = first_item["embedding"]
                     # If emb is a list of lists (token embeddings), average them.
-                    if isinstance(emb, list) and len(emb) > 0 and isinstance(emb[0], list):
+                    if (
+                        isinstance(emb, list)
+                        and len(emb) > 0
+                        and isinstance(emb[0], list)
+                    ):
                         emb_array = np.array(emb)
                         avg_emb = emb_array.mean(axis=0).tolist()
                         return {"embedding": avg_emb}
@@ -323,7 +343,7 @@ class IntelliLlamaCPPWrapper:
         url = f"{self.server_url}/v1/embeddings"
         payload = {
             "model": params.get("model", "default"),
-            "input": params.get("input", "")
+            "input": params.get("input", ""),
         }
         try:
             resp = requests.post(url, json=payload)
