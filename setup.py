@@ -26,5 +26,8 @@ setup(
     extras_require={
         "visual": ["matplotlib==3.6.0"],
         "offline": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text"],
+        "llamacpp": [
+            "llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"
+        ],
     }
 )
