@@ -129,6 +129,9 @@ results = wrapper.generate_images(image_input)
 ## Keras Agent
 Load gemma or mistral models offline using keras agent, [check the docs](https://docs.intellinode.ai/docs/python/flows/kagent).
 
+## GGUF Models
+Llama CPP provides an efficient way to run language models locally with support for models in the new **GGUF** format,  [check the docs](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).  
+
 # Repository Setup
 1. Install the requirements.
 ```shell
