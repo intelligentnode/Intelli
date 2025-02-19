@@ -73,7 +73,9 @@ class IntelliLlamaCPPWrapper:
         if llama_cpp is None:
             try:
                 llama_cpp = importlib.import_module("llama_cpp")
-                self.logger.info("Successfully imported llama_cpp after dynamic import.")
+                self.logger.info(
+                    "Successfully imported llama_cpp after dynamic import."
+                )
             except ImportError:
                 self.logger.error(
                     "Could not import llama_cpp. Please install it via "
@@ -85,7 +87,9 @@ class IntelliLlamaCPPWrapper:
             try:
                 hf_hub = importlib.import_module("huggingface_hub")
                 hf_hub_download = hf_hub.hf_hub_download
-                self.logger.info("Successfully imported huggingface_hub after dynamic import.")
+                self.logger.info(
+                    "Successfully imported huggingface_hub after dynamic import."
+                )
             except ImportError:
                 self.logger.error(
                     "Could not import huggingface_hub. Please install it via "
