@@ -143,3 +143,34 @@ class ChatModelInput:
         }
         return params
 
+    def get_llamacpp_input(self):
+        """
+        Create an input prompt for llama.cpp.
+
+        This method concatenates the conversation messages into a plain text prompt.
+        It prefixes system, user, and assistant messages, and ends with an 'Assistant:' prompt.
+
+        Returns:
+            A dictionary with keys:
+                - prompt: the final text prompt,
+                - max_tokens: maximum tokens to generate,
+                - temperature: sampling temperature,
+                plus any additional options.
+        """
+        prompt = ""
+        for msg in self.messages:
+            if msg.role == 'system':
+                prompt += f"System: {msg.content}\n"
+            elif msg.role == 'user':
+                prompt += f"User: {msg.content}\n"
+            elif msg.role == 'assistant':
+                prompt += f"Assistant: {msg.content}\n"
+        if not prompt.endswith("Assistant: "):
+            prompt += "Assistant: "
+        params = {
+            "prompt": prompt,
+            "max_tokens": self.max_tokens or 180,
+            "temperature": self.temperature,
+            **self.options
+        }
+        return params

@@ -20,6 +20,9 @@ python3 -m unittest intelli.test.integration.test_googleai_wrapper
 # anthropic
 python3 -m unittest intelli.test.integration.test_anthropic_wrapper
 
+# wrapper with llama.cpp
+pytest -s intelli/test/integration/test_llama_cpp_wrapper.py
+
 ## controllers
 # embedding
 python3 -m unittest intelli.test.integration.test_remote_embed_model
@@ -42,6 +45,9 @@ python3 -m unittest intelli.test.integration.test_azure_chatbot
 
 # chatbot with data
 python3 -m unittest intelli.test.integration.test_chatbot_with_data
+
+# chatbot with llama.cpp
+pytest -s intelli/test/integration/test_chatbot_cpp.py
 
 ## flows
 # basic flow
