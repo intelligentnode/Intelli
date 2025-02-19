@@ -1,8 +1,11 @@
 import os
 import logging
 import requests
+import importlib
+import numpy as np
 from typing import Optional, Dict, Union, List
 
+# Initial attempt to import
 try:
     import llama_cpp
 except ImportError:
@@ -12,8 +15,6 @@ try:
     from huggingface_hub import hf_hub_download
 except ImportError:
     hf_hub_download = None
-
-import numpy as np
 
 
 class IntelliLlamaCPPWrapper:
@@ -59,10 +60,37 @@ class IntelliLlamaCPPWrapper:
             server_url: URL to a llama.cpp server.
             model_params: Dictionary with model parameters (e.g., n_ctx, n_gpu_layers, embedding, etc.)
         """
+        # Declare globals at the top of __init__
+        global llama_cpp
+        global hf_hub_download
+
         self.logger = logging.getLogger(__name__)
         self.model = None
         self.server_url = server_url
         self.model_params = model_params or {}
+
+        # If llama_cpp is still None, try dynamic import
+        if llama_cpp is None:
+            try:
+                llama_cpp = importlib.import_module("llama_cpp")
+                self.logger.info("Successfully imported llama_cpp after dynamic import.")
+            except ImportError:
+                self.logger.error(
+                    "Could not import llama_cpp. Please install it via "
+                    "`pip install intelli[llamacpp]` or `pip install llama-cpp-python`."
+                )
+
+        # If huggingface_hub is not available, try dynamic import
+        if hf_hub_download is None:
+            try:
+                hf_hub = importlib.import_module("huggingface_hub")
+                hf_hub_download = hf_hub.hf_hub_download
+                self.logger.info("Successfully imported huggingface_hub after dynamic import.")
+            except ImportError:
+                self.logger.error(
+                    "Could not import huggingface_hub. Please install it via "
+                    "`pip install intelli[llamacpp]` or `pip install huggingface_hub`."
+                )
 
         if self.server_url:
             self.logger.info(f"Using server mode at {self.server_url}")
