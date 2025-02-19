@@ -39,7 +39,7 @@ class TestChatbotLlamaCPP(unittest.TestCase):
         """
         Set up a temporary directory and download a small LLaMA GGUF model for testing.
         """
-        cls.temp_dir = os.path.join("..", "temp", "llamacpp_tests")
+        cls.temp_dir = os.path.join("temp", "llamacpp_tests")
         os.makedirs(cls.temp_dir, exist_ok=True)
 
         if hf_hub_download is None:
