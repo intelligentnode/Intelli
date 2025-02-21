@@ -1,0 +1,29 @@
+# DeepSeek Model Implementation
+
+## Implementation Details
+
+### Core Files
+- `wrapper.py`: Main model loader handling:
+  - HuggingFace model downloads (reference: `test_deepseek_wrapper.py`)
+  - Quantization via bitsandbytes
+  - Memory mapping optimizations
+- `helpers/quantize.py`: 4/8-bit quantization utilities
+- `helpers/memory_map.py`: Memory mapping implementation similar to llama.cpp
+
+### Test Configuration
+- Tested with **DeepSeek-R1-Distill-Qwen-7B** models:
+  - Full precision: `deepseek-ai/DeepSeek-R1-Distill-Qwen-7B`
+  - Quantized: `bartowski/DeepSeek-R1-Distill-Qwen-7B-GGUF`
+- Verified with arithmetic and factual QA tests (reference: `test_deepseek_wrapper.py` & `test_deepseek.py`)
+
+### Key Dependencies
+- `bitsandbytes` for quantized inference
+- `transformers` for model loading
+- `torch` for tensor operations
+- `tqdm` for progress bars
+- `huggingface_hub` for model repository access
+- `python-version` 3.10.12
+
+
+# please run pip list to check for other dependencies
+
