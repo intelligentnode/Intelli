@@ -1,4 +1,6 @@
 import json
+from typing import Union, Dict, Optional
+import torch
 
 from intelli.model.input.chatbot_input import ChatModelInput
 from intelli.utils.system_helper import SystemHelper
@@ -10,6 +12,7 @@ from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
 from intelli.wrappers.keras_wrapper import KerasWrapper
 from intelli.wrappers.nvidia_wrapper import NvidiaWrapper
 from intelli.wrappers.llama_cpp_wrapper import IntelliLlamaCPPWrapper
+from intelli.wrappers.deepseek_wrapper import DeepSeekWrapper
 from enum import Enum
 
 
@@ -21,22 +24,33 @@ class ChatProvider(Enum):
     KERAS = "keras"
     NVIDIA = "nvidia"
     LLAMACPP = "llamacpp"
+    DEEPSEEK = "deepseek"
 
 
 class Chatbot:
 
-    def __init__(self, api_key=None, provider=None, options=None):
+    def __init__(self, api_key: str, provider: Union[str, ChatProvider], options: Dict = None):
         if options is None:
             options = {}
 
         self.api_key = api_key
-        self.provider = self._get_provider(provider)
+        self.provider = provider.value if isinstance(provider, ChatProvider) else provider
         self.options = options
         self.wrapper = self._initialize_provider()
         self.add_rag(options)
         self.system_helper = SystemHelper()
+        self.model = None
+        self._initialize_provider()
 
-        if self.provider and self.provider == ChatProvider.NVIDIA.value and not api_key:
+        if self.provider == ChatProvider.DEEPSEEK.value:
+            self.model = DeepSeekWrapper(
+                api_key=api_key,
+                model_id=self.options.get('model_id', 'deepseek-ai/deepseek-coder-6.7b-instruct')
+            )
+            # Initialize the model
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.model.load_model(device=device)
+        elif self.provider and self.provider == ChatProvider.NVIDIA.value and not api_key:
             print("Please obtain NVIDIA API Key from https://build.nvidia.com/")
 
     def add_rag(self, options):
@@ -87,6 +101,11 @@ class Chatbot:
             model_params = self.options.get("model_params", {"n_ctx": 512})
             return IntelliLlamaCPPWrapper(
                 model_path=model_path, model_params=model_params
+            )
+        elif self.provider == ChatProvider.DEEPSEEK.value:
+            return DeepSeekWrapper(
+                api_key=self.api_key,
+                model_id=self.options.get('model_id', 'deepseek-ai/deepseek-coder-6.7b-instruct')
             )
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")

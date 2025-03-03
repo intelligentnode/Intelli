@@ -29,5 +29,17 @@ setup(
         "llamacpp": [
             "llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"
         ],
+        "deepseek": [
+            "torch>=2.0.0",
+            "safetensors>=0.4.0",
+            "numpy>=1.24.0",
+            "huggingface_hub>=0.19.0",
+        ],
+        "all": [
+            "torch>=2.0.0",
+            "safetensors>=0.4.0",
+            "numpy>=1.24.0",
+            "huggingface_hub>=0.19.0",
+        ]
     }
 )
