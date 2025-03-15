@@ -78,6 +78,11 @@ config = {
             "chat": "/v1/chat/completions",
             "embeddings": "/v1/embeddings"
         },
+        "vllm": {
+            "completions": "/v1/completions",
+            "chat": "/v1/chat/completions",
+            "embed": "/embed"
+        }
     },
     "models": {
         "replicate": {

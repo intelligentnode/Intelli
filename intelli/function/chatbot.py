@@ -10,6 +10,7 @@ from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
 from intelli.wrappers.keras_wrapper import KerasWrapper
 from intelli.wrappers.nvidia_wrapper import NvidiaWrapper
 from intelli.wrappers.llama_cpp_wrapper import IntelliLlamaCPPWrapper
+from intelli.wrappers.vllm_wrapper import VLLMWrapper
 from enum import Enum
 
 
@@ -21,6 +22,7 @@ class ChatProvider(Enum):
     KERAS = "keras"
     NVIDIA = "nvidia"
     LLAMACPP = "llamacpp"
+    VLLM = "vllm"
 
 
 class Chatbot:
@@ -88,6 +90,11 @@ class Chatbot:
             return IntelliLlamaCPPWrapper(
                 model_path=model_path, model_params=model_params
             )
+        elif self.provider == ChatProvider.VLLM.value:
+            vllm_base_url = self.options.get("vllmBaseUrl") or self.options.get("baseUrl")
+            if not vllm_base_url:
+                raise ValueError("VLLM provider requires baseUrl in options")
+            return VLLMWrapper(vllm_base_url, self.api_key)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -113,6 +120,29 @@ class Chatbot:
             if chat_input.attach_reference
             else result
         )
+
+    def _chat_vllm(self, params):
+        """Process chat requests for VLLM."""
+        if "messages" in params:
+            # This is a chat completion request
+            results = self.wrapper.generate_chat_text(params)
+            return self._parse_vllm_chat_responses(results)
+        else:
+            # This is a regular completion request
+            results = self.wrapper.generate_text(params)
+            return self._parse_vllm_text_responses(results)
+
+    def _parse_vllm_chat_responses(self, results):
+        """Parse VLLM chat completion responses."""
+        if "choices" in results and len(results["choices"]) > 0:
+            return [choice["message"]["content"] for choice in results["choices"]]
+        return [""]
+
+    def _parse_vllm_text_responses(self, results):
+        """Parse VLLM text completion responses."""
+        if "choices" in results and len(results["choices"]) > 0:
+            return [choice["text"] for choice in results["choices"]]
+        return [""]
 
     def _chat_llamacpp(self, params):
         # assume the wrapper returns a dict with key "choices" containing a list of text responses.
@@ -241,6 +271,24 @@ class Chatbot:
                         yield content
                 except json.JSONDecodeError as e:
                     print("Error decoding JSON:", e)
+
+    def _stream_vllm(self, params):
+        """Stream responses from VLLM."""
+
+        self.wrapper.is_log = self.options.get("debug", False)
+
+        if "messages" in params:
+            # This is a chat completion stream
+            params["stream"] = True
+            for chunk in self.wrapper.generate_chat_text_stream(params):
+                if chunk:
+                    yield chunk
+        else:
+            # This is a text completion stream
+            params["stream"] = True
+            for chunk in self.wrapper.generate_text_stream(params):
+                if chunk:
+                    yield chunk
 
     # helpers
     def _parse_openai_responses(self, results):
