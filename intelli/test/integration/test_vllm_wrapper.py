@@ -23,7 +23,8 @@ class TestVLLMWrapperIntegration(unittest.TestCase):
 
         wrapper = VLLMWrapper(self.vllm_embed_url)
 
-        response = wrapper.get_embeddings(["hello world"])
+        # Fix: Pass a dictionary with a "texts" key instead of a direct list
+        response = wrapper.get_embeddings({"texts": ["hello world"]})
         print("VLLM Embeddings sample:", response["embeddings"][0][:3])
 
         self.assertIn("embeddings", response)

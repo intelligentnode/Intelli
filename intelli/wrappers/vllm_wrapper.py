@@ -174,12 +174,14 @@ class VLLMWrapper:
                     if self.is_log:
                         print(f"JSON decode error: {e}")
 
-    def get_embeddings(self, texts):
+    def get_embeddings(self, params):
         """
         Get embeddings for a list of texts using VLLM API.
 
         Args:
-            texts (list): List of text strings to embed.
+            params (dict): Parameters for the embedding request.
+                Should contain a "texts" key with a list of strings to embed.
+                May optionally contain a "model" key to specify the embedding model.
 
         Returns:
             dict: JSON response from the API containing the embeddings.
@@ -187,7 +189,7 @@ class VLLMWrapper:
         endpoint = f"{self.api_base_url}{config['url']['vllm']['embed']}"
 
         try:
-            response = self.session.post(endpoint, json={"texts": texts})
+            response = self.session.post(endpoint, json=params)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
