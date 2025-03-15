@@ -110,13 +110,30 @@ class OpenAIWrapper:
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
 
-    def speech_to_text(self, params, headers=None):
+    def speech_to_text(self, params, headers=None, files=None):
+        """
+        Convert speech to text using OpenAI's API.
+
+        Args:
+            params: Dictionary with parameters like 'model', 'language', etc.
+            headers: Optional additional headers
+            files: Dictionary containing file objects for multipart/form-data
+
+        Returns:
+            JSON response from OpenAI
+        """
         url = self.proxy_helper.get_openai_audio_transcriptions_url(params.get('model', ''))
         try:
             custom_headers = self.session.headers.copy()
             if headers:
                 custom_headers.update(headers)
-            response = self.session.post(url, data=params, headers=custom_headers)
+
+            # For speech to text, we need to use files parameter for multipart/form-data
+            if files:
+                response = self.session.post(url, data=params, files=files, headers=custom_headers)
+            else:
+                response = self.session.post(url, data=params, headers=custom_headers)
+
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
