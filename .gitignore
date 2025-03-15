@@ -165,3 +165,4 @@ temp
 **/.DS_Store
 **/._.DS_Store
 intelli/test/integration/test_prod_data.py
+intelli/init_prompt.txt
