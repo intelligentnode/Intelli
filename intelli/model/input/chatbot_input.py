@@ -174,3 +174,56 @@ class ChatModelInput:
             **self.options
         }
         return params
+
+    def get_vllm_input(self):
+        """
+        Format the input for VLLM API.
+
+        Returns:
+            dict: Parameters for VLLM API request.
+        """
+        if len(self.messages) > 1:
+            # Check if there are multiple message roles or system messages
+            has_system_or_multiple_roles = any(msg.role == "system" for msg in self.messages) or \
+                                           len(set(msg.role for msg in self.messages)) > 1
+
+            if has_system_or_multiple_roles:
+                # Chat completion format
+                messages = [{"role": msg.role, "content": msg.content} for msg in self.messages]
+                params = {
+                    "model": self.model,
+                    "messages": messages,
+                }
+            else:
+                # Text completion format (using the last user message as prompt)
+                user_messages = [msg for msg in self.messages if msg.role == "user"]
+                if not user_messages:
+                    raise ValueError("No user messages found for text completion")
+
+                prompt = user_messages[-1].content
+                params = {
+                    "model": self.model,
+                    "prompt": prompt,
+                }
+        else:
+            # Single message - likely a user prompt for text completion
+            prompt = self.messages[0].content if self.messages else ""
+            params = {
+                "model": self.model,
+                "prompt": prompt,
+            }
+
+        # Add optional parameters
+        if self.temperature is not None:
+            params["temperature"] = self.temperature
+
+        if self.max_tokens is not None:
+            params["max_tokens"] = self.max_tokens
+
+        if self.numberOfOutputs is not None and self.numberOfOutputs > 1:
+            params["n"] = self.numberOfOutputs
+
+        # Add any additional options
+        params.update(self.options)
+
+        return params

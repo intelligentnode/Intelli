@@ -72,9 +72,6 @@ class VLLMWrapper:
             if not line:
                 continue
 
-            if self.is_log:
-                print(f"Raw line: {line}")
-
             # Process the line with "data:" prefix
             if line.startswith("data:"):
                 # Skip the [DONE] message
@@ -150,12 +147,9 @@ class VLLMWrapper:
             if not line:
                 continue
 
-            if self.is_log:
-                print(f"Raw line: {line}")
-
             # Process the line with "data:" prefix
             if line.startswith("data:"):
-                # Skip the [DONE] message
+
                 if "DONE" in line:
                     continue
 
