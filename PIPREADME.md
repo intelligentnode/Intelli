@@ -18,6 +18,7 @@ pip install intelli
 ```
 
 # Latest changes
+- Improved multi-model collaboration [doc](https://docs.intellinode.ai/docs/python/use-cases/travel-assistant).
 - Support llama.cpp & GGUF models for fast inference.
 - Add deepseek and Llama3 integration [doc](https://docs.intellinode.ai/docs/python/chatbot/nvidia-chat).
 - Add offline speech2text Whisper [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/whisper).
