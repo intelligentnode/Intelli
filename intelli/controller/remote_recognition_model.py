@@ -1,18 +1,20 @@
 from intelli.model.input.text_recognition_input import SpeechRecognitionInput
 from intelli.wrappers.keras_wrapper import KerasWrapper
+from intelli.wrappers.elevenlabs_wrapper import ElevenLabsWrapper
 import requests
 import os
 
 SupportedRecognitionModels = {
     'OPENAI': 'openai',
     'KERAS': 'keras',
+    'ELEVENLABS': 'elevenlabs',
 }
 
 
 class RemoteRecognitionModel:
     """
-    Remote model for speech recognition using either OpenAI's API or
-    Keras offline models with Whisper.
+    Remote model for speech recognition using OpenAI's API,
+    Keras offline models with Whisper, or Eleven Labs.
     """
 
     def __init__(self, key_value=None, provider=None, model_name=None, model_params=None):
@@ -40,6 +42,10 @@ class RemoteRecognitionModel:
             if not model_name:
                 model_name = "whisper_tiny_en"  # Default model
             self.keras_wrapper = KerasWrapper(model_name=model_name, model_params=model_params)
+        elif key_type == SupportedRecognitionModels['ELEVENLABS']:
+            if not key_value:
+                raise ValueError("API key is required for Eleven Labs")
+            self.elevenlabs_wrapper = ElevenLabsWrapper(key_value)
         else:
             raise ValueError('Invalid provider name')
 
@@ -83,7 +89,7 @@ class RemoteRecognitionModel:
 
     def recognize_speech(self, input_params):
         """
-        Recognize speech from audio input, using either OpenAI or Keras.
+        Recognize speech from audio input, using either OpenAI, Keras, or Eleven Labs.
 
         Args:
             input_params: SpeechRecognitionInput object containing audio data and parameters
@@ -117,5 +123,28 @@ class RemoteRecognitionModel:
                 max_chunk_sec=keras_params['max_chunk_sec']
             )
             return response
+
+        elif self.key_type == SupportedRecognitionModels['ELEVENLABS']:
+            params = input_params.get_elevenlabs_input()
+
+            # Determine the input type (file_path or audio_data)
+            if 'file_path' in params and params['file_path']:
+                result = self.elevenlabs_wrapper.speech_to_text(
+                    audio_file=params['file_path'],
+                    model_id=params.get('model_id', 'scribe_v1'),
+                    language_code=params.get('language')
+                )
+            elif 'audio_data' in params and params['audio_data']:
+                result = self.elevenlabs_wrapper.speech_to_text(
+                    audio_file=params['audio_data'],
+                    model_id=params.get('model_id', 'scribe_v1'),
+                    language_code=params.get('language')
+                )
+            else:
+                raise ValueError("Either file_path or audio_data must be provided")
+
+            # Return just the transcribed text
+            return result.get('text', '')
+
         else:
             raise ValueError('The keyType is not supported')
