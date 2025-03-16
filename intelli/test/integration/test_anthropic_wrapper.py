@@ -16,7 +16,7 @@ class TestAnthropicWrapperIntegration(unittest.TestCase):
     def test_generate_text_integration(self):
         """Integration test for generate_text method."""
         params = {
-            "model": "claude-3-sonnet-20240229",
+            "model": "claude-3-7-sonnet-20250219",
             "messages": [
                 {
                     "role": "user",
@@ -36,7 +36,7 @@ class TestAnthropicWrapperIntegration(unittest.TestCase):
     def test_stream_text_integration(self):
         """Integration test for stream_text method."""
         params = {
-            "model": "claude-3-sonnet-20240229",
+            "model": "claude-3-7-sonnet-20250219",
             "messages": [
                 {
                     "role": "user",
