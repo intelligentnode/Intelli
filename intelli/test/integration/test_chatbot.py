@@ -56,7 +56,7 @@ class TestChatbot(unittest.TestCase):
     
     def test_anthropic_chat(self):
         print('---- start anthropic ----')
-        input = ChatModelInput("You are a helpful assistant.", "claude-3-sonnet-20240229")
+        input = ChatModelInput("You are a helpful assistant.", "claude-3-7-sonnet-20250219")
         input.add_user_message("What is the capital of France?")
 
         response = self.anthropic_bot.chat(input)
@@ -67,7 +67,7 @@ class TestChatbot(unittest.TestCase):
 
     def test_openai_stream(self):
         print('---- start openai stream ----')
-        input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
+        input = ChatModelInput("You are a helpful assistant.", "gpt-4o")
         input.add_user_message("Tell me a story about a lion in the savanna.")
 
         # Use asyncio.run() to get the result of the coroutine
