@@ -55,41 +55,59 @@ class RemoteRecognitionModel:
     def _direct_openai_stt_request(self, file_path, model="whisper-1", language=None):
         """
         Make a direct request to OpenAI's speech-to-text API using multipart/form-data.
+        Enhanced with better error handling and validation.
         """
         url = "https://api.openai.com/v1/audio/transcriptions"
 
         # Validate file path
-        if not file_path or not os.path.exists(file_path):
-            raise ValueError(f"Invalid or nonexistent file path: {file_path}")
+        if not file_path:
+            raise ValueError("File path is required for OpenAI speech-to-text")
+
+        if not os.path.exists(file_path):
+            raise ValueError(f"File path does not exist: {file_path}")
 
         print(f"Sending audio file to OpenAI for transcription: {file_path}")
 
         # Prepare the multipart/form-data payload
-        files = {
-            'file': open(file_path, 'rb')
-        }
-
-        data = {
-            'model': model
-        }
-
-        if language:
-            data['language'] = language
-
-        headers = {
-            'Authorization': f'Bearer {self.api_key}'
-        }
-
+        files = None
         try:
+            files = {
+                'file': open(file_path, 'rb')
+            }
+
+            data = {
+                'model': model
+            }
+
+            if language:
+                data['language'] = language
+
+            headers = {
+                'Authorization': f'Bearer {self.api_key}'
+            }
+
             response = requests.post(url, headers=headers, files=files, data=data)
             response.raise_for_status()
             result = response.json().get('text', '')
+            print(f"OpenAI transcription successful, length: {len(result)}")
             return result
+        except requests.RequestException as e:
+            error_msg = f"OpenAI API request failed: {str(e)}"
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_json = e.response.json()
+                    error_msg += f" - {error_json.get('error', {}).get('message', '')}"
+                except:
+                    error_msg += f" - Status code: {e.response.status_code}"
+            print(error_msg)
+            raise Exception(error_msg)
         except Exception as e:
-            raise Exception(f"OpenAI API request failed: {str(e)}")
+            error_msg = f"OpenAI API request failed: {str(e)}"
+            print(error_msg)
+            raise Exception(error_msg)
         finally:
             # Clean up by closing the file
-            if 'file' in files and hasattr(files['file'], 'close'):
+            if files and 'file' in files and hasattr(files['file'], 'close'):
                 files['file'].close()
 
     def recognize_speech(self, input_params):

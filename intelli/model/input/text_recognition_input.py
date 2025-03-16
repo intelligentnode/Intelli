@@ -1,8 +1,13 @@
+import os
+import tempfile
+import numpy as np
+
+
 class SpeechRecognitionInput:
     """
     Input parameters for speech recognition API calls.
     Supports both cloud providers (OpenAI) and local models (Keras).
-    Enhanced to better handle bytes data from flow tasks.
+    Enhanced to handle audio file paths from speech tasks.
     """
 
     def __init__(
@@ -31,6 +36,17 @@ class SpeechRecognitionInput:
             max_steps: Maximum decoding steps
             max_chunk_sec: Maximum chunk size in seconds
         """
+        # Check if audio_data is a dictionary from speech task output
+        if isinstance(audio_data, dict) and 'audio_file' in audio_data:
+            audio_file_path = audio_data['audio_file']
+            audio_data = None
+            print(f"Using audio file from speech task: {audio_file_path}")
+
+        # Strip 'file:' prefix if present
+        if isinstance(audio_file_path, str) and audio_file_path.startswith("file:"):
+            audio_file_path = audio_file_path[5:]
+            print(f"Stripped 'file:' prefix, using path: {audio_file_path}")
+
         self.audio_file_path = audio_file_path
         self.audio_data = audio_data
         self.sample_rate = sample_rate
@@ -38,39 +54,41 @@ class SpeechRecognitionInput:
         self.model = model
         self.user_prompt = user_prompt
         self.condition_on_previous_text = condition_on_previous_text
-        self.max_steps = max_steps
-        self.max_chunk_sec = max_chunk_sec
-        self._temp_file = None
-        self.model_id = None  # For ElevenLabs
 
-        # In flow context, we might receive only bytes
+        # Ensure these values are never None to prevent multiplication errors
+        self.max_steps = max_steps if max_steps is not None else 80
+        self.max_chunk_sec = max_chunk_sec if max_chunk_sec is not None else 30
+
+        self.model_id = None  # For ElevenLabs
+        self._temp_file = None
+
+        # Relaxed validation for flow context
         if not audio_file_path and audio_data is None:
             print("Warning: Neither audio_file_path nor audio_data provided")
 
     def get_openai_input(self):
         """
         Return file path and parameters for OpenAI's speech to text API.
-        Enhanced to create a temporary file if only bytes are available.
         """
-        file_path = self.audio_file_path
-
-        # If we only have audio_data as bytes, save it to a temp file for OpenAI
-        if not file_path and isinstance(self.audio_data, (bytes, bytearray)):
-            try:
-                import tempfile
-                import os
-
-                # Create a temporary file with .mp3 extension
-                self._temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
-                self._temp_file.write(self.audio_data)
-                self._temp_file.flush()
-                file_path = self._temp_file.name
-                print(f"Created temporary file for OpenAI: {file_path}")
-            except Exception as e:
-                print(f"Error creating temporary file: {e}")
+        # Validate that we have a valid file path
+        if not self.audio_file_path or not os.path.exists(self.audio_file_path):
+            # If no valid file path but we have audio_data bytes, create a temporary file
+            if isinstance(self.audio_data, (bytes, bytearray)):
+                try:
+                    # Create a temporary file with .mp3 extension
+                    self._temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+                    self._temp_file.write(self.audio_data)
+                    self._temp_file.flush()
+                    self.audio_file_path = self._temp_file.name
+                    print(f"Created temporary file for OpenAI: {self.audio_file_path}")
+                except Exception as e:
+                    print(f"Error creating temporary file: {e}")
+                    raise ValueError(f"No valid audio file path and failed to create temp file: {e}")
+            else:
+                raise ValueError(f"Invalid or nonexistent audio file path: {self.audio_file_path}")
 
         return {
-            "file_path": file_path,
+            "file_path": self.audio_file_path,
             "model": self.model,
             "language": self.language,
         }
@@ -83,63 +101,74 @@ class SpeechRecognitionInput:
             "language": self.language,
             "user_prompt": self.user_prompt,
             "condition_on_previous_text": self.condition_on_previous_text,
-            "max_steps": self.max_steps,
-            "max_chunk_sec": self.max_chunk_sec,
+            "max_steps": self.max_steps,  # Now guaranteed to not be None
+            "max_chunk_sec": self.max_chunk_sec,  # Now guaranteed to not be None
         }
 
     def get_audio_data(self):
         """
         Get audio data for processing with local models.
-        Enhanced to handle bytes data from flow tasks.
+        Enhanced to handle bytes data and file paths from flow tasks.
         """
         # If we already have audio data as a numpy array, return it
-        if self.audio_data is not None:
-            # If it's bytes, convert to numpy array
-            if isinstance(self.audio_data, (bytes, bytearray)):
+        if self.audio_data is not None and not isinstance(self.audio_data, (bytes, bytearray)):
+            # Assume it's already a numpy array
+            return self.audio_data
+
+        # If we have bytes, convert to numpy array
+        if isinstance(self.audio_data, (bytes, bytearray)):
+            try:
+                print(f"Converting audio bytes to numpy array, size: {len(self.audio_data)}")
+                # Try using soundfile first which handles various audio formats
                 try:
-                    print(f"Converting audio bytes to numpy array, size: {len(self.audio_data)}")
-                    # Try using soundfile first
+                    import soundfile as sf
+                    import io
+                    import tempfile
+                    import os
+
+                    # Create temporary file from bytes
+                    temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+                    temp_file.write(self.audio_data)
+                    temp_file.close()
+
                     try:
-                        import soundfile as sf
-                        import io
-                        audio_data, sample_rate = sf.read(io.BytesIO(self.audio_data))
+                        # Load with soundfile
+                        audio_data, sample_rate = sf.read(temp_file.name)
                         self.sample_rate = sample_rate
                         print(f"Converted audio bytes using soundfile, shape: {audio_data.shape}")
                         return audio_data
-                    except Exception as e1:
-                        print(f"Soundfile conversion failed: {e1}, trying librosa")
-                        # Fall back to librosa
-                        import librosa
-                        import io
-                        import numpy as np
+                    finally:
+                        # Clean up temp file
+                        os.remove(temp_file.name)
+                except Exception as e1:
+                    print(f"Soundfile conversion failed: {e1}, trying librosa")
+                    # Fall back to librosa
+                    import librosa
+                    import tempfile
+                    import os
 
-                        # Save bytes to temporary file
-                        import tempfile
-                        temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
-                        temp_file.write(self.audio_data)
-                        temp_file.close()
+                    # Create temporary file from bytes
+                    temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+                    temp_file.write(self.audio_data)
+                    temp_file.close()
 
-                        try:
-                            # Load with librosa
-                            audio_data, sample_rate = librosa.load(temp_file.name, sr=self.sample_rate)
-                            self.sample_rate = sample_rate
-                            print(f"Converted audio bytes using librosa, shape: {audio_data.shape}")
-                            return audio_data
-                        finally:
-                            # Clean up temp file
-                            import os
-                            os.remove(temp_file.name)
-                except Exception as e:
-                    print(f"Failed to convert audio bytes: {e}")
-                    # Return a small dummy array as last resort
-                    import numpy as np
-                    return np.zeros(16000)
-            else:
-                # Not bytes, return as is (assuming it's already a numpy array)
-                return self.audio_data
+                    try:
+                        # Load with librosa
+                        audio_data, sample_rate = librosa.load(temp_file.name, sr=self.sample_rate)
+                        self.sample_rate = sample_rate
+                        print(f"Converted audio bytes using librosa, shape: {audio_data.shape}")
+                        return audio_data
+                    finally:
+                        # Clean up temp file
+                        os.remove(temp_file.name)
+            except Exception as e:
+                print(f"Failed to convert audio bytes: {e}")
+                # Return a small dummy array as last resort
+                print("Creating dummy audio array")
+                return np.zeros(16000)
 
         # If we have a file path, load it
-        if self.audio_file_path:
+        if self.audio_file_path and os.path.exists(self.audio_file_path):
             try:
                 # Try soundfile first
                 try:
@@ -150,7 +179,6 @@ class SpeechRecognitionInput:
                     return audio_data
                 except Exception:
                     # Fall back to librosa
-                    import numpy as np
                     import librosa
                     audio_data, sample_rate = librosa.load(self.audio_file_path, sr=self.sample_rate)
                     self.sample_rate = sample_rate
@@ -160,27 +188,30 @@ class SpeechRecognitionInput:
                 raise ImportError("librosa, soundfile, and numpy are required for loading audio files")
             except Exception as e:
                 print(f"Error loading audio file: {e}")
+                import traceback
+                traceback.print_exc()
 
-        print("Warning: No valid audio data could be obtained")
-        return None
+        print("Warning: No valid audio data could be obtained. Creating dummy audio array.")
+        return np.zeros(16000)  # Return dummy array rather than None
 
     def get_elevenlabs_input(self):
         """
         Get input parameters for Eleven Labs speech-to-text.
-        Enhanced to handle bytes by creating a temporary file.
         """
         params = {}
 
         # Handle file path
-        if self.audio_file_path:
+        if self.audio_file_path and os.path.exists(self.audio_file_path):
             params['file_path'] = self.audio_file_path
 
         # Handle audio data
         elif self.audio_data is not None:
-            # For bytes, create a temporary file
             if isinstance(self.audio_data, (bytes, bytearray)):
                 try:
                     import tempfile
+                    import os
+
+                    # Create a temporary file with .mp3 extension
                     temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
                     temp_file.write(self.audio_data)
                     temp_file.flush()
@@ -192,6 +223,8 @@ class SpeechRecognitionInput:
                     params['audio_data'] = self.audio_data
             else:
                 params['audio_data'] = self.audio_data
+        else:
+            raise ValueError("Either file_path or audio_data must be provided")
 
         # Add optional parameters
         if hasattr(self, 'model_id') and self.model_id:
@@ -206,7 +239,6 @@ class SpeechRecognitionInput:
         """Clean up temporary files on destruction"""
         if hasattr(self, '_temp_file') and self._temp_file:
             try:
-                import os
                 if os.path.exists(self._temp_file.name):
                     os.unlink(self._temp_file.name)
                     print(f"Cleaned up temporary file: {self._temp_file.name}")

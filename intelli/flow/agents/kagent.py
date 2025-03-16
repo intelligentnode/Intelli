@@ -71,7 +71,12 @@ class KerasAgent(BasicAgent):
         return generated_output
 
     def _execute_speech_recognition(self, agent_input, custom_params):
-        """Handle speech recognition using Whisper models"""
+        """
+        Handle speech recognition using Whisper models.
+
+        Processes audio data from agent_input and converts bytes to numpy array
+        if needed before passing to the Whisper model.
+        """
         # Extract audio data
         audio_data = None
         sample_rate = custom_params.get("sample_rate", 16000)
@@ -85,6 +90,44 @@ class KerasAgent(BasicAgent):
         else:
             raise ValueError("Speech recognition requires audio data")
 
+        # Convert bytes to numpy array if needed
+        if isinstance(audio_data, (bytes, bytearray)):
+            if self.log:
+                print(f"Converting bytes to numpy array for Whisper, size: {len(audio_data)}")
+            try:
+                # Try using soundfile to convert bytes to numpy array
+                import soundfile as sf
+                import io
+                import tempfile
+                import os
+
+                # Save to temporary file
+                temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
+                temp_file.write(audio_data)
+                temp_file.close()
+
+                try:
+                    # Read with soundfile
+                    audio_data, sample_rate = sf.read(temp_file.name)
+                    if self.log:
+                        print(f"Converted audio using soundfile, shape: {audio_data.shape}, sample rate: {sample_rate}")
+                except Exception as e:
+                    if self.log:
+                        print(f"Soundfile conversion failed: {e}, trying librosa")
+                    # Fall back to librosa
+                    import librosa
+                    audio_data, sample_rate = librosa.load(temp_file.name, sr=sample_rate)
+                    if self.log:
+                        print(f"Converted audio using librosa, shape: {audio_data.shape}, sample rate: {sample_rate}")
+                finally:
+                    # Clean up temp file
+                    os.unlink(temp_file.name)
+            except Exception as e:
+                error_msg = f"Failed to convert audio bytes to numpy array: {e}"
+                if self.log:
+                    print(error_msg)
+                raise ValueError(error_msg)
+
         # Prepare transcript parameters
         language = custom_params.get("language", "<|en|>")  # Whisper language prompt
         user_prompt = custom_params.get("user_prompt", "")
@@ -92,11 +135,13 @@ class KerasAgent(BasicAgent):
             user_prompt = self.mission
 
         condition_on_previous_text = custom_params.get("condition_on_previous_text", True)
-        max_steps = custom_params.get("max_steps", None)
-        max_chunk_sec = custom_params.get("max_chunk_sec", None)
+
+        # Ensure max_steps and max_chunk_sec have valid values (not None)
+        max_steps = custom_params.get("max_steps", 80)  # Default to 80 if not specified
+        max_chunk_sec = custom_params.get("max_chunk_sec", 30)  # Default to 30 if not specified
 
         if self.log:
-            print(f"Transcribing audio with language: {language}")
+            print(f"Transcribing audio with language: {language}, max_chunk_sec: {max_chunk_sec}")
 
         # Call the transcript method
         result = self.wrapper.transcript(
