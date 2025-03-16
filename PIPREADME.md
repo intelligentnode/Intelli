@@ -21,7 +21,7 @@ pip install intelli
 - Support llama.cpp & GGUF models for fast inference.
 - Add deepseek and Llama3 integration [doc](https://docs.intellinode.ai/docs/python/chatbot/nvidia-chat).
 - Add offline speech2text Whisper [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/whisper).
-- Add Anthropic claude 3.5 as a chatbot provider.
+- Add Anthropic claude 3.7 as a chatbot provider.
 - Add KerasAgent to load open source models offline.
 
 For detailed instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
@@ -32,34 +32,34 @@ For detailed instructions, refer to [intelli documentation](https://docs.intelli
 Switch between multiple chatbot providers without changing your code.
 
 ```python
-from intelli.function.chatbot import Chatbot
+from intelli.function.chatbot import Chatbot, ChatProvider
 from intelli.model.input.chatbot_input import ChatModelInput
 
-def call_chatbot(provider, model=None, api_key='YOUR_API_KEY'):
+def call_chatbot(provider, model=None, api_key=None, options=None):
     # prepare common input 
     input = ChatModelInput("You are a helpful assistant.", model)
     input.add_user_message("What is the capital of France?")
 
     # creating chatbot instance
-    openai_bot = Chatbot(api_key, provider)
-    response = openai_bot.chat(input)
+    chatbot = Chatbot(api_key, provider, options=options)
+    response = chatbot.chat(input)
 
     return response
 
-# call openai
-call_chatbot("openai", "gpt-4")
-
-# call mistralai
-call_chatbot("mistral", "mistral-medium")
+# call chatGPT
+call_chatbot(ChatProvider.OPENAI, "gpt-4o")
 
 # call claude3
-call_chatbot(ChatProvider.ANTHROPIC, "claude-3-sonnet-20240229")
-
-# Call NVIDIA Deepseek.
-call_chatbot(ChatProvider.NVIDIA, "deepseek-ai/deepseek-r1")
+call_chatbot(ChatProvider.ANTHROPIC, "claude-3-7-sonnet-20250219")
 
 # call google gemini
-call_chatbot("gemini")
+call_chatbot(ChatProvider.GEMINI)
+
+# Call NVIDIA Deepseek
+call_chatbot(ChatProvider.NVIDIA, "deepseek-ai/deepseek-r1")
+
+# Call vLLM (self-hosted)
+call_chatbot(ChatProvider.VLLM, "meta-llama/Llama-3.1-8B-Instruct", options={"baseUrl": "http://localhost:8000"})
 ```
 
 ## Chat With Docs
