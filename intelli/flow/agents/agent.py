@@ -32,7 +32,6 @@ class BasicAgent(ABC):
 
 class Agent(BasicAgent):
     def __init__(self, agent_type, provider, mission, model_params, options=None):
-
         if agent_type not in AgentTypes._value2member_map_:
             raise ValueError("Incorrect agent type. Accepted types in AgentTypes.")
 
@@ -42,17 +41,39 @@ class Agent(BasicAgent):
         self.model_params = model_params
         self.options = options
 
-    def execute(self, agent_input: AgentInput, new_params={}):
+        # Lazy-loaded handler
+        self._handler = None
 
-        custom_params = dict(self.model_params)
+    def _get_handler(self):
+        """Get or create the appropriate handler for this agent type"""
+        if self._handler is None:
+            from intelli.flow.agents.handlers import get_agent_handler
+            self._handler = get_agent_handler(
+                self.type, self.provider, self.mission, self.model_params, self.options
+            )
+        return self._handler
+
+    def execute(self, agent_input: AgentInput, new_params={}):
+        """Execute the agent with the given input and optional parameters"""
+        # Prepare parameters by combining defaults with any new parameters
+        custom_params = dict(self.model_params) if self.model_params is not None else {}
         if (
-            new_params is not None
-            and isinstance(new_params, dict)
-            and new_params
-            and self.model_params is not None
+                new_params is not None
+                and isinstance(new_params, dict)
+                and new_params
         ):
             custom_params.update(new_params)
 
+        # For backward compatibility, if handler creation fails, fall back to legacy methods
+        try:
+            handler = self._get_handler()
+            return handler.execute(agent_input, custom_params)
+        except ImportError:
+            # Fall back to legacy methods if handlers module isn't available
+            return self._legacy_execute(agent_input, custom_params)
+
+    def _legacy_execute(self, agent_input: AgentInput, custom_params):
+        """Legacy execution method for backward compatibility"""
         # Check the agent type and call the appropriate function
         if self.type == AgentTypes.TEXT.value:
             return self._execute_text_agent(agent_input, custom_params)

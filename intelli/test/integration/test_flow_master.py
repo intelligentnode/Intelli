@@ -1,17 +1,14 @@
 import os
 import asyncio
 import unittest
-import base64
-import json
-from pathlib import Path
 from dotenv import load_dotenv
 from intelli.flow.agents.agent import Agent
 from intelli.flow.agents.kagent import KerasAgent
-from intelli.flow.input.task_input import TextTaskInput, ImageTaskInput
+from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.tasks.task import Task
 from intelli.flow.flow import Flow
 from intelli.flow.types import AgentTypes
-from intelli.controller.remote_speech_model import RemoteSpeechModel
+from intelli.flow.utils.flow_helper import FlowHelper
 
 # Load environment variables
 load_dotenv()
@@ -22,41 +19,117 @@ class TestMultiModalFlow(unittest.TestCase):
     OUTPUT_DIR = "./temp/travel/"
 
     def setUp(self):
-        # Load API keys
-        self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.mistral_api_key = os.getenv("MISTRAL_API_KEY")
-        self.stability_key = os.getenv("STABILITY_API_KEY")
-        self.elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
-        self.google_key = os.getenv("GOOGLE_API_KEY")
-        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
+        # Load API keys from environment variables
+        self.api_keys = {
+            "openai": os.getenv("OPENAI_API_KEY"),
+            "mistral": os.getenv("MISTRAL_API_KEY"),
+            "stability": os.getenv("STABILITY_API_KEY"),
+            "elevenlabs": os.getenv("ELEVENLABS_API_KEY"),
+            "google": os.getenv("GOOGLE_API_KEY"),
+            "anthropic": os.getenv("ANTHROPIC_API_KEY"),
+        }
 
         # Create temp directory if it doesn't exist
-        os.makedirs(self.OUTPUT_DIR, exist_ok=True)
+        FlowHelper.ensure_directory(self.OUTPUT_DIR)
 
         # Skip test if essential keys are missing
-        required_keys = [self.openai_api_key, self.mistral_api_key]
+        required_keys = [self.api_keys["openai"], self.api_keys["mistral"]]
         if not all(required_keys):
             self.skipTest("Missing required API keys for multimodal test")
 
         # Get a valid ElevenLabs voice ID if possible
-        self.elevenlabs_voice_id = None
-        if self.elevenlabs_key:
-            try:
-                # Create ElevenLabs speech model directly
-                speech_model = RemoteSpeechModel(
-                    key_value=self.elevenlabs_key, provider="elevenlabs"
-                )
+        self.elevenlabs_voice_id = self._get_elevenlabs_voice_id()
 
-                # List available voices
-                voices_result = speech_model.list_voices()
-                if "voices" in voices_result and len(voices_result["voices"]) > 0:
-                    # Get the first voice ID
-                    self.elevenlabs_voice_id = voices_result["voices"][0]["voice_id"]
-                    print(
-                        f"🔊 Using ElevenLabs voice: {voices_result['voices'][0]['name']} ({self.elevenlabs_voice_id})"
-                    )
-            except Exception as e:
-                print(f"⚠️ Error getting ElevenLabs voices: {e}")
+        # Define file paths for outputs
+        self.output_files = {
+            "itinerary": os.path.join(self.OUTPUT_DIR, "rome_itinerary.txt"),
+            "audio": os.path.join(self.OUTPUT_DIR, "rome_audio.mp3"),
+            "openai_transcription": os.path.join(self.OUTPUT_DIR, "transcription_openai.txt"),
+            "keras_transcription": os.path.join(self.OUTPUT_DIR, "transcription_keras.txt"),
+            "image": os.path.join(self.OUTPUT_DIR, "rome_image.png"),
+            "travel_guide": os.path.join(self.OUTPUT_DIR, "rome_travel_guide.md"),
+            "flow_results": os.path.join(self.OUTPUT_DIR, "flow_results.json")
+        }
+
+    def _get_elevenlabs_voice_id(self):
+        """Helper method to get an ElevenLabs voice ID"""
+        if not self.api_keys["elevenlabs"]:
+            return None
+
+        try:
+            from intelli.controller.remote_speech_model import RemoteSpeechModel
+            speech_model = RemoteSpeechModel(
+                key_value=self.api_keys["elevenlabs"], provider="elevenlabs"
+            )
+
+            # List available voices
+            voices_result = speech_model.list_voices()
+            if "voices" in voices_result and len(voices_result["voices"]) > 0:
+                # Get the first voice ID
+                voice_id = voices_result["voices"][0]["voice_id"]
+                print(f"🔊 Using ElevenLabs voice: {voices_result['voices'][0]['name']} ({voice_id})")
+                return voice_id
+        except Exception as e:
+            print(f"⚠️ Error getting ElevenLabs voices: {e}")
+
+        return None
+
+    def _create_speech_agent(self):
+        """Create the appropriate speech agent based on available API keys"""
+        if self.api_keys["elevenlabs"] and self.elevenlabs_voice_id:
+            print(f"🔊 Using ElevenLabs for speech synthesis with voice ID: {self.elevenlabs_voice_id}")
+            return Agent(
+                agent_type=AgentTypes.SPEECH.value,
+                provider="elevenlabs",
+                mission="Convert travel itinerary to speech",
+                model_params={
+                    "key": self.api_keys["elevenlabs"],
+                    "voice": self.elevenlabs_voice_id,
+                    "model": "eleven_multilingual_v2",
+                },
+            )
+        elif self.api_keys["google"]:
+            print("🔊 Using Google for speech synthesis")
+            return Agent(
+                agent_type=AgentTypes.SPEECH.value,
+                provider="google",
+                mission="Convert travel itinerary to speech",
+                model_params={"key": self.api_keys["google"], "language": "en-US"},
+            )
+        else:
+            print("🔊 Using OpenAI for speech synthesis")
+            return Agent(
+                agent_type=AgentTypes.SPEECH.value,
+                provider="openai",
+                mission="Convert travel itinerary to speech",
+                model_params={
+                    "key": self.api_keys["openai"],
+                    "model": "tts-1",
+                    "voice": "alloy",
+                },
+            )
+
+    def _create_image_prompt_agent(self):
+        """Create the appropriate image prompt agent based on available API keys"""
+        if self.api_keys["anthropic"]:
+            print("🤖 Using Anthropic Claude for image prompt generation")
+            return Agent(
+                agent_type=AgentTypes.TEXT.value,
+                provider="anthropic",
+                mission="Create a detailed image prompt for the travel destination",
+                model_params={
+                    "key": self.api_keys["anthropic"],
+                    "model": "claude-3-7-sonnet-20250219"
+                },
+            )
+        else:
+            print("⚠️ Using OpenAI for image prompt generation")
+            return Agent(
+                agent_type=AgentTypes.TEXT.value,
+                provider="openai",
+                mission="Create a detailed image prompt for the travel destination",
+                model_params={"key": self.api_keys["openai"], "model": "gpt-3.5-turbo"},
+            )
 
     def test_travel_assistant_multimodal_flow(self):
         """
@@ -83,7 +156,7 @@ class TestMultiModalFlow(unittest.TestCase):
             agent_type=AgentTypes.TEXT.value,
             provider="openai",
             mission="Create a detailed 3-day travel itinerary",
-            model_params={"key": self.openai_api_key, "model": "gpt-3.5-turbo"},
+            model_params={"key": self.api_keys["openai"], "model": "gpt-3.5-turbo"},
         )
 
         itinerary_task = Task(
@@ -97,42 +170,8 @@ class TestMultiModalFlow(unittest.TestCase):
         tasks["itinerary"] = itinerary_task
         map_paths["itinerary"] = ["speech", "image_prompt", "final_package"]
 
-        # 2. Speech Synthesis based on provider availability
-        if self.elevenlabs_key and self.elevenlabs_voice_id:
-            print(
-                f"🔊 Using ElevenLabs for speech synthesis with voice ID: {self.elevenlabs_voice_id}"
-            )
-            speech_agent = Agent(
-                agent_type=AgentTypes.SPEECH.value,
-                provider="elevenlabs",
-                mission="Convert travel itinerary to speech",
-                model_params={
-                    "key": self.elevenlabs_key,
-                    "voice": self.elevenlabs_voice_id,  # Using the actual voice ID
-                    "model": "eleven_multilingual_v2",  # Specify the model
-                },
-            )
-        elif self.google_key:
-            print("🔊 Using Google for speech synthesis")
-            speech_agent = Agent(
-                agent_type=AgentTypes.SPEECH.value,
-                provider="google",
-                mission="Convert travel itinerary to speech",
-                model_params={"key": self.google_key, "language": "en-US"},
-            )
-        else:
-            print("🔊 Using OpenAI for speech synthesis")
-            speech_agent = Agent(
-                agent_type=AgentTypes.SPEECH.value,
-                provider="openai",
-                mission="Convert travel itinerary to speech",
-                model_params={
-                    "key": self.openai_api_key,
-                    "model": "tts-1",
-                    "voice": "alloy",
-                },
-            )
-
+        # 2. Speech Synthesis
+        speech_agent = self._create_speech_agent()
         speech_task = Task(
             TextTaskInput(
                 "Convert the first day of this itinerary to speech for the traveler"
@@ -149,7 +188,7 @@ class TestMultiModalFlow(unittest.TestCase):
             agent_type=AgentTypes.RECOGNITION.value,
             provider="openai",
             mission="Transcribe the audio guide back to text",
-            model_params={"key": self.openai_api_key, "model": "whisper-1"},
+            model_params={"key": self.api_keys["openai"], "model": "whisper-1"},
         )
 
         recognition_task = Task(
@@ -168,10 +207,10 @@ class TestMultiModalFlow(unittest.TestCase):
                 provider="keras",
                 mission="Transcribe audio using local Whisper model",
                 model_params={
-                    "model_name": "whisper_tiny_en",  # Smallest light model
+                    "model_name": "whisper_tiny_en",
                     "language": "<|en|>",
                     "user_prompt": "You are transcribing a travel itinerary audio.",
-                    "max_steps": 80,  # Ensure these are not None to avoid multiplication errors
+                    "max_steps": 80,
                     "max_chunk_sec": 30,
                 },
             )
@@ -193,7 +232,7 @@ class TestMultiModalFlow(unittest.TestCase):
                 agent_type=AgentTypes.TEXT.value,
                 provider="openai",
                 mission="Compare the two transcription results",
-                model_params={"key": self.openai_api_key, "model": "gpt-3.5-turbo"},
+                model_params={"key": self.api_keys["openai"], "model": "gpt-3.5-turbo"},
             )
 
             compare_task = Task(
@@ -207,27 +246,8 @@ class TestMultiModalFlow(unittest.TestCase):
             tasks["transcription_comparison"] = compare_task
             map_paths["transcription_comparison"] = ["final_package"]
 
-        # 6. Image Prompt Creation with Anthropic Claude
-        if self.anthropic_api_key:
-            print("🤖 Using Anthropic Claude for image prompt generation")
-            img_prompt_agent = Agent(
-                agent_type=AgentTypes.TEXT.value,
-                provider="anthropic",
-                mission="Create a detailed image prompt for the travel destination",
-                model_params={
-                    "key": self.anthropic_api_key,
-                    "model": "claude-3-7-sonnet-20250219"
-                },
-            )
-        else:
-            print("⚠️ ANTHROPIC_API_KEY not found. Falling back to OpenAI for image prompt.")
-            img_prompt_agent = Agent(
-                agent_type=AgentTypes.TEXT.value,
-                provider="openai",
-                mission="Create a detailed image prompt for the travel destination",
-                model_params={"key": self.openai_api_key, "model": "gpt-3.5-turbo"},
-            )
-
+        # 6. Image Prompt Creation
+        img_prompt_agent = self._create_image_prompt_agent()
         img_prompt_task = Task(
             TextTaskInput(
                 "Create a short, specific image generation prompt (under 50 words) for Rome showing the iconic Colosseum"
@@ -240,12 +260,12 @@ class TestMultiModalFlow(unittest.TestCase):
         map_paths["image_prompt"] = ["destination_image"]
 
         # 7. Destination Image Generation (if Stability AI key is available)
-        if self.stability_key:
+        if self.api_keys["stability"]:
             image_agent = Agent(
                 agent_type=AgentTypes.IMAGE.value,
                 provider="stability",
                 mission="Generate a visual representation of the destination",
-                model_params={"key": self.stability_key},
+                model_params={"key": self.api_keys["stability"]},
             )
 
             image_task = Task(
@@ -265,8 +285,8 @@ class TestMultiModalFlow(unittest.TestCase):
                 provider="openai",
                 mission="Analyze the image and identify key landmarks and travel features",
                 model_params={
-                    "key": self.openai_api_key,
-                    "model": "gpt-4o",  # Using gpt-4o for vision
+                    "key": self.api_keys["openai"],
+                    "model": "gpt-4o",
                     "extension": "png",
                 },
             )
@@ -287,7 +307,7 @@ class TestMultiModalFlow(unittest.TestCase):
             agent_type=AgentTypes.TEXT.value,
             provider="mistral",
             mission="Create an enhanced travel package combining all insights",
-            model_params={"key": self.mistral_api_key, "model": "mistral-medium"},
+            model_params={"key": self.api_keys["mistral"], "model": "mistral-medium"},
         )
 
         final_task = Task(
@@ -317,215 +337,125 @@ class TestMultiModalFlow(unittest.TestCase):
         results = await flow.start(max_workers=3)
 
         # Save outputs to files
-        await self._save_flow_outputs(results, tasks)
+        self._save_flow_outputs(results)
 
         # Create a sample audio and image if the real ones failed
-        await self._ensure_test_outputs()
+        self._ensure_test_outputs()
 
-        # Validate results with more flexibility
+        # Validate results
         self._validate_results(results)
 
         print("✅ Multimodal flow completed successfully")
         return results
 
-    async def _save_flow_outputs(self, results, tasks):
+    def _save_flow_outputs(self, results):
         """Save the various outputs from the flow to files"""
+        saved_files = {}
 
-        os.makedirs(self.OUTPUT_DIR, exist_ok=True)
-
-        # Get file paths
-        itinerary_path = os.path.join(self.OUTPUT_DIR, "rome_itinerary.txt")
-        audio_path = os.path.join(self.OUTPUT_DIR, "rome_audio.mp3")
-        openai_transcription_path = os.path.join(
-            self.OUTPUT_DIR, "transcription_openai.txt"
-        )
-        keras_transcription_path = os.path.join(
-            self.OUTPUT_DIR, "transcription_keras.txt"
-        )
-        image_path = os.path.join(self.OUTPUT_DIR, "rome_image.png")
-        travel_guide_path = os.path.join(self.OUTPUT_DIR, "rome_travel_guide.md")
-        results_json_path = os.path.join(self.OUTPUT_DIR, "flow_results.json")
-
-        # Debug info for troubleshooting
-        if "speech" in results:
-            print(f"Debug - Speech output type: {type(results['speech']['output'])}")
-
-        # Save itinerary text
+        # Save text outputs
         if "itinerary" in results:
-            with open(itinerary_path, "w") as f:
-                f.write(results["itinerary"]["output"])
-            print(f"📄 Saved itinerary to {itinerary_path}")
+            saved_files["itinerary"] = FlowHelper.save_text_output(
+                results["itinerary"]["output"],
+                self.output_files["itinerary"]
+            )
+            print(f"📄 Saved itinerary to {self.output_files['itinerary']}")
 
-        # Save audio file if it exists in the results
+        # Save audio
         if "speech" in results and results["speech"]["type"] == "audio":
-            audio_data = results["speech"]["output"]
-
-            # Improved handling for ElevenLabs audio
-            if isinstance(audio_data, bytes):
-                audio_bytes = audio_data
-                print("📢 Debug: Using direct binary audio data")
-            elif isinstance(audio_data, str) and audio_data.startswith("data:audio"):
-                # Handle data URI format
-                audio_base64 = audio_data.split(",")[1]
-                audio_bytes = base64.b64decode(audio_base64)
-                print("📢 Debug: Using data URI audio format")
-            elif isinstance(audio_data, str) and "base64" in audio_data:
-                # Handle raw base64 format
-                audio_base64 = audio_data.split("base64,")[-1]
-                audio_bytes = base64.b64decode(audio_base64)
-                print("📢 Debug: Using base64 audio format")
-            else:
-                try:
-                    audio_bytes = (
-                        base64.b64decode(audio_data)
-                        if isinstance(audio_data, str)
-                        else audio_data
-                    )
-                    print(
-                        f"📢 Debug: Used fallback audio handling for type: {type(audio_data)}"
-                    )
-                except Exception as e:
-                    print(f"⚠️ Warning: Could not decode audio data: {e}")
-                    audio_bytes = audio_data  # Use as-is as last resort
-                    print(f"📢 Debug: Using raw audio data of type: {type(audio_data)}")
-
-            if audio_bytes:
-                with open(audio_path, "wb") as f:
-                    f.write(audio_bytes)
-                print(f"🔊 Saved audio to {audio_path}")
-                print(f"🔊 Audio file size: {os.path.getsize(audio_path)} bytes")
+            file_path, file_size = FlowHelper.save_audio_output(
+                results["speech"]["output"],
+                self.output_files["audio"]
+            )
+            saved_files["audio"] = file_path
+            if file_path:
+                print(f"🔊 Saved audio to {file_path}, size: {file_size} bytes")
 
         # Save transcriptions
         if "transcribe_openai" in results:
-            with open(openai_transcription_path, "w") as f:
-                f.write(results["transcribe_openai"]["output"])
-            print(f"📝 Saved OpenAI transcription to {openai_transcription_path}")
+            saved_files["transcribe_openai"] = FlowHelper.save_text_output(
+                results["transcribe_openai"]["output"],
+                self.output_files["openai_transcription"]
+            )
+            print(f"📝 Saved OpenAI transcription to {self.output_files['openai_transcription']}")
 
         if "transcribe_keras" in results:
-            with open(keras_transcription_path, "w") as f:
-                f.write(results["transcribe_keras"]["output"])
-            print(f"📝 Saved Keras transcription to {keras_transcription_path}")
+            saved_files["transcribe_keras"] = FlowHelper.save_text_output(
+                results["transcribe_keras"]["output"],
+                self.output_files["keras_transcription"]
+            )
+            print(f"📝 Saved Keras transcription to {self.output_files['keras_transcription']}")
 
-        # Save image if it exists
-        if (
-            "destination_image" in results
-            and results["destination_image"]["type"] == "image"
-        ):
-            image_data = results["destination_image"]["output"]
-
-            # Convert image data to bytes
-            if isinstance(image_data, str):
-                # Handle base64 string
-                if "," in image_data:
-                    image_base64 = image_data.split(",")[1]
-                else:
-                    image_base64 = image_data
-                image_bytes = base64.b64decode(image_base64)
-            else:
-                # Already bytes
-                image_bytes = image_data
-
-            # Save image
-            with open(image_path, "wb") as f:
-                f.write(image_bytes)
-            print(f"🖼️ Saved image to {image_path}")
+        # Save image
+        if "destination_image" in results and results["destination_image"]["type"] == "image":
+            file_path, file_size = FlowHelper.save_image_output(
+                results["destination_image"]["output"],
+                self.output_files["image"]
+            )
+            saved_files["image"] = file_path
+            if file_path:
+                print(f"🖼️ Saved image to {file_path}, size: {file_size} bytes")
 
         # Save final package
         if "final_package" in results:
-            with open(travel_guide_path, "w") as f:
-                f.write(results["final_package"]["output"])
-            print(f"📚 Saved travel guide to {travel_guide_path}")
+            saved_files["final_package"] = FlowHelper.save_text_output(
+                results["final_package"]["output"],
+                self.output_files["travel_guide"]
+            )
+            print(f"📚 Saved travel guide to {self.output_files['travel_guide']}")
 
-        # Save all results to a JSON file
-        try:
-            serializable_results = {}
-            for key, value in results.items():
-                if key in ["speech", "destination_image"]:
-                    # Skip binary data
-                    serializable_results[key] = {
-                        "type": value["type"],
-                        "output": "[BINARY DATA]",
-                    }
-                else:
-                    serializable_results[key] = value
+        # Save all results to JSON
+        json_path = FlowHelper.save_flow_results(
+            results,
+            self.output_files["flow_results"],
+            exclude_binary=True
+        )
+        if json_path:
+            print(f"📊 Saved flow results to {json_path}")
 
-            with open(results_json_path, "w") as f:
-                json.dump(serializable_results, f, indent=2)
-            print(f"📊 Saved flow results to {results_json_path}")
-        except Exception as e:
-            print(f"⚠️ Warning: Could not save flow results to JSON: {e}")
-
-    async def _ensure_test_outputs(self):
+    def _ensure_test_outputs(self):
         """Create sample files for testing if the actual ones weren't generated"""
-        # Define file paths
-        audio_path = os.path.join(self.OUTPUT_DIR, "rome_audio.mp3")
-        image_path = os.path.join(self.OUTPUT_DIR, "rome_image.png")
-        travel_guide_path = os.path.join(self.OUTPUT_DIR, "rome_travel_guide.md")
+        # Define expected output files with their content types
+        output_map = {
+            self.output_files["audio"]: "audio",
+            self.output_files["image"]: "image",
+            self.output_files["travel_guide"]: "text"
+        }
 
-        # Check if we have a test audio file
-        if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
-            print(f"🔊 Creating sample audio file for testing at {audio_path}")
-            with open(audio_path, "wb") as f:
-                f.write(b"dummy audio file")
-
-        # Check if we have a test image file
-        if not os.path.exists(image_path) or os.path.getsize(image_path) == 0:
-            print(f"🖼️ Creating sample image file for testing at {image_path}")
-            with open(image_path, "wb") as f:
-                f.write(b"dummy image file")
-
-        # Check if we have a travel guide fil
-        if not os.path.exists(travel_guide_path):
-            print(f"📚 Creating sample travel guide for testing at {travel_guide_path}")
-            with open(travel_guide_path, "w") as f:
-                f.write(
-                    "# Rome Travel Guide\n\nThis is a sample travel guide for testing purposes."
-                )
+        # Create sample files if needed
+        FlowHelper.create_sample_outputs(output_map)
 
     def _validate_results(self, results):
         """Validate that the flow completed with necessary outputs"""
-        # Define file paths
-        itinerary_path = os.path.join(self.OUTPUT_DIR, "rome_itinerary.txt")
-        audio_path = os.path.join(self.OUTPUT_DIR, "rome_audio.mp3")
-        image_path = os.path.join(self.OUTPUT_DIR, "rome_image.png")
-        travel_guide_path = os.path.join(self.OUTPUT_DIR, "rome_travel_guide.md")
-
-        # Verify we have any results to validate
+        # Verify we have any results
         if not results:
             self.fail("No results were returned from the flow")
 
-        # Check for itinerary
+        # Validate key outputs
         self.assertIn("itinerary", results, "Itinerary output missing")
-        self.assertEqual(
-            results["itinerary"]["type"], "text", "Itinerary should be text"
-        )
+        self.assertEqual(results["itinerary"]["type"], "text", "Itinerary should be text type")
 
-        # Only check for the final package
-        if os.path.exists(travel_guide_path):
-            if "final_package" in results:
-                self.assertEqual(
-                    results["final_package"]["type"],
-                    "text",
-                    "Final package should be text type",
-                )
+        # Check for final package if it exists
+        if "final_package" in results:
+            self.assertEqual(
+                results["final_package"]["type"],
+                "text",
+                "Final package should be text type"
+            )
 
         # Validate output files exist
-        self.assertTrue(
-            os.path.exists(itinerary_path),
-            f"Itinerary file should exist at {itinerary_path}",
-        )
-        self.assertTrue(
-            os.path.exists(travel_guide_path),
-            f"Travel guide file should exist at {travel_guide_path}",
-        )
-        self.assertTrue(
-            os.path.exists(image_path), f"Image file should exist at {image_path}"
-        )
-        self.assertTrue(
-            os.path.exists(audio_path), f"Audio file should exist at {audio_path}"
-        )
+        expected_files = [
+            self.output_files["itinerary"],
+            self.output_files["audio"],
+            self.output_files["image"],
+            self.output_files["travel_guide"]
+        ]
 
-        # Success criteria
+        for file_path in expected_files:
+            self.assertTrue(
+                os.path.exists(file_path),
+                f"Output file should exist at {file_path}"
+            )
+
         print("✅ Test validation passed!")
 
 
