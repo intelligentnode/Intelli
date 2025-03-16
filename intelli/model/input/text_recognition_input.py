@@ -4,16 +4,18 @@ class SpeechRecognitionInput:
     Supports both cloud providers (OpenAI) and local models (Keras).
     """
 
-    def __init__(self,
-                 audio_file_path=None,
-                 audio_data=None,
-                 sample_rate=16000,
-                 language=None,
-                 model="whisper-1",
-                 user_prompt=None,
-                 condition_on_previous_text=False,
-                 max_steps=80,
-                 max_chunk_sec=30):
+    def __init__(
+        self,
+        audio_file_path=None,
+        audio_data=None,
+        sample_rate=16000,
+        language=None,
+        model="whisper-1",
+        user_prompt=None,
+        condition_on_previous_text=False,
+        max_steps=80,
+        max_chunk_sec=30,
+    ):
         """
         Initialize speech recognition input parameters.
 
@@ -48,21 +50,21 @@ class SpeechRecognitionInput:
         """
         # Just return the basic information needed for a direct API call
         return {
-            'file_path': self.audio_file_path,
-            'model': self.model,
-            'language': self.language
+            "file_path": self.audio_file_path,
+            "model": self.model,
+            "language": self.language,
         }
 
     def get_keras_input(self):
         """Return parameters for Keras Whisper models"""
         return {
-            'audio_data': self.get_audio_data(),
-            'sample_rate': self.sample_rate,
-            'language': self.language,
-            'user_prompt': self.user_prompt,
-            'condition_on_previous_text': self.condition_on_previous_text,
-            'max_steps': self.max_steps,
-            'max_chunk_sec': self.max_chunk_sec
+            "audio_data": self.get_audio_data(),
+            "sample_rate": self.sample_rate,
+            "language": self.language,
+            "user_prompt": self.user_prompt,
+            "condition_on_previous_text": self.condition_on_previous_text,
+            "max_steps": self.max_steps,
+            "max_chunk_sec": self.max_chunk_sec,
         }
 
     def get_audio_data(self):
@@ -76,12 +78,34 @@ class SpeechRecognitionInput:
                 import librosa
 
                 # Load the audio file
-                audio_data, sample_rate = librosa.load(self.audio_file_path, sr=self.sample_rate)
+                audio_data, sample_rate = librosa.load(
+                    self.audio_file_path, sr=self.sample_rate
+                )
                 self.sample_rate = sample_rate
                 self.audio_data = audio_data
                 return self.audio_data
 
             except ImportError:
-                raise ImportError("librosa and numpy are required for loading audio files")
+                raise ImportError(
+                    "librosa and numpy are required for loading audio files"
+                )
 
         return None
+
+    def get_elevenlabs_input(self):
+        """Get input parameters for Eleven Labs speech-to-text"""
+        params = {}
+
+        if hasattr(self, 'audio_file_path') and self.audio_file_path:
+            params['file_path'] = self.audio_file_path
+        elif hasattr(self, 'audio_data') and self.audio_data:
+            params['audio_data'] = self.audio_data
+
+        # Add optional parameters if they exist
+        if hasattr(self, 'model_id') and self.model_id:
+            params['model_id'] = self.model_id
+
+        if hasattr(self, 'language') and self.language:
+            params['language'] = self.language
+
+        return params

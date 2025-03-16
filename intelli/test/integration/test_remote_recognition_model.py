@@ -16,10 +16,11 @@ class TestRemoteRecognitionModel(unittest.TestCase):
     def setUp(self):
         """Set up for the test case."""
         self.api_key_openai = os.getenv('OPENAI_API_KEY')
+        self.api_key_elevenlabs = os.getenv('ELEVENLABS_API_KEY')
         self.temp_dir = './temp'
 
         # Define path to test audio file (harvard.wav)
-        self.test_audio_path = os.path.join(self.temp_dir, 'harvard.wav')
+        self.test_audio_path = os.path.join(self.temp_dir, 'test.wav')
 
         # Skip tests if the file doesn't exist
         if not os.path.exists(self.test_audio_path):
@@ -30,6 +31,12 @@ class TestRemoteRecognitionModel(unittest.TestCase):
             self.openai_recognition = RemoteRecognitionModel(
                 self.api_key_openai,
                 SupportedRecognitionModels['OPENAI']
+            )
+
+        if self.api_key_elevenlabs:
+            self.elevenlabs_recognition = RemoteRecognitionModel(
+                self.api_key_elevenlabs,
+                SupportedRecognitionModels['ELEVENLABS']
             )
 
         # Only set up Keras if we're going to test it
@@ -94,6 +101,35 @@ class TestRemoteRecognitionModel(unittest.TestCase):
             # Don't fail the test as Keras might have issues on some configurations
             self.skipTest(f"Keras recognition failed: {str(e)}")
 
+    def test_elevenlabs_recognition(self):
+        """Test speech recognition with Eleven Labs"""
+        if not self.api_key_elevenlabs:
+            self.skipTest("Eleven Labs API key not provided")
+
+        if not os.path.exists(self.test_audio_path):
+            self.skipTest(f"Test audio file not found: {self.test_audio_path}")
+
+        recognition_input = SpeechRecognitionInput(
+            audio_file_path=self.test_audio_path,
+            language="en"  # Standard parameter
+        )
+
+        recognition_input.model_id = "scribe_v1"
+
+        try:
+            # Get transcription
+            result = self.elevenlabs_recognition.recognize_speech(recognition_input)
+            print(f"Eleven Labs Recognition Result: {result}")
+
+            self.assertIsInstance(result, str)
+            self.assertTrue(len(result) > 0, "Transcription should not be empty")
+
+        except Exception as e:
+            error_str = str(e).lower()
+            if 'subscription' in error_str or '402' in error_str or 'payment' in error_str:
+                self.skipTest(f"Eleven Labs speech recognition requires higher subscription tier: {e}")
+            else:
+                self.fail(f"Eleven Labs recognition failed with error: {e}")
 
 if __name__ == "__main__":
     unittest.main()

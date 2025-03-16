@@ -112,6 +112,14 @@ config = {
             "completions": "/v1/completions",
             "chat": "/v1/chat/completions",
             "embed": "/embed"
+        },
+        "elevenlabs": {
+            "base": "https://api.elevenlabs.io/v1",
+            "models": {
+                "tts": "eleven_multilingual_v2",
+                "stt": "scribe_v1",
+                "sts": "eleven_multilingual_sts_v2"
+            }
         }
     },
     "models": {
