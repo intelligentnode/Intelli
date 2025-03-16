@@ -28,6 +28,7 @@ class TestMultiModalFlow(unittest.TestCase):
         self.stability_key = os.getenv("STABILITY_API_KEY")
         self.elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
         self.google_key = os.getenv("GOOGLE_API_KEY")
+        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
 
         # Create temp directory if it doesn't exist
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
@@ -87,7 +88,7 @@ class TestMultiModalFlow(unittest.TestCase):
 
         itinerary_task = Task(
             TextTaskInput(
-                "Create a 3-day travel itinerary for Barcelona, Spain. Include major attractions, food recommendations, and transportation tips."
+                "Create a 3-day travel itinerary for Rome, Italy. Include major attractions, food recommendations, and transportation tips."
             ),
             itinerary_agent,
             log=True,
@@ -170,6 +171,8 @@ class TestMultiModalFlow(unittest.TestCase):
                     "model_name": "whisper_tiny_en",  # Smallest light model
                     "language": "<|en|>",
                     "user_prompt": "You are transcribing a travel itinerary audio.",
+                    "max_steps": 80,  # Ensure these are not None to avoid multiplication errors
+                    "max_chunk_sec": 30,
                 },
             )
 
@@ -204,17 +207,30 @@ class TestMultiModalFlow(unittest.TestCase):
             tasks["transcription_comparison"] = compare_task
             map_paths["transcription_comparison"] = ["final_package"]
 
-        # 6. Image Prompt Creation
-        img_prompt_agent = Agent(
-            agent_type=AgentTypes.TEXT.value,
-            provider="openai",
-            mission="Create a detailed image prompt for the travel destination",
-            model_params={"key": self.openai_api_key, "model": "gpt-3.5-turbo"},
-        )
+        # 6. Image Prompt Creation with Anthropic Claude
+        if self.anthropic_api_key:
+            print("🤖 Using Anthropic Claude for image prompt generation")
+            img_prompt_agent = Agent(
+                agent_type=AgentTypes.TEXT.value,
+                provider="anthropic",
+                mission="Create a detailed image prompt for the travel destination",
+                model_params={
+                    "key": self.anthropic_api_key,
+                    "model": "claude-3-7-sonnet-20250219"
+                },
+            )
+        else:
+            print("⚠️ ANTHROPIC_API_KEY not found. Falling back to OpenAI for image prompt.")
+            img_prompt_agent = Agent(
+                agent_type=AgentTypes.TEXT.value,
+                provider="openai",
+                mission="Create a detailed image prompt for the travel destination",
+                model_params={"key": self.openai_api_key, "model": "gpt-3.5-turbo"},
+            )
 
         img_prompt_task = Task(
             TextTaskInput(
-                "Create a short, specific image generation prompt (under 50 words) for Barcelona showing the Sagrada Familia cathedral"
+                "Create a short, specific image generation prompt (under 50 words) for Rome showing the iconic Colosseum"
             ),
             img_prompt_agent,
             log=True,
@@ -234,7 +250,7 @@ class TestMultiModalFlow(unittest.TestCase):
 
             image_task = Task(
                 TextTaskInput(
-                    "Barcelona with the iconic Sagrada Familia cathedral under blue sky"
+                    "Rome with the iconic Colosseum under clear blue sky"
                 ),
                 image_agent,
                 log=True,
@@ -257,7 +273,7 @@ class TestMultiModalFlow(unittest.TestCase):
 
             vision_task = Task(
                 TextTaskInput(
-                    "Identify the landmarks and notable features in this image that would be relevant for a traveler to Barcelona"
+                    "Identify the landmarks and notable features in this image that would be relevant for a traveler to Rome"
                 ),
                 vision_agent,
                 log=True,
@@ -276,7 +292,7 @@ class TestMultiModalFlow(unittest.TestCase):
 
         final_task = Task(
             TextTaskInput(
-                "Create a comprehensive and engaging travel guide for Barcelona by combining the itinerary, transcription insights, and image analysis"
+                "Create a comprehensive and engaging travel guide for Rome by combining the itinerary, transcription insights, and image analysis"
             ),
             final_agent,
             log=True,
@@ -291,7 +307,7 @@ class TestMultiModalFlow(unittest.TestCase):
         # Generate and save the flow visualization
         try:
             graph_path = flow.generate_graph_img(
-                name="travel_assistant_flow", save_path=self.OUTPUT_DIR
+                name="rome_travel_assistant_flow", save_path=self.OUTPUT_DIR
             )
             print(f"🎨 Flow visualization saved to: {graph_path}")
         except Exception as e:
@@ -318,16 +334,16 @@ class TestMultiModalFlow(unittest.TestCase):
         os.makedirs(self.OUTPUT_DIR, exist_ok=True)
 
         # Get file paths
-        itinerary_path = os.path.join(self.OUTPUT_DIR, "barcelona_itinerary.txt")
-        audio_path = os.path.join(self.OUTPUT_DIR, "barcelona_audio.mp3")
+        itinerary_path = os.path.join(self.OUTPUT_DIR, "rome_itinerary.txt")
+        audio_path = os.path.join(self.OUTPUT_DIR, "rome_audio.mp3")
         openai_transcription_path = os.path.join(
             self.OUTPUT_DIR, "transcription_openai.txt"
         )
         keras_transcription_path = os.path.join(
             self.OUTPUT_DIR, "transcription_keras.txt"
         )
-        image_path = os.path.join(self.OUTPUT_DIR, "barcelona_image.png")
-        travel_guide_path = os.path.join(self.OUTPUT_DIR, "barcelona_travel_guide.md")
+        image_path = os.path.join(self.OUTPUT_DIR, "rome_image.png")
+        travel_guide_path = os.path.join(self.OUTPUT_DIR, "rome_travel_guide.md")
         results_json_path = os.path.join(self.OUTPUT_DIR, "flow_results.json")
 
         # Debug info for troubleshooting
@@ -442,9 +458,9 @@ class TestMultiModalFlow(unittest.TestCase):
     async def _ensure_test_outputs(self):
         """Create sample files for testing if the actual ones weren't generated"""
         # Define file paths
-        audio_path = os.path.join(self.OUTPUT_DIR, "barcelona_audio.mp3")
-        image_path = os.path.join(self.OUTPUT_DIR, "barcelona_image.png")
-        travel_guide_path = os.path.join(self.OUTPUT_DIR, "barcelona_travel_guide.md")
+        audio_path = os.path.join(self.OUTPUT_DIR, "rome_audio.mp3")
+        image_path = os.path.join(self.OUTPUT_DIR, "rome_image.png")
+        travel_guide_path = os.path.join(self.OUTPUT_DIR, "rome_travel_guide.md")
 
         # Check if we have a test audio file
         if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
@@ -463,22 +479,22 @@ class TestMultiModalFlow(unittest.TestCase):
             print(f"📚 Creating sample travel guide for testing at {travel_guide_path}")
             with open(travel_guide_path, "w") as f:
                 f.write(
-                    "# Barcelona Travel Guide\n\nThis is a sample travel guide for testing purposes."
+                    "# Rome Travel Guide\n\nThis is a sample travel guide for testing purposes."
                 )
 
     def _validate_results(self, results):
         """Validate that the flow completed with necessary outputs"""
         # Define file paths
-        itinerary_path = os.path.join(self.OUTPUT_DIR, "barcelona_itinerary.txt")
-        audio_path = os.path.join(self.OUTPUT_DIR, "barcelona_audio.mp3")
-        image_path = os.path.join(self.OUTPUT_DIR, "barcelona_image.png")
-        travel_guide_path = os.path.join(self.OUTPUT_DIR, "barcelona_travel_guide.md")
+        itinerary_path = os.path.join(self.OUTPUT_DIR, "rome_itinerary.txt")
+        audio_path = os.path.join(self.OUTPUT_DIR, "rome_audio.mp3")
+        image_path = os.path.join(self.OUTPUT_DIR, "rome_image.png")
+        travel_guide_path = os.path.join(self.OUTPUT_DIR, "rome_travel_guide.md")
 
         # Verify we have any results to validate
         if not results:
             self.fail("No results were returned from the flow")
 
-        # Check for itinerary - this is our first task
+        # Check for itinerary
         self.assertIn("itinerary", results, "Itinerary output missing")
         self.assertEqual(
             results["itinerary"]["type"], "text", "Itinerary should be text"
@@ -509,7 +525,7 @@ class TestMultiModalFlow(unittest.TestCase):
             os.path.exists(audio_path), f"Audio file should exist at {audio_path}"
         )
 
-        # Success criteria: If we have at least one successful task and all expected files
+        # Success criteria
         print("✅ Test validation passed!")
 
 
