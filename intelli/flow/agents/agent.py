@@ -213,27 +213,52 @@ class Agent(BasicAgent):
     def _execute_recognition_agent(self, agent_input, custom_params):
         """
         Execute the recognition agent to convert speech to text.
+        Enhanced to better handle raw audio data from flow.
         """
-        # Determine file path vs audio data
+        # Determine audio source
         file_path = None
         audio_data = None
 
-        if hasattr(agent_input, "audio") and agent_input.audio:
-            audio_data = agent_input.audio
-        elif isinstance(agent_input, str) and agent_input.startswith("file:"):
-            file_path = agent_input[5:]  # Remove 'file:' prefix
+        print(f"Recognition agent received input type: {type(agent_input)}")
 
-        # Create recognition input
+        # Handle different input types
+        if hasattr(agent_input, "audio") and agent_input.audio:
+            # Input from AgentInput with audio attribute
+            audio_data = agent_input.audio
+            print(
+                f"Found audio data in agent_input.audio: {type(audio_data)}, size: {len(audio_data) if isinstance(audio_data, (bytes, bytearray)) else 'unknown'}")
+        elif isinstance(agent_input, (bytes, bytearray)):
+            # Direct bytes data
+            audio_data = agent_input
+            print(f"Received direct bytes data for recognition, size: {len(audio_data)}")
+        elif isinstance(agent_input, str):
+            # String might be a file path
+            if agent_input.startswith("file:"):
+                file_path = agent_input[5:]  # Remove 'file:' prefix
+            elif os.path.exists(agent_input):
+                file_path = agent_input
+            print(f"Using file path for recognition: {file_path}")
+        else:
+            print(f"Warning: Unrecognized agent_input type for recognition: {type(agent_input)}")
+
+        # Create recognition input with available data
         recognition_input = SpeechRecognitionInput(
             audio_file_path=file_path,
             audio_data=audio_data,
             language=custom_params.get("language", "en"),
+            model=custom_params.get("model", "whisper-1")
         )
 
-        # Add model if provided
-        if "model" in custom_params:
-            recognition_input.model = custom_params["model"]
+        # Add provider-specific parameters
+        if self.provider.lower() == "keras":
+            recognition_input.user_prompt = custom_params.get("user_prompt", "")
+            recognition_input.condition_on_previous_text = custom_params.get("condition_on_previous_text", True)
+            recognition_input.max_steps = custom_params.get("max_steps", 80)
+            recognition_input.max_chunk_sec = custom_params.get("max_chunk_sec", 30)
+        elif self.provider.lower() == "elevenlabs" and "model" in custom_params:
+            recognition_input.model_id = custom_params["model"]
 
+        # Determine provider
         provider_enum = None
         if self.provider.lower() == "openai":
             provider_enum = SupportedRecognitionModels["OPENAI"]
@@ -241,22 +266,22 @@ class Agent(BasicAgent):
             provider_enum = SupportedRecognitionModels["KERAS"]
         elif self.provider.lower() == "elevenlabs":
             provider_enum = SupportedRecognitionModels["ELEVENLABS"]
-            # Add model_id for ElevenLabs
-            if "model" in custom_params:
-                recognition_input.model_id = custom_params["model"]
         else:
             provider_enum = self.provider
 
         # Create recognition model with correct parameters
         if self.provider.lower() == "keras":
             # Keras doesn't need an API key
+            model_name = custom_params.get("model_name", "whisper_tiny_en")
+            print(f"Creating Keras recognition model with model_name: {model_name}")
             recognition_model = RemoteRecognitionModel(
                 provider=provider_enum,
-                model_name=custom_params.get("model_name", "whisper_tiny_en"),
+                model_name=model_name,
                 model_params=custom_params,
             )
         else:
             # Remote services need API key
+            print(f"Creating {self.provider} recognition model with model: {custom_params.get('model', 'default')}")
             recognition_model = RemoteRecognitionModel(
                 key_value=custom_params["key"],
                 provider=provider_enum,
@@ -264,8 +289,15 @@ class Agent(BasicAgent):
             )
 
         # Recognize speech
-        result = recognition_model.recognize_speech(recognition_input)
-        return result
+        try:
+            result = recognition_model.recognize_speech(recognition_input)
+            print(f"Recognition successful, result: '{result[:20]}...' (truncated)")
+            return result
+        except Exception as e:
+            print(f"Error in recognition: {e}")
+            import traceback
+            traceback.print_exc()
+            return f"Error during speech recognition: {str(e)}"
 
     def _execute_embed_agent(self, agent_input, custom_params):
         """

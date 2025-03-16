@@ -55,10 +55,14 @@ class RemoteRecognitionModel:
     def _direct_openai_stt_request(self, file_path, model="whisper-1", language=None):
         """
         Make a direct request to OpenAI's speech-to-text API using multipart/form-data.
-
-        This bypasses the wrapper to ensure correct formatting of the request.
         """
         url = "https://api.openai.com/v1/audio/transcriptions"
+
+        # Validate file path
+        if not file_path or not os.path.exists(file_path):
+            raise ValueError(f"Invalid or nonexistent file path: {file_path}")
+
+        print(f"Sending audio file to OpenAI for transcription: {file_path}")
 
         # Prepare the multipart/form-data payload
         files = {
@@ -79,7 +83,8 @@ class RemoteRecognitionModel:
         try:
             response = requests.post(url, headers=headers, files=files, data=data)
             response.raise_for_status()
-            return response.json().get('text', '')
+            result = response.json().get('text', '')
+            return result
         except Exception as e:
             raise Exception(f"OpenAI API request failed: {str(e)}")
         finally:

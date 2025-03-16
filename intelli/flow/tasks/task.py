@@ -29,7 +29,9 @@ class Task:
                                                                           AgentTypes.IMAGE.value]:
             self.logger.log('- Inside the task. the previous step input not supported')
         elif input_type == InputTypes.IMAGE.value:
-            self.logger.log('- Inside the task with previous image, size: ', len(input_data))
+            self.logger.log('- Inside the task with previous image, size: ', len(input_data) if input_data else 0)
+        elif input_type == InputTypes.AUDIO.value:
+            self.logger.log('- Inside the task with previous audio, size: ', len(input_data) if input_data else 0)
 
         # Run task pre procesing
         if self.pre_process:
@@ -45,41 +47,81 @@ class Task:
 
         # Prepare the input
         agent_inputs = []
-        if Matcher.input[self.agent.type] == InputTypes.IMAGE.value:
 
+        if Matcher.input[self.agent.type] == InputTypes.IMAGE.value:
+            # Handle image input
             if self.task_input.img:
                 agent_input = ImageAgentInput(desc=agent_text, img=self.task_input.img)
                 agent_inputs.append(agent_input)
 
-            # add previous output as input, in case of second input for image, only if the output supported
+            # Add previous output as input if it's an image
             if len(agent_inputs) == 0 or Matcher.output[self.agent.type] == InputTypes.TEXT.value:
                 if input_data and input_type == InputTypes.IMAGE.value:
                     agent_input = ImageAgentInput(desc=agent_text, img=input_data)
                     agent_inputs.append(agent_input)
 
-        elif Matcher.input[self.agent.type] == AgentTypes.TEXT.value:
+        elif Matcher.input[self.agent.type] == InputTypes.AUDIO.value:
+            # Handle audio input specifically for recognition agents
+            self.logger.log(f"- Preparing audio input for {self.agent.type} agent")
+
+            if input_data and input_type == InputTypes.AUDIO.value:
+                # We have audio data from previous task (e.g., speech output)
+                self.logger.log(
+                    f"- Using audio data from previous task, size: {len(input_data) if isinstance(input_data, (bytes, bytearray)) else 'unknown'}")
+                agent_input = AgentInput(desc=agent_text, audio=input_data)
+                agent_inputs.append(agent_input)
+            elif self.task_input.audio:
+                # Use audio from original task input if available
+                self.logger.log("- Using audio from task_input")
+                agent_input = AgentInput(desc=agent_text, audio=self.task_input.audio)
+                agent_inputs.append(agent_input)
+            else:
+                # Create input even without audio data to avoid errors
+                self.logger.log("- Warning: No audio data for recognition task")
+                agent_input = AgentInput(desc=agent_text)
+                agent_inputs.append(agent_input)
+
+        elif Matcher.input[self.agent.type] == InputTypes.TEXT.value:
+            # Handle text input
             agent_input = TextAgentInput(agent_text)
+            agent_inputs.append(agent_input)
+
+        else:
+            self.logger.log(
+                f"- Warning: Unsupported input type {Matcher.input[self.agent.type]} for agent {self.agent.type}")
+            agent_input = AgentInput(desc=agent_text)
             agent_inputs.append(agent_input)
 
         # Check the agent type and call the appropriate function
         combined_results = []
         for current_agent_input in agent_inputs:
+            try:
+                result = self.agent.execute(current_agent_input, new_params=self.model_params)
 
-            result = self.agent.execute(current_agent_input, new_params=self.model_params)
+                # Add debug information for speech output
+                if self.agent.type == AgentTypes.SPEECH.value:
+                    self.logger.log(
+                        f"- Speech output type: {type(result)}, size: {len(result) if isinstance(result, (bytes, bytearray)) else 'unknown'}")
 
-            # Add debug information for speech output
-            if self.agent.type == AgentTypes.SPEECH.value:
-                self.logger.log(f"- Speech output type: {type(result)}")
+                if isinstance(result, list):
+                    combined_results.extend(result)
+                else:
+                    combined_results.append(result)
+            except Exception as e:
+                error_message = f"Error executing agent: {str(e)}"
+                self.logger.log(error_message)
+                import traceback
+                self.logger.log(traceback.format_exc())
+                combined_results.append(f"Error: {str(e)}")
 
-            if isinstance(result, list):
-                combined_results.extend(result)
-            else:
-                combined_results.append(result)
-
-        if Matcher.output[self.agent.type] == InputTypes.TEXT.value:
-            result = " ".join(combined_results)
+        # Process results
+        if not combined_results:
+            result = None
+        elif Matcher.output[self.agent.type] == InputTypes.TEXT.value:
+            # For text output, join all results
+            result = " ".join([str(r) for r in combined_results if r is not None])
         else:
-            # Get first result only for none text outputs
+            # For non-text outputs (audio, image), use the first result
             result = combined_results[0]
 
         # Additional debug log for speech agent
@@ -90,7 +132,8 @@ class Task:
         if self.agent.type in [AgentTypes.TEXT.value]:
             self.logger.log_head('- The task output head: ', result)
         else:
-            self.logger.log('- The task output count: ', len(result) if hasattr(result, '__len__') else 'non-iterable')
+            result_size = len(result) if result and hasattr(result, '__len__') else 'non-iterable'
+            self.logger.log('- The task output count: ', result_size)
 
         if self.post_process:
             result = self.post_process(result)

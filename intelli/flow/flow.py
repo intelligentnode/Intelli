@@ -144,6 +144,7 @@ class Flow:
     def _select_compatible_input(self, task, predecessor_data):
         """
         Select the most compatible input for the task from predecessor outputs.
+        Enhanced to better handle audio data types.
 
         Args:
             task: The task that needs input
@@ -158,23 +159,36 @@ class Flow:
 
         # Determine what input type the current agent expects
         expected_input_type = Matcher.input.get(task.agent.type)
+        self.logger.log(f"Task {task.agent.type} expects input type: {expected_input_type}")
 
         # Check if we have the exact type needed
         if expected_input_type in predecessor_data:
             outputs = predecessor_data[expected_input_type]
+            self.logger.log(f"Found matching input type with {len(outputs)} outputs")
 
             # For text inputs, we can concatenate multiple inputs
             if expected_input_type == InputTypes.TEXT.value and len(outputs) > 1:
                 merged_text = " ".join([item["output"] for item in outputs])
                 return merged_text, expected_input_type
+            # For audio/binary inputs, just use the latest one
+            elif expected_input_type in [InputTypes.AUDIO.value, InputTypes.IMAGE.value]:
+                latest_output = outputs[-1]["output"]
+                if latest_output:
+                    self.logger.log(
+                        f"Using latest {expected_input_type} data of size: {len(latest_output) if hasattr(latest_output, '__len__') else 'unknown'}")
+                else:
+                    self.logger.log(f"Warning: Latest {expected_input_type} data is None or empty")
+                return latest_output, expected_input_type
             else:
-                # For non-text or single text input, use the most recent output
+                # For other input types, use the most recent output
                 return outputs[-1]["output"], expected_input_type
 
         # If exact type not available, try to find compatible type
+        self.logger.log(f"No exact input type match. Looking for compatible types.")
         for input_type, outputs in predecessor_data.items():
             # Prioritize text as it's most versatile
             if input_type == InputTypes.TEXT.value:
+                self.logger.log(f"Found compatible text input with {len(outputs)} outputs")
                 if len(outputs) > 1:
                     merged_text = " ".join([item["output"] for item in outputs])
                     return merged_text, input_type
