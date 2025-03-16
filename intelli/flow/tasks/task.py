@@ -22,7 +22,6 @@ class Task:
             self.template = TextInputTemplate(self.desc)
 
     def execute(self, input_data=None, input_type=None):
-
         # logging
         if input_type in [InputTypes.TEXT.value]:
             self.logger.log_head('- Inside the task with input data head: ', input_data)
@@ -68,22 +67,30 @@ class Task:
 
             result = self.agent.execute(current_agent_input, new_params=self.model_params)
 
+            # Add debug information for speech output
+            if self.agent.type == AgentTypes.SPEECH.value:
+                self.logger.log(f"- Speech output type: {type(result)}")
+
             if isinstance(result, list):
                 combined_results.extend(result)
             else:
-                combined_results.append(str(result))
+                combined_results.append(result)
 
         if Matcher.output[self.agent.type] == InputTypes.TEXT.value:
             result = " ".join(combined_results)
         else:
-            # get first result only for none text outputs
+            # Get first result only for none text outputs
             result = combined_results[0]
 
-        # log
+        # Additional debug log for speech agent
+        if self.agent.type == AgentTypes.SPEECH.value:
+            self.logger.log(f"- Final speech result type: {type(result)}")
+
+        # Log
         if self.agent.type in [AgentTypes.TEXT.value]:
             self.logger.log_head('- The task output head: ', result)
         else:
-            self.logger.log('- The task output count: ', len(result))
+            self.logger.log('- The task output count: ', len(result) if hasattr(result, '__len__') else 'non-iterable')
 
         if self.post_process:
             result = self.post_process(result)

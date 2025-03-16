@@ -115,7 +115,6 @@ class Agent(BasicAgent):
     def _execute_speech_agent(self, agent_input, custom_params):
         """
         Execute the speech agent to convert text to speech.
-
         Handles OpenAI, Google, and ElevenLabs speech services with proper
         parameter handling for each provider.
         """
@@ -127,64 +126,67 @@ class Agent(BasicAgent):
         # Create the text-to-speech input
         speech_input = Text2SpeechInput(
             text=text_content,
-            language=custom_params.get('language', 'en'),
-            gender=custom_params.get('gender', 'FEMALE')
+            language=custom_params.get("language", "en"),
+            gender=custom_params.get("gender", "FEMALE"),
         )
 
         # Get the API key from custom params
-        api_key = custom_params.get('key')
+        api_key = custom_params.get("key")
         if not api_key:
-            raise ValueError(f"API key is required for {self.provider} speech synthesis")
+            raise ValueError(
+                f"API key is required for {self.provider} speech synthesis"
+            )
 
         # Handle provider-specific parameters
-        if self.provider.lower() == 'openai':
+        if self.provider.lower() == "openai":
             # For OpenAI, set voice and model
-            if 'voice' in custom_params:
-                speech_input.voice = custom_params['voice']
-            if 'model' in custom_params:
-                speech_input.model = custom_params['model']
+            if "voice" in custom_params:
+                speech_input.voice = custom_params["voice"]
+            if "model" in custom_params:
+                speech_input.model = custom_params["model"]
 
             # Create speech model
-            speech_model = RemoteSpeechModel(key_value=api_key, provider='openai')
+            speech_model = RemoteSpeechModel(key_value=api_key, provider="openai")
 
-        elif self.provider.lower() == 'google':
+        elif self.provider.lower() == "google":
             # For Google, just need language which is already set
-            speech_model = RemoteSpeechModel(key_value=api_key, provider='google')
+            speech_model = RemoteSpeechModel(key_value=api_key, provider="google")
 
-        elif self.provider.lower() == 'elevenlabs':
+        elif self.provider.lower() == "elevenlabs":
             # For ElevenLabs, we need to handle the voice_id
 
             # Create speech model
-            speech_model = RemoteSpeechModel(key_value=api_key, provider='elevenlabs')
+            speech_model = RemoteSpeechModel(key_value=api_key, provider="elevenlabs")
 
             # If 'voice' param is provided, use it to look up the voice_id
-            if 'voice' in custom_params:
+            if "voice" in custom_params:
                 try:
                     # List available voices
                     voices_result = speech_model.list_voices()
 
-                    if 'voices' in voices_result and len(voices_result['voices']) > 0:
-                        voice_param = custom_params['voice']
+                    if "voices" in voices_result and len(voices_result["voices"]) > 0:
+                        voice_param = custom_params["voice"]
 
                         # First, check if voice param is already a valid voice_id
                         voice_id = None
-                        for voice in voices_result['voices']:
-                            if voice.get('voice_id') == voice_param:
+                        for voice in voices_result["voices"]:
+                            if voice.get("voice_id") == voice_param:
                                 voice_id = voice_param
                                 break
 
                         # If not found as ID, try to match by name
                         if not voice_id:
-                            for voice in voices_result['voices']:
-                                if voice.get('name', '').lower() == voice_param.lower():
-                                    voice_id = voice.get('voice_id')
+                            for voice in voices_result["voices"]:
+                                if voice.get("name", "").lower() == voice_param.lower():
+                                    voice_id = voice.get("voice_id")
                                     break
 
                         # If still not found, use the first available voice
                         if not voice_id:
-                            voice_id = voices_result['voices'][0]['voice_id']
+                            voice_id = voices_result["voices"][0]["voice_id"]
                             print(
-                                f"Voice '{voice_param}' not found, using '{voices_result['voices'][0]['name']}' instead")
+                                f"Voice '{voice_param}' not found, using '{voices_result['voices'][0]['name']}' instead"
+                            )
 
                         # Set the voice_id on the input params
                         speech_input.voice_id = voice_id
@@ -193,8 +195,8 @@ class Agent(BasicAgent):
                     print(f"Warning: Error getting ElevenLabs voices: {e}")
 
             # Set model_id if provided
-            if 'model' in custom_params:
-                speech_input.model_id = custom_params['model']
+            if "model" in custom_params:
+                speech_input.model_id = custom_params["model"]
 
         else:
             # For any other provider, just pass the provider as-is
@@ -202,6 +204,10 @@ class Agent(BasicAgent):
 
         # Generate speech
         result = speech_model.generate_speech(speech_input)
+
+        # Debug output type for troubleshooting
+        print(f"Debug - Speech result type: {type(result)}")
+
         return result
 
     def _execute_recognition_agent(self, agent_input, custom_params):
@@ -228,7 +234,6 @@ class Agent(BasicAgent):
         if "model" in custom_params:
             recognition_input.model = custom_params["model"]
 
-        # Map provider to supported models enum if possible
         provider_enum = None
         if self.provider.lower() == "openai":
             provider_enum = SupportedRecognitionModels["OPENAI"]
@@ -240,7 +245,7 @@ class Agent(BasicAgent):
             if "model" in custom_params:
                 recognition_input.model_id = custom_params["model"]
         else:
-            provider_enum = self.provider  # Use as-is if not mapped
+            provider_enum = self.provider
 
         # Create recognition model with correct parameters
         if self.provider.lower() == "keras":
@@ -266,14 +271,13 @@ class Agent(BasicAgent):
         """
         Execute the embedding agent to generate embeddings from text.
         """
-        # Get text input
+
         text_input = agent_input.desc
         if self.mission and not text_input.startswith(self.mission):
             text_input = f"{self.mission}: {text_input}"
 
-        # Create embedding input - uses 'texts' parameter, not 'inputs'
         embed_input = EmbedInput(
-            texts=[text_input],  # Wrapped in list as EmbedInput expects a list of texts
+            texts=[text_input],
             model=custom_params.get("model"),
         )
 
@@ -281,7 +285,7 @@ class Agent(BasicAgent):
         try:
             embed_input.set_default_values(self.provider)
         except ValueError:
-            # If no default is available for this provider, continue with what we have
+            # If no default is available for this provider, continue
             pass
 
         # Create embed model
