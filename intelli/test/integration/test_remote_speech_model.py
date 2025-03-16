@@ -90,7 +90,7 @@ class TestRemoteSpeechModel(unittest.TestCase):
             # Add the voice_id attribute dynamically
             input_params.voice_id = voice_id
             input_params.model_id = (
-                "eleven_multilingual_v2"  # Optional, use the default TTS model
+                "eleven_multilingual_v2"
             )
 
             # Generate speech

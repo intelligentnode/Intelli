@@ -94,7 +94,7 @@ class TestAsyncFlow(unittest.TestCase):
                                            provider="openai", 
                                            mission="generate description of the image elements", 
                                            model_key=self.openai_api_key, 
-                                           model="gpt-4-vision-preview")
+                                           model="gpt-4o")
         
         flow = Flow(tasks = {
                         "task1": task1,

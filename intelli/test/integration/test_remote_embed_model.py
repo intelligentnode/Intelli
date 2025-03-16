@@ -46,12 +46,16 @@ class TestRemoteEmbedModel(unittest.TestCase):
         if self.GEMINI_API_KEY is None:
             self.skipTest("GEMINI_API_KEY environment variable is not set.")
 
-        provider = 'gemini'
+        provider = "gemini"
         model = RemoteEmbedModel(self.GEMINI_API_KEY, provider)
-        embed_input = EmbedInput(["Explore Gemini's API for embeddings."], "models/embedding-001")
+        embed_input = EmbedInput(
+            ["Explore Gemini's API for embeddings."], "models/embedding-001"
+        )
 
         result = model.get_embeddings(embed_input)
-        self.assertIsInstance(result['values'], list, "Gemini response should be a list of embeddings")
+        self.assertIsInstance(
+            result["values"], list, "Gemini response should be a list of embeddings"
+        )
 
     def test_vllm_embeddings(self):
         """Test retrieving embeddings from vLLM."""
