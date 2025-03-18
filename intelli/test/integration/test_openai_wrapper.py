@@ -15,7 +15,7 @@ class TestOpenAIWrapper(unittest.TestCase):
     
     def test_generate_chat_text(self):
         params = {
-            "model": "gpt-3.5-turbo",
+            "model": "gpt-4o",
             "messages": [{"role": "system", "content": "You are a helpful assistant."}]
         }
         

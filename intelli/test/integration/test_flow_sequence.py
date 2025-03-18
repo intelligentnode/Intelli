@@ -81,7 +81,7 @@ class TestFlows(unittest.TestCase):
         )
         
         # Define tasks
-        with open('../temp/code_flow_char.jpg', "rb") as image_file:
+        with open('./temp/code_flow_char.jpg', "rb") as image_file:
             image_data = base64.b64encode(image_file.read()).decode('utf-8')
                 
         task1 = Task(
