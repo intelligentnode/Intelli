@@ -23,7 +23,7 @@ class Flow:
     of different input/output types across all supported agent types.
     """
 
-    def __init__(self, tasks, map_paths, log=False):
+    def __init__(self, tasks, map_paths, dynamic_connectors=None, log=False):
         """
         Initialize the Flow with tasks and their dependencies.
 
@@ -31,31 +31,37 @@ class Flow:
             tasks (dict): A dictionary mapping task names to Task objects
             map_paths (dict): A dictionary defining the dependencies between tasks
                 where keys are parent task names and values are lists of child task names
+            dynamic_connectors (dict): A dictionary mapping task names to DynamicConnector objects
+                that will determine the next task based on the output
             log (bool): Whether to enable logging
         """
         self.tasks = tasks
         self.map_paths = map_paths
+        self.dynamic_connectors = dynamic_connectors or {}
         self.graph = nx.DiGraph()
         self.output = {}
         self.logger = Logger(log)
         self.errors = {}
-        # Initialize task semaphores before preparing the graph
-        self._task_semaphores = {}  # For per-provider rate limiting
+        # Initialize task before preparing the graph
+        self._task_semaphores = {}
         self._prepare_graph()
 
     def _prepare_graph(self):
         """
         Initialize the graph with tasks as nodes and dependencies as edges.
-        Check for cycles in the graph to ensure it's a valid DAG.
+        Also adds dynamic connectors as special edges.
         """
         # Initialize the graph with tasks as nodes
         for task_name in self.tasks:
             task = self.tasks[task_name]
             self.graph.add_node(
-                task_name, agent_model=task.agent.provider, agent_type=task.agent.type
+                task_name,
+                agent_model=task.agent.provider,
+                agent_type=task.agent.type,
+                node_type="task"
             )
 
-            # Create provider-specific semaphores for rate limiting
+            # Create provider-specific rate limiting
             provider = task.agent.provider
             if provider not in self._task_semaphores:
                 limit = 10  # Default limit for providers
@@ -64,12 +70,33 @@ class Flow:
         # Add edges based on map_paths to define dependencies
         for parent_task, dependencies in self.map_paths.items():
             for child_task in dependencies:
-                self.graph.add_edge(parent_task, child_task)
+                self.graph.add_edge(parent_task, child_task, edge_type="static")
+
+        # Add dynamic connectors
+        for task_name, connector in self.dynamic_connectors.items():
+            # Check if task exists
+            if task_name not in self.tasks:
+                raise ValueError(f"Task '{task_name}' not found for dynamic connector")
+
+            # Add edges for each possible destination
+            for dest_key, dest_task in connector.destinations.items():
+                if dest_task not in self.tasks:
+                    raise ValueError(f"Destination task '{dest_task}' not found for dynamic connector on '{task_name}'")
+
+                # Add edge with dynamic connector info
+                self.graph.add_edge(
+                    task_name,
+                    dest_task,
+                    edge_type="dynamic",
+                    dest_key=dest_key,
+                    connector_name=connector.name,
+                    connector_mode=connector.mode.value
+                )
 
         # Check for cycles in the graph
         if not nx.is_directed_acyclic_graph(self.graph):
             raise ValueError(
-                "The dependency graph has cycles, please revise map_paths."
+                "The dependency graph has cycles, please revise map_paths and dynamic_connectors."
             )
 
     async def _execute_task(self, task_name):
@@ -89,7 +116,7 @@ class Flow:
             task, predecessor_data
         )
 
-        # Execute task with rate limiting for specific providers
+        # Execute task with rate limiting
         provider = task.agent.provider
         semaphore = self._task_semaphores.get(provider, asyncio.Semaphore(10))
 
@@ -157,7 +184,7 @@ class Flow:
             # No predecessor data, use task's own input
             return None, None
 
-        # Determine what input type the current agent expects
+        # Determine the input type
         expected_input_type = Matcher.input.get(task.agent.type)
         self.logger.log(f"Task {task.agent.type} expects input type: {expected_input_type}")
 
@@ -166,11 +193,11 @@ class Flow:
             outputs = predecessor_data[expected_input_type]
             self.logger.log(f"Found matching input type with {len(outputs)} outputs")
 
-            # For text inputs, we can concatenate multiple inputs
+            # For text inputs, concatenate multiple inputs
             if expected_input_type == InputTypes.TEXT.value and len(outputs) > 1:
                 merged_text = " ".join([item["output"] for item in outputs])
                 return merged_text, expected_input_type
-            # For audio/binary inputs, just use the latest one
+            # For audio/binary inputs, use the latest one
             elif expected_input_type in [InputTypes.AUDIO.value, InputTypes.IMAGE.value]:
                 latest_output = outputs[-1]["output"]
                 if latest_output:
@@ -186,7 +213,7 @@ class Flow:
         # If exact type not available, try to find compatible type
         self.logger.log(f"No exact input type match. Looking for compatible types.")
         for input_type, outputs in predecessor_data.items():
-            # Prioritize text as it's most versatile
+            # Prioritize text
             if input_type == InputTypes.TEXT.value:
                 self.logger.log(f"Found compatible text input with {len(outputs)} outputs")
                 if len(outputs) > 1:
@@ -196,7 +223,6 @@ class Flow:
                     return outputs[0]["output"], input_type
 
         # If no text available, use the latest output of any type as fallback
-        # This may not work but at least provides some input
         last_type = list(predecessor_data.keys())[-1]
         last_output = predecessor_data[last_type][-1]["output"]
         self.logger.log(
@@ -206,7 +232,7 @@ class Flow:
 
     async def start(self, max_workers=10):
         """
-        Start the flow execution with optimized concurrency.
+        Start the flow execution with optimized concurrency and dynamic routing.
 
         Args:
             max_workers (int): Maximum number of concurrent tasks
@@ -217,41 +243,68 @@ class Flow:
         self.errors = {}
         self.output = {}
 
-        # Get tasks in topological order (respecting dependencies)
-        ordered_tasks = list(nx.topological_sort(self.graph))
+        # Identify initial tasks (no predecessors)
+        initial_tasks = [node for node in self.graph.nodes() if self.graph.in_degree(node) == 0]
 
-        # Group tasks by their "level" in the graph for maximum parallelism
-        task_levels = self._group_tasks_by_level()
+        # Track tasks
+        tasks_to_execute = set(initial_tasks)
+        executed_tasks = set()
 
-        # Create global semaphore to control overall concurrency
+        # Control overall concurrency
         global_semaphore = asyncio.Semaphore(max_workers)
 
-        # Execute tasks level by level (tasks in same level can run in parallel)
-        for level, tasks_in_level in enumerate(task_levels):
-            self.logger.log(f"Executing level {level} with {len(tasks_in_level)} tasks")
-
-            # Create tasks for this level
-            level_tasks = []
-            for task_name in tasks_in_level:
-                # Skip if dependencies had errors
+        # Execute tasks in waves
+        while tasks_to_execute:
+            # Filter out tasks that have dependencies not yet executed
+            ready_tasks = []
+            for task_name in tasks_to_execute:
                 dependencies_ok = True
                 for dep in self.graph.predecessors(task_name):
-                    if dep in self.errors:
-                        self.logger.log(
-                            f"Skipping {task_name} because dependency {dep} had errors"
-                        )
+                    if dep not in executed_tasks:
                         dependencies_ok = False
                         break
 
                 if dependencies_ok:
-                    # Execute task with global concurrency control
-                    level_tasks.append(
-                        self._execute_task_with_semaphore(task_name, global_semaphore)
-                    )
+                    ready_tasks.append(task_name)
 
-            # Wait for all tasks in this level to complete
-            if level_tasks:
-                await asyncio.gather(*level_tasks)
+            if not ready_tasks:
+                # If no tasks are ready (we might have a cycle or invalid routing)
+                self.logger.log("No tasks ready to execute, possible cycle detected.")
+                break
+
+            # Execute all ready tasks in parallel
+            tasks_to_await = []
+            for task_name in ready_tasks:
+                tasks_to_await.append(
+                    self._execute_task_with_semaphore(task_name, global_semaphore)
+                )
+                tasks_to_execute.remove(task_name)
+                executed_tasks.add(task_name)
+
+            if tasks_to_await:
+                await asyncio.gather(*tasks_to_await)
+
+            # Check for dynamic connections and add next tasks to execute
+            for task_name in executed_tasks:
+                if task_name in self.dynamic_connectors and task_name in self.output:
+                    connector = self.dynamic_connectors[task_name]
+                    output_data = self.output[task_name]["output"]
+                    output_type = self.output[task_name]["type"]
+
+                    next_task = connector.get_next_task(output_data, output_type)
+                    if next_task and next_task not in executed_tasks and next_task not in tasks_to_execute:
+                        self.logger.log(f"Dynamic connector routes from {task_name} to {next_task}")
+                        tasks_to_execute.add(next_task)
+
+                # For static connections, add all successors that aren't part of a dynamic connection
+                for succ in self.graph.successors(task_name):
+                    # Skip if edge is dynamic (we handle those separately)
+                    edge_data = self.graph.get_edge_data(task_name, succ)
+                    if edge_data.get('edge_type') == 'dynamic':
+                        continue
+
+                    if succ not in executed_tasks and succ not in tasks_to_execute:
+                        tasks_to_execute.add(succ)
 
         # Filter outputs of excluded tasks
         filtered_output = {
@@ -259,7 +312,7 @@ class Flow:
                 "output": self.output[task_name]["output"],
                 "type": self.output[task_name]["type"],
             }
-            for task_name in ordered_tasks
+            for task_name in executed_tasks
             if not self.tasks[task_name].exclude and task_name in self.output
         }
 
@@ -293,7 +346,7 @@ class Flow:
         ]
 
         if not sources:
-            # Handle case where graph has no sources (should not happen in a DAG)
+            # No sources case (should not happen in a DAG)
             return [[]]
 
         # Initialize
@@ -306,12 +359,12 @@ class Flow:
             next_level = []
             for node in current_level:
                 visited.add(node)
-                # Find all successors whose predecessors are all in visited
+                # Find all visited successors
                 for succ in self.graph.successors(node):
                     if succ not in visited and succ not in next_level:
                         # Check if all predecessors of this successor are visited
                         if all(
-                            pred in visited for pred in self.graph.predecessors(succ)
+                                pred in visited for pred in self.graph.predecessors(succ)
                         ):
                             next_level.append(succ)
 
@@ -323,7 +376,7 @@ class Flow:
 
     def generate_graph_img(self, name="graph_img", save_path="."):
         """
-        Generate a visualization of the task graph.
+        Generate a visualization of the task graph, including dynamic connections.
         """
         if not MATPLOTLIB_AVAILABLE:
             raise Exception("Install matplotlib to use the visual functionality")
@@ -362,16 +415,38 @@ class Flow:
             color_map.get(agent_types.get(node), "gray") for node in self.graph.nodes()
         ]
 
-        # Draw the graph
-        nx.draw(
+        # Split edges into static and dynamic
+        static_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get('edge_type') == 'static']
+        dynamic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get('edge_type') == 'dynamic']
+
+        # Draw static edges
+        nx.draw_networkx_edges(
             self.graph,
             pos,
-            node_color=node_colors,
-            node_size=700,
-            edge_color="k",
+            edgelist=static_edges,
+            edge_color="black",
             width=1.5,
             arrowsize=20,
-            with_labels=False,
+        )
+
+        # Draw dynamic edges
+        if dynamic_edges:
+            nx.draw_networkx_edges(
+                self.graph,
+                pos,
+                edgelist=dynamic_edges,
+                edge_color="red",
+                width=1.5,
+                arrowsize=20,
+                style="dashed",
+            )
+
+        # Draw nodes
+        nx.draw_networkx_nodes(
+            self.graph,
+            pos,
+            node_size=700,
+            node_color=node_colors,
         )
 
         # Add labels with task and agent info
@@ -405,7 +480,30 @@ class Flow:
             )
             labels.append(agent_type)
 
-        plt.legend(handles, labels, loc="upper right", title="Agent Types")
+        # Add legend for edge types
+        handles.append(
+            plt.Line2D([0], [0], color="black", lw=2)
+        )
+        labels.append("Static Connection")
+
+        if dynamic_edges:
+            handles.append(
+                plt.Line2D([0], [0], color="red", lw=2, linestyle="dashed")
+            )
+            labels.append("Dynamic Connection")
+
+        plt.legend(handles, labels, loc="upper right", title="Legend")
+
+        # Add labels to dynamic edges
+        edge_labels = {}
+        for u, v, d in self.graph.edges(data=True):
+            if d.get('edge_type') == 'dynamic':
+                dest_key = d.get('dest_key', '')
+                edge_labels[(u, v)] = f"{dest_key}"
+
+        nx.draw_networkx_edge_labels(
+            self.graph, pos, edge_labels=edge_labels, font_color='red'
+        )
 
         # Save the image
         image_name = name if name.endswith(".png") else f"{name}.png"

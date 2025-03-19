@@ -70,7 +70,7 @@ Chat with your docs using multiple LLMs. To connect your data, visit the [Intell
 # creating chatbot with the intellinode one key
 bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
 
-input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
+input = ChatModelInput("You are a helpful assistant.", "gpt-4o")
 input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
 
 response = bot.chat(input)

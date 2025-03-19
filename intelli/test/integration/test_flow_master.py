@@ -128,7 +128,7 @@ class TestMultiModalFlow(unittest.TestCase):
                 agent_type=AgentTypes.TEXT.value,
                 provider="openai",
                 mission="Create a detailed image prompt for the travel destination",
-                model_params={"key": self.api_keys["openai"], "model": "gpt-3.5-turbo"},
+                model_params={"key": self.api_keys["openai"], "model": "gpt-4o"},
             )
 
     def test_travel_assistant_multimodal_flow(self):
@@ -156,7 +156,7 @@ class TestMultiModalFlow(unittest.TestCase):
             agent_type=AgentTypes.TEXT.value,
             provider="openai",
             mission="Create a detailed 3-day travel itinerary",
-            model_params={"key": self.api_keys["openai"], "model": "gpt-3.5-turbo"},
+            model_params={"key": self.api_keys["openai"], "model": "gpt-4o"},
         )
 
         itinerary_task = Task(
@@ -232,7 +232,7 @@ class TestMultiModalFlow(unittest.TestCase):
                 agent_type=AgentTypes.TEXT.value,
                 provider="openai",
                 mission="Compare the two transcription results",
-                model_params={"key": self.api_keys["openai"], "model": "gpt-3.5-turbo"},
+                model_params={"key": self.api_keys["openai"], "model": "gpt-4o"},
             )
 
             compare_task = Task(
