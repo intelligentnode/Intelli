@@ -61,7 +61,7 @@ def create_agents():
         }
     )
 
-    # Image generation agent for destination previews
+    # Image generation agent
     image_agent = Agent(
         agent_type=AgentTypes.IMAGE.value,
         provider="stability",
@@ -69,7 +69,7 @@ def create_agents():
         model_params={"key": STABILITY_KEY}
     )
 
-    # Vision analysis agent for image understanding
+    # Vision analysis agent
     vision_agent = Agent(
         agent_type=AgentTypes.VISION.value,
         provider="openai",
@@ -102,7 +102,7 @@ def create_tasks(itinerary_agent, speech_agent, image_agent, vision_agent, guide
         log=True
     )
 
-    # Task 2: Convert part of the itinerary to speech
+    # Task 2: Convert the text to speech
     speech_task = Task(
         TextTaskInput(
             "Convert the first day of this itinerary to speech for the traveler"
@@ -111,7 +111,7 @@ def create_tasks(itinerary_agent, speech_agent, image_agent, vision_agent, guide
         log=True
     )
 
-    # Task 3: Generate an image prompt for the destination
+    # Task 3: Generate an image prompt
     image_prompt_task = Task(
         TextTaskInput(
             "Create a short, specific image generation prompt for Rome showing the iconic Colosseum"
@@ -138,7 +138,7 @@ def create_tasks(itinerary_agent, speech_agent, image_agent, vision_agent, guide
         log=True
     )
 
-    # Task 6: Create a travel guide combining all information
+    # Task 6: Combine all information
     guide_task = Task(
         TextTaskInput(
             "Create a comprehensive travel guide for Rome by combining the itinerary and image analysis"
@@ -151,7 +151,7 @@ def create_tasks(itinerary_agent, speech_agent, image_agent, vision_agent, guide
 
 async def run_travel_assistant(itinerary_task, speech_task, image_prompt_task, image_task, vision_task, guide_task):
     """Create and execute the workflow"""
-    # Create the flow with task dependencies
+    # Create the flow with task map
     flow = Flow(
         tasks={
             "itinerary": itinerary_task,
@@ -171,7 +171,7 @@ async def run_travel_assistant(itinerary_task, speech_task, image_prompt_task, i
         log=True
     )
     
-    # Generate a visualization of the flow
+    # Generate flow visualization
     flow.generate_graph_img(
         name="travel_assistant_flow",
         save_path="../temp"
@@ -185,8 +185,12 @@ async def run_travel_assistant(itinerary_task, speech_task, image_prompt_task, i
         try:
             audio_path = "../temp/rome_day1_audio.mp3"
             os.makedirs(os.path.dirname(audio_path), exist_ok=True)
+            
+            # Extract the audio data
+            audio_data = results["speech"]["output"] if isinstance(results["speech"], dict) else results["speech"]
+            
             with open(audio_path, "wb") as f:
-                f.write(results["speech"])
+                f.write(audio_data)
             print(f"Audio guide saved to {audio_path}")
         except Exception as e:
             print(f"Error saving audio file: {e}")
