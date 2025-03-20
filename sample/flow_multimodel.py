@@ -44,9 +44,9 @@ def create_agents():
     # Text generation agent for itinerary creation
     itinerary_agent = Agent(
         agent_type=AgentTypes.TEXT.value,
-        provider="anthropic",
+        provider="openai",
         mission="Create a detailed travel itinerary",
-        model_params={"key": ANTHROPIC_KEY, "model": "claude-3-7-sonnet-20250219"}
+        model_params={"key": OPENAI_KEY, "model": "gpt-4o"}
     )
 
     # Speech synthesis agent for audio guides
