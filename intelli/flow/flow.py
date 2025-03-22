@@ -58,7 +58,7 @@ class Flow:
                 task_name,
                 agent_model=task.agent.provider,
                 agent_type=task.agent.type,
-                node_type="task"
+                node_type="task",
             )
 
             # Create provider-specific rate limiting
@@ -81,7 +81,9 @@ class Flow:
             # Add edges for each possible destination
             for dest_key, dest_task in connector.destinations.items():
                 if dest_task not in self.tasks:
-                    raise ValueError(f"Destination task '{dest_task}' not found for dynamic connector on '{task_name}'")
+                    raise ValueError(
+                        f"Destination task '{dest_task}' not found for dynamic connector on '{task_name}'"
+                    )
 
                 # Add edge with dynamic connector info
                 self.graph.add_edge(
@@ -90,7 +92,7 @@ class Flow:
                     edge_type="dynamic",
                     dest_key=dest_key,
                     connector_name=connector.name,
-                    connector_mode=connector.mode.value
+                    connector_mode=connector.mode.value,
                 )
 
         # Check for cycles in the graph
@@ -186,7 +188,9 @@ class Flow:
 
         # Determine the input type
         expected_input_type = Matcher.input.get(task.agent.type)
-        self.logger.log(f"Task {task.agent.type} expects input type: {expected_input_type}")
+        self.logger.log(
+            f"Task {task.agent.type} expects input type: {expected_input_type}"
+        )
 
         # Check if we have the exact type needed
         if expected_input_type in predecessor_data:
@@ -198,13 +202,19 @@ class Flow:
                 merged_text = " ".join([item["output"] for item in outputs])
                 return merged_text, expected_input_type
             # For audio/binary inputs, use the latest one
-            elif expected_input_type in [InputTypes.AUDIO.value, InputTypes.IMAGE.value]:
+            elif expected_input_type in [
+                InputTypes.AUDIO.value,
+                InputTypes.IMAGE.value,
+            ]:
                 latest_output = outputs[-1]["output"]
                 if latest_output:
                     self.logger.log(
-                        f"Using latest {expected_input_type} data of size: {len(latest_output) if hasattr(latest_output, '__len__') else 'unknown'}")
+                        f"Using latest {expected_input_type} data of size: {len(latest_output) if hasattr(latest_output, '__len__') else 'unknown'}"
+                    )
                 else:
-                    self.logger.log(f"Warning: Latest {expected_input_type} data is None or empty")
+                    self.logger.log(
+                        f"Warning: Latest {expected_input_type} data is None or empty"
+                    )
                 return latest_output, expected_input_type
             else:
                 # For other input types, use the most recent output
@@ -215,7 +225,9 @@ class Flow:
         for input_type, outputs in predecessor_data.items():
             # Prioritize text
             if input_type == InputTypes.TEXT.value:
-                self.logger.log(f"Found compatible text input with {len(outputs)} outputs")
+                self.logger.log(
+                    f"Found compatible text input with {len(outputs)} outputs"
+                )
                 if len(outputs) > 1:
                     merged_text = " ".join([item["output"] for item in outputs])
                     return merged_text, input_type
@@ -244,7 +256,9 @@ class Flow:
         self.output = {}
 
         # Identify initial tasks (no predecessors)
-        initial_tasks = [node for node in self.graph.nodes() if self.graph.in_degree(node) == 0]
+        initial_tasks = [
+            node for node in self.graph.nodes() if self.graph.in_degree(node) == 0
+        ]
 
         # Track tasks
         tasks_to_execute = set(initial_tasks)
@@ -292,15 +306,21 @@ class Flow:
                     output_type = self.output[task_name]["type"]
 
                     next_task = connector.get_next_task(output_data, output_type)
-                    if next_task and next_task not in executed_tasks and next_task not in tasks_to_execute:
-                        self.logger.log(f"Dynamic connector routes from {task_name} to {next_task}")
+                    if (
+                        next_task
+                        and next_task not in executed_tasks
+                        and next_task not in tasks_to_execute
+                    ):
+                        self.logger.log(
+                            f"Dynamic connector routes from {task_name} to {next_task}"
+                        )
                         tasks_to_execute.add(next_task)
 
                 # For static connections, add all successors that aren't part of a dynamic connection
                 for succ in self.graph.successors(task_name):
                     # Skip if edge is dynamic (we handle those separately)
                     edge_data = self.graph.get_edge_data(task_name, succ)
-                    if edge_data.get('edge_type') == 'dynamic':
+                    if edge_data.get("edge_type") == "dynamic":
                         continue
 
                     if succ not in executed_tasks and succ not in tasks_to_execute:
@@ -349,7 +369,6 @@ class Flow:
             # No sources case (should not happen in a DAG)
             return [[]]
 
-        # Initialize
         visited = set()
         current_level = sources
         levels = [current_level]
@@ -364,7 +383,7 @@ class Flow:
                     if succ not in visited and succ not in next_level:
                         # Check if all predecessors of this successor are visited
                         if all(
-                                pred in visited for pred in self.graph.predecessors(succ)
+                            pred in visited for pred in self.graph.predecessors(succ)
                         ):
                             next_level.append(succ)
 
@@ -374,9 +393,17 @@ class Flow:
 
         return levels
 
-    def generate_graph_img(self, name="graph_img", save_path="."):
+    def generate_graph_img(self, name="graph_img", save_path=".", show_legend=True):
         """
         Generate a visualization of the task graph, including dynamic connections.
+
+        Args:
+            name (str): Base name for the output image file
+            save_path (str): Directory path where the image will be saved
+            show_legend (bool): Whether to display the legend in the graph
+
+        Returns:
+            str: Full path to the saved image file
         """
         if not MATPLOTLIB_AVAILABLE:
             raise Exception("Install matplotlib to use the visual functionality")
@@ -386,7 +413,7 @@ class Flow:
         # Get task levels for layout
         task_levels = self._group_tasks_by_level()
 
-        # Create a position mapping for hierarchical layout
+        # Create a position mapping
         pos = {}
         for level_idx, level_tasks in enumerate(task_levels):
             for i, task in enumerate(level_tasks):
@@ -410,14 +437,21 @@ class Flow:
             AgentTypes.SEARCH.value: "lightskyblue",
         }
 
-        # Set colors based on agent type
         node_colors = [
             color_map.get(agent_types.get(node), "gray") for node in self.graph.nodes()
         ]
 
         # Split edges into static and dynamic
-        static_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get('edge_type') == 'static']
-        dynamic_edges = [(u, v) for u, v, d in self.graph.edges(data=True) if d.get('edge_type') == 'dynamic']
+        static_edges = [
+            (u, v)
+            for u, v, d in self.graph.edges(data=True)
+            if d.get("edge_type") == "static"
+        ]
+        dynamic_edges = [
+            (u, v)
+            for u, v, d in self.graph.edges(data=True)
+            if d.get("edge_type") == "dynamic"
+        ]
 
         # Draw static edges
         nx.draw_networkx_edges(
@@ -464,45 +498,44 @@ class Flow:
                 bbox=dict(facecolor="white", alpha=0.7, edgecolor="none"),
             )
 
-        # Add a legend for agent types
-        handles = []
-        labels = []
-        for agent_type, color in color_map.items():
-            handles.append(
-                plt.Line2D(
-                    [0],
-                    [0],
-                    marker="o",
-                    color="w",
-                    markerfacecolor=color,
-                    markersize=10,
+        # Add a legend for agent
+        if show_legend:
+            handles = []
+            labels = []
+            for agent_type, color in color_map.items():
+                handles.append(
+                    plt.Line2D(
+                        [0],
+                        [0],
+                        marker="o",
+                        color="w",
+                        markerfacecolor=color,
+                        markersize=10,
+                    )
                 )
-            )
-            labels.append(agent_type)
+                labels.append(agent_type)
 
-        # Add legend for edge types
-        handles.append(
-            plt.Line2D([0], [0], color="black", lw=2)
-        )
-        labels.append("Static Connection")
+            # Add legend for edge types
+            handles.append(plt.Line2D([0], [0], color="black", lw=2))
+            labels.append("Static Connection")
 
-        if dynamic_edges:
-            handles.append(
-                plt.Line2D([0], [0], color="red", lw=2, linestyle="dashed")
-            )
-            labels.append("Dynamic Connection")
+            if dynamic_edges:
+                handles.append(
+                    plt.Line2D([0], [0], color="red", lw=2, linestyle="dashed")
+                )
+                labels.append("Dynamic Connection")
 
-        plt.legend(handles, labels, loc="upper right", title="Legend")
+            plt.legend(handles, labels, loc="upper right", title="Legend")
 
         # Add labels to dynamic edges
         edge_labels = {}
         for u, v, d in self.graph.edges(data=True):
-            if d.get('edge_type') == 'dynamic':
-                dest_key = d.get('dest_key', '')
+            if d.get("edge_type") == "dynamic":
+                dest_key = d.get("dest_key", "")
                 edge_labels[(u, v)] = f"{dest_key}"
 
         nx.draw_networkx_edge_labels(
-            self.graph, pos, edge_labels=edge_labels, font_color='red'
+            self.graph, pos, edge_labels=edge_labels, font_color="red"
         )
 
         # Save the image
