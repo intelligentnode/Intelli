@@ -23,7 +23,7 @@ class Flow:
     of different input/output types across all supported agent types.
     """
 
-    def __init__(self, tasks, map_paths, dynamic_connectors=None, log=False):
+    def __init__(self, tasks, map_paths, dynamic_connectors=None, log=False, sleep_time=None):
         """
         Initialize the Flow with tasks and their dependencies.
 
@@ -42,6 +42,7 @@ class Flow:
         self.output = {}
         self.logger = Logger(log)
         self.errors = {}
+        self.sleep_time = sleep_time
         # Initialize task before preparing the graph
         self._task_semaphores = {}
         self._prepare_graph()
@@ -173,7 +174,7 @@ class Flow:
     def _select_compatible_input(self, task, predecessor_data):
         """
         Select the most compatible input for the task from predecessor outputs.
-        Enhanced to better handle audio data types.
+        Enhanced to preserve task context and improve information flow.
 
         Args:
             task: The task that needs input
@@ -197,11 +198,38 @@ class Flow:
             outputs = predecessor_data[expected_input_type]
             self.logger.log(f"Found matching input type with {len(outputs)} outputs")
 
-            # For text inputs, concatenate multiple inputs
+            # text inputs
             if expected_input_type == InputTypes.TEXT.value and len(outputs) > 1:
-                merged_text = " ".join([item["output"] for item in outputs])
+                # Check if this is a prediction or integration task
+                is_prediction_or_integration = False
+                if task.agent.mission:
+                    mission_lower = task.agent.mission.lower()
+                    is_prediction_or_integration = ("predict" in mission_lower or
+                                                    "integrat" in mission_lower or
+                                                    "validat" in mission_lower)
+
+                # Format outputs with clear section headers
+                formatted_outputs = []
+                for item in outputs:
+                    task_name = item.get("task", "unknown")
+
+                    if is_prediction_or_integration:
+                        # For prediction/integration tasks, use more detailed formatting
+                        formatted_output = f"""
+===== {task_name.upper()} ANALYSIS =====
+{item["output"]}
+"""
+                    else:
+                        # For other tasks, use simpler formatting
+                        formatted_output = item["output"]
+
+                    formatted_outputs.append(formatted_output)
+
+                # Join otuputs
+                merged_text = "\n\n".join(formatted_outputs)
                 return merged_text, expected_input_type
-            # For audio/binary inputs, use the latest one
+
+            # For audio/binary inputs, use the latest output
             elif expected_input_type in [
                 InputTypes.AUDIO.value,
                 InputTypes.IMAGE.value,
@@ -229,12 +257,17 @@ class Flow:
                     f"Found compatible text input with {len(outputs)} outputs"
                 )
                 if len(outputs) > 1:
-                    merged_text = " ".join([item["output"] for item in outputs])
+                    # Apply formatting for compatible text types
+                    formatted_outputs = []
+                    for item in outputs:
+                        formatted_outputs.append(item["output"])
+
+                    merged_text = "\n\n".join(formatted_outputs)
                     return merged_text, input_type
                 else:
                     return outputs[0]["output"], input_type
 
-        # If no text available, use the latest output of any type as fallback
+        # Use the latest output of any type as fallback
         last_type = list(predecessor_data.keys())[-1]
         last_output = predecessor_data[last_type][-1]["output"]
         self.logger.log(
@@ -348,6 +381,10 @@ class Flow:
         Helper method to execute a task with semaphore control.
         """
         async with semaphore:
+            if self.sleep_time is not None and self.sleep_time > 0:
+                self.logger.log(f"Sleeping for {self.sleep_time} seconds before executing {task_name}")
+                await asyncio.sleep(self.sleep_time)
+
             await self._execute_task(task_name)
 
     def _group_tasks_by_level(self):
