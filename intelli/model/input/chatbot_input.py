@@ -97,7 +97,7 @@ class ChatModelInput:
             'model': self.model,
             'system': system.strip(),  # Use a system prompt
             'messages': contents,
-            'max_tokens': self.max_tokens or 1024,
+            'max_tokens': self.max_tokens or 2048,
             **({'temperature': self.temperature} if self.temperature is not None else {}),
             **self.options,
         }
