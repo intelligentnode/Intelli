@@ -23,7 +23,7 @@ class Flow:
     of different input/output types across all supported agent types.
     """
 
-    def __init__(self, tasks, map_paths, dynamic_connectors=None, log=False):
+    def __init__(self, tasks, map_paths, dynamic_connectors=None, log=False, sleep_time=None):
         """
         Initialize the Flow with tasks and their dependencies.
 
@@ -42,6 +42,7 @@ class Flow:
         self.output = {}
         self.logger = Logger(log)
         self.errors = {}
+        self.sleep_time = sleep_time
         # Initialize task before preparing the graph
         self._task_semaphores = {}
         self._prepare_graph()
@@ -380,6 +381,10 @@ class Flow:
         Helper method to execute a task with semaphore control.
         """
         async with semaphore:
+            if self.sleep_time is not None and self.sleep_time > 0:
+                self.logger.log(f"Sleeping for {self.sleep_time} seconds before executing {task_name}")
+                await asyncio.sleep(self.sleep_time)
+
             await self._execute_task(task_name)
 
     def _group_tasks_by_level(self):
