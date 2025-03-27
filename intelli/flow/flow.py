@@ -200,36 +200,35 @@ class Flow:
 
             # text inputs
             if expected_input_type == InputTypes.TEXT.value and len(outputs) > 1:
-                # Check if this is a prediction or integration task
-                is_prediction_or_integration = False
-                if task.agent.mission:
-                    mission_lower = task.agent.mission.lower()
-                    is_prediction_or_integration = ("predict" in mission_lower or
-                                                    "integrat" in mission_lower or
-                                                    "validat" in mission_lower)
+                # Check if we need special formatting
+                is_integration = False
+                if task.agent.mission and ("integrat" in task.agent.mission.lower() or
+                                           "synthesiz" in task.agent.mission.lower() or
+                                           "predict" in task.agent.mission.lower()):
+                    is_integration = True
 
-                # Format outputs with clear section headers
                 formatted_outputs = []
                 for item in outputs:
                     task_name = item.get("task", "unknown")
 
-                    if is_prediction_or_integration:
-                        # For prediction/integration tasks, use more detailed formatting
+                    # Apply different formatting for integration tasks
+                    if is_integration:
                         formatted_output = f"""
-===== {task_name.upper()} ANALYSIS =====
+========== {task_name.upper()} OUTPUT ==========
 {item["output"]}
+========== END OF {task_name.upper()} ==========
 """
                     else:
                         # For other tasks, use simpler formatting
-                        formatted_output = item["output"]
+                        formatted_output = f"{item['output']}"
 
                     formatted_outputs.append(formatted_output)
 
-                # Join otuputs
+                # Join outputs with clear separators
                 merged_text = "\n\n".join(formatted_outputs)
                 return merged_text, expected_input_type
 
-            # For audio/binary inputs, use the latest output
+            # For binary inputs, use the latest output
             elif expected_input_type in [
                 InputTypes.AUDIO.value,
                 InputTypes.IMAGE.value,

@@ -35,12 +35,24 @@ class Task:
 
         # Run task pre procesing
         if self.pre_process:
-            input_data = self.pre_process(input_data)
+            try:
+                processed_data = self.pre_process(input_data)
+                if processed_data is not None:
+                    input_data = processed_data
+                self.logger.log("Pre-processing completed")
+            except Exception as e:
+                self.logger.log(f"Error in pre-processing: {str(e)}")
+                import traceback
+                self.logger.log(traceback.format_exc())
 
         # Apply input template
         if input_data and input_type in [InputTypes.TEXT.value]:
-            agent_text = self.template.apply_input(input_data)
-            # log
+            try:
+                agent_text = self.template.apply_input(input_data)
+            except Exception as e:
+                self.logger.log(f"Error applying template: {str(e)}")
+                # Fallback to direct concatenation
+                agent_text = f"{self.desc}\n\n{input_data}"
             self.logger.log_head('- Input data with template: ', agent_text)
         else:
             agent_text = self.desc
@@ -97,8 +109,6 @@ class Task:
         for current_agent_input in agent_inputs:
             try:
                 result = self.agent.execute(current_agent_input, new_params=self.model_params)
-
-                # Add debug information for speech output
                 if self.agent.type == AgentTypes.SPEECH.value:
                     self.logger.log(
                         f"- Speech output type: {type(result)}, size: {len(result) if isinstance(result, (bytes, bytearray)) else 'unknown'}")
@@ -136,6 +146,18 @@ class Task:
             self.logger.log('- The task output count: ', result_size)
 
         if self.post_process:
-            result = self.post_process(result)
+            try:
+                original_result = result
+                processed_result = self.post_process(result)
+                # Don't accept None results from post-processing
+                if processed_result is not None:
+                    result = processed_result
+                else:
+                    self.logger.log("Warning: Post-processing returned None, using original result")
+                    result = original_result
+            except Exception as e:
+                self.logger.log(f"Error in post-processing: {str(e)}")
+                import traceback
+                self.logger.log(traceback.format_exc())
 
         self.output = result
