@@ -26,3 +26,4 @@ from intelli.flow.types import AgentTypes, InputTypes
 
 # Additional utilities
 from intelli.flow.utils.flow_helper import FlowHelper
+from intelli.flow.store.memory import Memory
