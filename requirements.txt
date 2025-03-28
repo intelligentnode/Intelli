@@ -1,4 +1,12 @@
+huggingface-hub==0.29.1
+llama-cpp-python==0.2.39
+safetensors==0.5.2
+torch==2.6.0
+CUDA==False, due to gpu limitations
 python-dotenv~=1.0.1
 networkx~=3.2.1
 matplotlib~=3.8.3
 requests~=2.31.0
+bitsandbytes==0.45.2
+einops==0.8.0
+deepseek-tokenizer==0.1.0
