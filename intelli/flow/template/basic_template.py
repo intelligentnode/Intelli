@@ -1,8 +1,9 @@
 from abc import ABC, abstractmethod
 import re
+import json
+
 
 class Template(ABC):
-
     @abstractmethod
     def apply_input(self, data):
         pass
@@ -15,7 +16,7 @@ class Template(ABC):
 class TextInputTemplate(Template):
     """
     A template for text input with enhanced structure preservation
-    while maintaining JSON safety.
+    and robust JSON handling.
     """
 
     def __init__(self, template_text: str, previous_input_tag='PREVIOUS_ANALYSIS', user_request_tag='CURRENT_TASK'):
@@ -31,40 +32,44 @@ class TextInputTemplate(Template):
     def apply_input(self, data):
         """
         Apply the template to input data with improved structure preservation
-        while maintaining JSON safety.
+        and robust JSON handling.
         """
         # Keep original handling for None data
         if data is None:
             return self.template_text
 
-        # Keep original JSON handling
-        if isinstance(data, str):
-            # Check if the data looks like json
-            if '{' in data and '}' in data:
-                # Escape curly braces
-                escaped_data = data.replace('{', '{{').replace('}', '}}')
-
-                # Check for section headers and preserve them
-                output = self.template_text.format(escaped_data)
-                return output
-
-        # Proceed with normal formatting (none-json)
-        try:
-            # Preserve section headers by adding extra newlines
-            if isinstance(data, str):
-                # Add newlines around sections
-                enhanced_data = data
-                header_pattern = r'(^|\n)(#+\s+[A-Z\s]+:?|[A-Z\s]+(ASSESSMENT|ANALYSIS|PREDICTION|STATUS):?)'
-                enhanced_data = re.sub(header_pattern, r'\1\n\2\n', enhanced_data)
-                return self.template_text.format(enhanced_data)
-
-            return self.template_text.format(data)
-
-        except KeyError:
-            if isinstance(data, str):
-                return f"{self.template_text}\n\n{data}"
-            else:
+        # Handle dictionary data
+        if isinstance(data, dict):
+            try:
+                # Convert to JSON string
+                formatted_json = json.dumps(data, indent=2)
+                return f"{self.template_text}\n\n```json\n{formatted_json}\n```"
+            except Exception as e:
+                # If serialization fails, fallback to string representation
                 return f"{self.template_text}\n\n{str(data)}"
+
+        # Handle string data that might contain JSON
+        if isinstance(data, str):
+            # For JSON-like strings, first try to parse and reformat
+            if ('{' in data and '}' in data) or ('[' in data and ']' in data):
+                try:
+                    json_data = json.loads(data)
+                    # Format
+                    formatted_json = json.dumps(json_data, indent=2)
+                    return f"{self.template_text}\n\n```json\n{formatted_json}\n```"
+                except json.JSONDecodeError:
+                    # Not valid JSON or has already escaped braces
+                    pass
+
+            # Preserve section headers with newlines
+            enhanced_data = data
+            header_pattern = r'(^|\n)(#+\s+[A-Z\s]+:?|[A-Z\s]+(ASSESSMENT|ANALYSIS|PREDICTION|STATUS):?)'
+            enhanced_data = re.sub(header_pattern, r'\1\n\2\n', enhanced_data)
+
+            return f"{self.template_text}\n\n{enhanced_data}"
+
+        # Handle other data types
+        return f"{self.template_text}\n\n{str(data)}"
 
     def apply_output(self, data):
         """Apply template to output data (not implemented)."""
