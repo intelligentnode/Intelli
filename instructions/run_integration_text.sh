@@ -58,3 +58,4 @@ python3 -m unittest intelli.test.integration.test_flow_map
 python3 -m unittest intelli.test.integration.test_keras_agent
 # memory
 python3 -m unittest intelli.test.integration.test_flow_memory
+python3 -m unittest intelli.test.integration.test_flow_with_dbmemory

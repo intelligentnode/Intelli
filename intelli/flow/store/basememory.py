@@ -1,12 +1,10 @@
-from intelli.flow.store.basememory import BaseMemory
+from abc import ABC, abstractmethod
 
-class Memory(BaseMemory):
-    """In-memory store for sharing data between tasks in a flow."""
 
-    def __init__(self):
-        """Initialize an empty memory store."""
-        self._data = {}
+class BaseMemory(ABC):
+    """Abstract base class for memory stores in Intelli flow."""
 
+    @abstractmethod
     def store(self, key, value):
         """
         Store a value in memory with the given key.
@@ -16,11 +14,11 @@ class Memory(BaseMemory):
             value: The value to store
 
         Returns:
-            Memory: Self for method chaining
+            Self for method chaining
         """
-        self._data[key] = value
-        return self  # Allow method chaining
+        pass
 
+    @abstractmethod
     def retrieve(self, key, default=None):
         """
         Retrieve a value from memory using the given key.
@@ -32,8 +30,9 @@ class Memory(BaseMemory):
         Returns:
             The stored value, or default if the key doesn't exist
         """
-        return self._data.get(key, default)
+        pass
 
+    @abstractmethod
     def has_key(self, key):
         """
         Check if a key exists in memory.
@@ -44,8 +43,9 @@ class Memory(BaseMemory):
         Returns:
             bool: True if the key exists, False otherwise
         """
-        return key in self._data
+        pass
 
+    @abstractmethod
     def all(self):
         """
         Get all stored data.
@@ -53,18 +53,19 @@ class Memory(BaseMemory):
         Returns:
             dict: A copy of all stored data
         """
-        return dict(self._data)
+        pass
 
+    @abstractmethod
     def clear(self):
         """
         Clear all stored data.
 
         Returns:
-            Memory: Self for method chaining
+            Self for method chaining
         """
-        self._data.clear()
-        return self
+        pass
 
+    @abstractmethod
     def keys(self):
         """
         Get all keys in memory.
@@ -72,4 +73,8 @@ class Memory(BaseMemory):
         Returns:
             list: All keys in memory
         """
-        return list(self._data.keys())
+        pass
+
+    def __contains__(self, key):
+        """Support for 'in' operator."""
+        return self.has_key(key)
