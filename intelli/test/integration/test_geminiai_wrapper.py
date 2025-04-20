@@ -27,7 +27,7 @@ class TestGeminiAIWrapper(unittest.TestCase):
         self.assertIsNotNone(result['candidates'][0]['content']['parts'][0]['text'])
     
     def test_image_to_text(self):
-        file_path = '../temp/test_image_desc.png' 
+        file_path = './temp/test_image_desc.png'
 
         try:
             with open(file_path, "rb") as image_file:
@@ -47,11 +47,10 @@ class TestGeminiAIWrapper(unittest.TestCase):
 
         except Exception as error:
             self.fail(f'Gemini AI Error: {error}')
-    
+
     def test_get_embeddings(self):
         text = "Write a story about a magic backpack."
         params = {
-            "model": "models/embedding-001",
             "content": {
                 "parts": [{
                     "text": text
@@ -60,20 +59,29 @@ class TestGeminiAIWrapper(unittest.TestCase):
         }
 
         result = self.wrapper.get_embeddings(params)
-        print('embedding sample result: ', result['values'][:5])
-        self.assertTrue('values' in result)
-    
+        print('embedding sample result: ', result.get('embedding', {}).get('values', [])[:5])
+        self.assertTrue('embedding' in result)
+
     def test_get_batch_embeddings(self):
         texts = ["Hello world", "Write a story about a magic backpack."]
-        requests = [{
-            "model": "models/embedding-001",
-            "content": {
-                "parts": [{"text": text}]
-            }
-        } for text in texts]
 
-        result = self.wrapper.get_batch_embeddings({"requests": requests})
-        print('batch embedding sample result: ', result[0]['values'][:5])
+        # Format according to the documentation
+        requests = [
+            {
+                "model": f"models/text-embedding-004",  # Use explicit model name to match docs
+                "content": {
+                    "parts": [{"text": text}]
+                }
+            } for text in texts
+        ]
+
+        params = {"requests": requests}
+
+        result = self.wrapper.get_batch_embeddings(params)
+
+        if result and len(result) > 0:
+            print('batch embedding sample result: ', result[0].get("values", [])[:5])
+
         self.assertGreater(len(result), 0, "No batch embedding results returned.")
     
 if __name__ == "__main__":

@@ -1,10 +1,15 @@
 class Text2SpeechInput:
-    Gender = {
-        'FEMALE': 'FEMALE',
-        'MALE': 'MALE'
-    }
+    Gender = {"FEMALE": "FEMALE", "MALE": "MALE"}
 
-    def __init__(self, text, language="en-gb", gender="FEMALE", voice=None, model='tts-1', stream=True):
+    def __init__(
+        self,
+        text,
+        language="en-gb",
+        gender="FEMALE",
+        voice=None,
+        model="tts-1",
+        stream=True,
+    ):
         self.text = text
         self.language = language.lower()
         # gender is in uppercase for consistency with Gender dictionary keys
@@ -14,7 +19,7 @@ class Text2SpeechInput:
         self.stream = stream
 
     def get_google_input(self):
-        params = {'text': self.text, 'languageCode': self.language}
+        params = {"text": self.text, "languageCode": self.language}
 
         language_name_map = {
             "en-gb": "en-GB",
@@ -29,16 +34,15 @@ class Text2SpeechInput:
             "ar": "ar-XA",
         }
 
-        gender_name_map = {
-            "FEMALE": "A",
-            "MALE": "B"
-        }
+        gender_name_map = {"FEMALE": "A", "MALE": "B"}
 
         base_language = language_name_map.get(self.language, None)
 
         if base_language:
-            params['name'] = f"{base_language}-Standard-{gender_name_map.get(self.gender, 'A')}"
-            params['ssmlGender'] = self.gender
+            params["name"] = (
+                f"{base_language}-Standard-{gender_name_map.get(self.gender, 'A')}"
+            )
+            params["ssmlGender"] = self.gender
         else:
             raise ValueError(f"Unsupported language code: {self.language}")
 
@@ -46,8 +50,23 @@ class Text2SpeechInput:
 
     def get_openai_input(self):
         return {
-            'input': self.text,
-            'voice': self.voice,
-            'model': self.model,
-            'stream': self.stream
+            "input": self.text,
+            "voice": self.voice,
+            "model": self.model,
+            "stream": self.stream,
         }
+
+    def get_elevenlabs_input(self):
+        """Get input parameters for Eleven Labs text-to-speech"""
+        params = {
+            "text": self.text,
+            "voice_id": self.voice_id if hasattr(self, "voice_id") else None,
+        }
+
+        if hasattr(self, "model_id") and self.model_id:
+            params["model_id"] = self.model_id
+
+        if hasattr(self, "output_format") and self.output_format:
+            params["output_format"] = self.output_format
+
+        return params

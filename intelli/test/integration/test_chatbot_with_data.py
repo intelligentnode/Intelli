@@ -24,7 +24,7 @@ class TestChatbotWithData(unittest.TestCase):
 
     def test_openai_chat_with_data(self):
         print('---- start openai with data ----')
-        input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
+        input = ChatModelInput("You are a helpful assistant.", "gpt-4o")
         input.attach_reference = True  # Explicitly attaching references
         input.add_user_message("Why is Mars called the Red Planet?")
 

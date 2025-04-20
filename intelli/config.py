@@ -41,6 +41,30 @@ config = {
                 "synthesize": {
                     "postfix": "/text:synthesize"
                 }
+            },
+            "speechtotext": {
+                "prefix": "speech",
+                "recognize": {
+                    "postfix": "/speech:recognize"
+                }
+            },
+            "vision": {
+                "prefix": "vision",
+                "annotate": {
+                    "postfix": "/images:annotate"
+                }
+            },
+            "language": {
+                "prefix": "language",
+                "analyze": {
+                    "postfix": "/documents:analyzeSentiment"
+                }
+            },
+            "translation": {
+                "prefix": "translate",
+                "translate": {
+                    "postfix": "/languages:translate"
+                }
             }
         },
         "stability": {
@@ -63,10 +87,16 @@ config = {
         },
         "gemini": {
             "base": "https://generativelanguage.googleapis.com/v1beta/models",
-            "contentEndpoint": "/gemini-pro:generateContent",
-            "visionEndpoint": "/gemini-pro-vision:generateContent",
-            "embeddingEndpoint": "/embedding-001:embedContent",
-            "batchEmbeddingEndpoint": "/embedding-001:batchEmbedContents"
+            "models": {
+                "text": "gemini-1.5-pro",  # "gemini-2.0-flash"
+                "vision": "gemini-1.5-pro",
+                "embedding": "gemini-embedding-exp-03-07" # or "text-embedding-004"
+            },
+            "endpoints": {
+                "generateContent": ":generateContent",
+                "embedContent": ":embedContent",
+                "batchEmbedContents": ":batchEmbedContents"
+            }
         },
         "anthropic": {
             "base": "https://api.anthropic.com",
@@ -82,6 +112,14 @@ config = {
             "completions": "/v1/completions",
             "chat": "/v1/chat/completions",
             "embed": "/embed"
+        },
+        "elevenlabs": {
+            "base": "https://api.elevenlabs.io/v1",
+            "models": {
+                "tts": "eleven_multilingual_v2",
+                "stt": "scribe_v1",
+                "sts": "eleven_multilingual_sts_v2"
+            }
         }
     },
     "models": {
