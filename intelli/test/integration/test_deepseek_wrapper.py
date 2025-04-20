@@ -11,20 +11,29 @@ load_dotenv()
 class TestDeepSeekWrapper(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        # Get model path from environment variable
         cls.model_path = os.getenv("DEEPSEEK_MODEL_PATH")
-        cls.model_id = "deepseek-ai/DeepSeek-R1"
+        if cls.model_path:
+            # Convert to absolute path if it's a relative path
+            if not os.path.isabs(cls.model_path):
+                cls.model_path = os.path.abspath(cls.model_path)
+            print(f"Using model path: {cls.model_path}")
+
+        # Use a smaller model for testing
+        cls.model_id = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
         cls.device = "cuda" if torch.cuda.is_available() else "cpu"
-        
-        print(f"Testing with model: {cls.model_id or cls.model_path}")
-        
+
+        print(f"Testing with model: {cls.model_id}")
+        print(f"Using device: {cls.device}")
+
         cls.wrapper = DeepSeekWrapper(
             model_path=cls.model_path,
             model_id=cls.model_id
         )
-        
+
     def test_model_initialization(self):
         self.assertIsNotNone(self.wrapper)
-        
+
     def test_model_loading(self):
         try:
             self.wrapper.load_model(device=self.device)
@@ -36,13 +45,13 @@ class TestDeepSeekWrapper(unittest.TestCase):
     def test_chat_interface(self):
         input_params = ChatModelInput("You are a helpful assistant.")
         input_params.add_user_message("Write a simple Python function.")
-        
+
         try:
             response = self.wrapper.chat(input_params)
             self.assertIn("choices", response)
         except Exception as e:
             self.skipTest(f"Chat interface test failed: {str(e)}")
-        
+
     def test_code_generation(self):
         prompt = "def fibonacci(n):"
         try:
@@ -51,7 +60,7 @@ class TestDeepSeekWrapper(unittest.TestCase):
             self.assertIn("text", response["choices"][0])
         except Exception as e:
             self.skipTest(f"Code generation test failed: {str(e)}")
-            
+
     def test_quantization(self):
         try:
             self.wrapper.load_model(device=self.device, quantize=True)
@@ -61,7 +70,7 @@ class TestDeepSeekWrapper(unittest.TestCase):
             self.assertIn("choices", response)
         except Exception as e:
             self.skipTest(f"Quantization test failed: {str(e)}")
-            
+
     def test_memory_efficiency(self):
         try:
             import psutil
@@ -76,4 +85,4 @@ class TestDeepSeekWrapper(unittest.TestCase):
             self.skipTest(f"Memory efficiency test failed: {str(e)}")
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2) 
+    unittest.main(verbosity=2)
