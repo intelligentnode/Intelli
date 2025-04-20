@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="0.5.8",
+    version="0.7.1",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Build your chatbot or AI agent with Intellinode – we make every model smarter.",
@@ -16,7 +16,7 @@ setup(
         "Source Code": "https://github.com/intelligentnode/Intelli",
     },
     packages=find_packages(exclude=["test", "test.*"]),
-    package_data={ 
+    package_data={
         '': ['*.in']
     },
     python_requires='>=3.6',
