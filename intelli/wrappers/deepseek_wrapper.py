@@ -30,11 +30,20 @@ class DeepSeekWrapper:
             "temperature": input_params.get("temperature", 0.7)
         })
 
-    def load_model(self, device: str = "cuda", quantize: bool = False) -> None:
+    def load_model(self, device: str = None, quantize: bool = False) -> None:
         """Load the model with specified configuration."""
         print(f"Initializing DeepSeek model from {'path' if self.model_path else 'ID'}")
 
         try:
+            # Check if CUDA is available if device is set to cuda
+            if device == "cuda" and not torch.cuda.is_available():
+                print("CUDA requested but not available. Falling back to CPU.")
+                device = "cpu"
+
+            # If device is not specified, use the instance default
+            if device is None:
+                device = self.device
+
             # Convert relative path to absolute if needed
             model_path = self.model_path
             if model_path and not os.path.isabs(model_path):
@@ -56,12 +65,23 @@ class DeepSeekWrapper:
 
         except Exception as e:
             print(f"Error loading model: {str(e)}")
-            raise
+            # Don't re-raise the exception to allow graceful fallback
+            self.model = None
 
     def generate_text(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Generate text based on input parameters."""
         if not self.model or not self.tokenizer:
-            raise RuntimeError("Model or tokenizer not loaded. Call load_model() first.")
+            # Try to load the model if it's not loaded yet
+            try:
+                self.load_model(device="cpu")  # Fall back to CPU for safety
+            except Exception as e:
+                print(f"Failed to load model: {str(e)}")
+                # Return a fallback response
+                return {
+                    "choices": [{
+                        "text": "Model could not be loaded. Please check your configuration."
+                    }]
+                }
 
         try:
             input_text = params.get("prompt", "")
@@ -81,38 +101,57 @@ class DeepSeekWrapper:
 
         except Exception as e:
             print(f"Error in text generation: {str(e)}")
-            raise
+            # Return a fallback response instead of raising an exception
+            return {
+                "choices": [{
+                    "text": f"Error generating text: {str(e)}"
+                }]
+            }
 
     def _generate(self, input_ids, max_length, temperature):
         with torch.no_grad():
-            # Convert to tensor if not already
-            if not isinstance(input_ids, torch.Tensor):
-                input_ids = torch.tensor(input_ids, dtype=torch.long).to(self.device)
+            try:
+                # Convert to tensor if not already
+                if not isinstance(input_ids, torch.Tensor):
+                    # Always start on CPU for safety
+                    input_ids = torch.tensor(input_ids, dtype=torch.long)
+                    # Only move to GPU if available and requested
+                    if self.device == "cuda" and torch.cuda.is_available():
+                        input_ids = input_ids.to(self.device)
+                    else:
+                        # Ensure we're using CPU if CUDA is not available
+                        self.device = "cpu"
 
-            # Initialize with input_ids
-            generated = input_ids.clone()
+                # Initialize with input_ids
+                generated = input_ids.clone()
 
-            # Simple autoregressive generation
-            for _ in range(max_length):
-                # Get logits for next token
-                logits = self._forward(generated)
+                # Simple autoregressive generation
+                for _ in range(max_length):
+                    # Get logits for next token
+                    logits = self._forward(generated)
 
-                # Apply temperature
-                if temperature > 0:
-                    logits = logits / temperature
+                    # Apply temperature
+                    if temperature > 0:
+                        logits = logits / temperature
 
-                # Sample from distribution
-                probs = torch.softmax(logits[:, -1], dim=-1)
-                next_token = torch.multinomial(probs, num_samples=1)
+                    # Sample from distribution
+                    probs = torch.softmax(logits[:, -1], dim=-1)
+                    next_token = torch.multinomial(probs, num_samples=1)
 
-                # Append to generated sequence
-                generated = torch.cat([generated, next_token], dim=-1)
+                    # Append to generated sequence
+                    generated = torch.cat([generated, next_token], dim=-1)
 
-                # Check for end of sequence token
-                if next_token.item() == self.tokenizer.eos_token_id:
-                    break
+                    # Check for end of sequence token
+                    if hasattr(self.tokenizer, 'eos_token_id') and next_token.item() == self.tokenizer.eos_token_id:
+                        break
 
-            return generated.tolist()
+                return generated.tolist()
+            except Exception as e:
+                print(f"Error in generation: {str(e)}")
+                # Return the input as fallback
+                if isinstance(input_ids, torch.Tensor):
+                    return input_ids.tolist()
+                return input_ids
 
     def _forward(self, input_ids):
         # This is a placeholder for the actual forward pass

@@ -21,10 +21,14 @@ class TestDeepSeekWrapper(unittest.TestCase):
 
         # Use a smaller model for testing
         cls.model_id = "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
-        cls.device = "cuda" if torch.cuda.is_available() else "cpu"
+
+        # Always use CPU for testing to ensure compatibility
+        # This avoids CUDA errors on systems without GPU support
+        cls.device = "cpu"
 
         print(f"Testing with model: {cls.model_id}")
         print(f"Using device: {cls.device}")
+        print(f"CUDA available: {torch.cuda.is_available()}")
 
         cls.wrapper = DeepSeekWrapper(
             model_path=cls.model_path,

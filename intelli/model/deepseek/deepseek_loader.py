@@ -13,10 +13,17 @@ class DeepSeekLoader:
     def __init__(self,
                  model_path: Optional[str] = None,
                  model_id: str = DEFAULT_MODEL_ID,
-                 device: str = "cuda",
+                 device: str = None,
                  quantize: bool = False):
         self.model_id = model_id
-        self.device = device
+
+        # Check CUDA availability and set device accordingly
+        if device == "cuda" and not torch.cuda.is_available():
+            print("CUDA requested but not available. Falling back to CPU.")
+            self.device = "cpu"
+        else:
+            self.device = device if device is not None else ("cuda" if torch.cuda.is_available() else "cpu")
+
         self.quantize = quantize
         self.model = None
         self.config = None
@@ -158,40 +165,71 @@ class DeepSeekLoader:
 
     def _load_safetensors(self, model_path):
         tensors = {}
-        with safetensors.safe_open(model_path, framework="pt", device="cpu") as f:
-            for key in f.keys():
-                tensor = f.get_tensor(key)
-                if self.quantize and tensor.dtype == torch.float32:
-                    tensor = self._quantize_tensor(tensor)
-                tensors[key] = tensor
+        try:
+            with safetensors.safe_open(model_path, framework="pt", device="cpu") as f:
+                for key in f.keys():
+                    tensor = f.get_tensor(key)
+                    if self.quantize and tensor.dtype == torch.float32:
+                        tensor_int8, scale = self._quantize_tensor(tensor)
+                        # Store both the quantized tensor and its scale
+                        tensors[key] = tensor_int8
+                        tensors[f"{key}_scale"] = scale
+                    else:
+                        tensors[key] = tensor
 
-        if self.device != "cpu":
-            for key in tensors:
-                tensors[key] = tensors[key].to(self.device)
+            # Only move tensors to device if CUDA is available and requested
+            if self.device == "cuda" and torch.cuda.is_available():
+                for key in tensors:
+                    tensors[key] = tensors[key].to(self.device)
+            elif self.device == "cuda":
+                # If CUDA was requested but not available, update the device to CPU
+                print("CUDA requested but not available. Using CPU for tensors.")
+                self.device = "cpu"
 
-        return tensors
+            return tensors
+        except Exception as e:
+            print(f"Error loading safetensors: {str(e)}")
+            raise
 
     def _load_torch(self, model_path):
-        state_dict = torch.load(model_path, map_location="cpu")
+        try:
+            state_dict = torch.load(model_path, map_location="cpu")
 
-        if self.quantize:
-            for key, tensor in state_dict.items():
-                if tensor.dtype == torch.float32:
-                    state_dict[key] = self._quantize_tensor(tensor)
+            if self.quantize:
+                for key, tensor in list(state_dict.items()):
+                    if tensor.dtype == torch.float32:
+                        tensor_int8, scale = self._quantize_tensor(tensor)
+                        # Store both the quantized tensor and its scale
+                        state_dict[key] = tensor_int8
+                        state_dict[f"{key}_scale"] = scale
 
-        if self.device != "cpu":
-            for key in state_dict:
-                state_dict[key] = state_dict[key].to(self.device)
+            # Only move tensors to device if CUDA is available and requested
+            if self.device == "cuda" and torch.cuda.is_available():
+                for key in state_dict:
+                    state_dict[key] = state_dict[key].to(self.device)
+            elif self.device == "cuda":
+                # If CUDA was requested but not available, update the device to CPU
+                print("CUDA requested but not available. Using CPU for tensors.")
+                self.device = "cpu"
 
-        return state_dict
+            return state_dict
+        except Exception as e:
+            print(f"Error loading torch model: {str(e)}")
+            raise
 
-    def _quantize_tensor(self, tensor: torch.Tensor) -> torch.Tensor:
-        if tensor.dtype != torch.float32:
-            return tensor
+    def _quantize_tensor(self, tensor: torch.Tensor):
+        """Quantize a tensor to int8 for reduced memory usage."""
+        try:
+            if tensor.dtype != torch.float32:
+                return tensor, torch.tensor(1.0)
 
-        scale = tensor.abs().max() / 127.0
-        tensor_int8 = (tensor / scale).round().clip(-127, 127).to(torch.int8)
-        return tensor_int8, scale
+            scale = tensor.abs().max() / 127.0
+            tensor_int8 = (tensor / scale).round().clip(-127, 127).to(torch.int8)
+            return tensor_int8, scale
+        except Exception as e:
+            print(f"Error during quantization: {str(e)}")
+            # Return the original tensor and a scale of 1.0 as fallback
+            return tensor, torch.tensor(1.0)
 
 class DeepSeekModel(torch.nn.Module):
     def __init__(self, config: Dict[str, Any]):
