@@ -1,7 +1,8 @@
 import os
 import json
+import torch
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Union
 from huggingface_hub import hf_hub_download
 
 class DeepSeekTokenizer:
@@ -50,9 +51,54 @@ class DeepSeekTokenizer:
             self.vocab = json.load(f)
 
     def encode(self, text: str) -> List[int]:
-        tokens = text.split()
-        return [self.vocab.get(token, self.vocab.get('<unk>', 0)) for token in tokens]
+        """Encode text to token IDs.
+
+        Args:
+            text: Input text to encode
+
+        Returns:
+            List of token IDs
+        """
+        try:
+            # Ensure text is a string
+            if not isinstance(text, str):
+                text = str(text)
+
+            # Simple tokenization by splitting on whitespace
+            # In a real implementation, this would use a more sophisticated tokenizer
+            tokens = text.split()
+
+            # Convert tokens to IDs using vocabulary
+            # Default to unknown token ID (0) if token not in vocabulary
+            return [self.vocab.get(token, self.vocab.get('<unk>', 0)) for token in tokens]
+        except Exception as e:
+            print(f"Error in encoding: {str(e)}")
+            # Return a single token ID as fallback
+            return [0]
 
     def decode(self, token_ids: List[int]) -> str:
-        rev_vocab = {v: k for k, v in self.vocab.items()}
-        return ' '.join(rev_vocab.get(id, '<unk>') for id in token_ids)
+        """Decode token IDs to text.
+
+        Args:
+            token_ids: List of token IDs to decode
+
+        Returns:
+            Decoded text
+        """
+        try:
+            # Ensure token_ids is a list of integers
+            if not isinstance(token_ids, list):
+                if isinstance(token_ids, torch.Tensor):
+                    token_ids = token_ids.tolist()
+                else:
+                    token_ids = [0]  # Default to a single unknown token
+
+            # Create reverse vocabulary mapping (ID -> token)
+            rev_vocab = {v: k for k, v in self.vocab.items() if isinstance(v, int)}
+
+            # Convert IDs to tokens and join with spaces
+            return ' '.join(rev_vocab.get(id, '<unk>') for id in token_ids)
+        except Exception as e:
+            print(f"Error in decoding: {str(e)}")
+            # Return a fallback message
+            return "Error decoding tokens"

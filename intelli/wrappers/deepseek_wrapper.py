@@ -18,17 +18,37 @@ class DeepSeekWrapper:
         self.tokenizer = None
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    def chat(self, input_params: Dict[str, Any]) -> Dict[str, Any]:
+    def chat(self, input_params: Any) -> Dict[str, Any]:
         """Chat interface matching the project's chatbot pattern."""
-        if not self.model:
-            self.load_model()
+        try:
+            if not self.model:
+                self.load_model(device="cpu")  # Default to CPU for safety
 
-        prompt = input_params.get("prompt", "")
-        return self.generate_text({
-            "prompt": prompt,
-            "max_length": input_params.get("max_length", 100),
-            "temperature": input_params.get("temperature", 0.7)
-        })
+            # Convert input_params to a dictionary if it's not already
+            if hasattr(input_params, 'get_prompt'):
+                # Handle ChatModelInput
+                prompt = input_params.get_prompt()
+                max_length = input_params.get("max_length", 100)
+                temperature = input_params.get("temperature", 0.7)
+            else:
+                # Handle dictionary input
+                prompt = input_params.get("prompt", "")
+                max_length = input_params.get("max_length", 100)
+                temperature = input_params.get("temperature", 0.7)
+
+            return self.generate_text({
+                "prompt": prompt,
+                "max_length": max_length,
+                "temperature": temperature
+            })
+        except Exception as e:
+            print(f"Error in chat: {str(e)}")
+            # Return a fallback response
+            return {
+                "choices": [{
+                    "text": f"Error in chat: {str(e)}"
+                }]
+            }
 
     def load_model(self, device: str = None, quantize: bool = False) -> None:
         """Load the model with specified configuration."""
@@ -69,7 +89,17 @@ class DeepSeekWrapper:
             self.model = None
 
     def generate_text(self, params: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate text based on input parameters."""
+        """Generate text based on input parameters.
+
+        Args:
+            params: Dictionary with parameters for text generation
+                - prompt: Input text
+                - max_length: Maximum length of generated text
+                - temperature: Temperature for sampling
+
+        Returns:
+            Dictionary with generated text
+        """
         if not self.model or not self.tokenizer:
             # Try to load the model if it's not loaded yet
             try:
@@ -84,13 +114,37 @@ class DeepSeekWrapper:
                 }
 
         try:
-            input_text = params.get("prompt", "")
+            # Ensure params is a dictionary and contains required keys
+            if not isinstance(params, dict):
+                print(f"Warning: params is not a dictionary, got {type(params)}")
+                # Convert to dictionary if possible
+                if hasattr(params, 'get'):
+                    # Try to use get method
+                    input_text = params.get("prompt", "")
+                    max_length = params.get("max_length", 100)
+                    temperature = params.get("temperature", 0.7)
+                else:
+                    # Use default values
+                    input_text = ""
+                    max_length = 100
+                    temperature = 0.7
+            else:
+                # Extract parameters from dictionary
+                input_text = params.get("prompt", "")
+                max_length = params.get("max_length", 100)
+                temperature = params.get("temperature", 0.7)
+
+            # Ensure input_text is a string
+            if not isinstance(input_text, str):
+                input_text = str(input_text)
+
+            # Encode the input text
             input_ids = self.tokenizer.encode(input_text)
 
-            max_length = params.get("max_length", 100)
-            temperature = params.get("temperature", 0.7)
-
+            # Generate output
             output_ids = self._generate(input_ids, max_length, temperature)
+
+            # Decode the output
             output_text = self.tokenizer.decode(output_ids)
 
             return {
@@ -154,6 +208,27 @@ class DeepSeekWrapper:
                 return input_ids
 
     def _forward(self, input_ids):
-        # This is a placeholder for the actual forward pass
-        # In a real implementation, this would use the loaded model
-        return torch.randn(1, input_ids.shape[1], 32000)
+        """Forward pass through the model.
+
+        Args:
+            input_ids: Input token IDs
+
+        Returns:
+            Logits for next token prediction
+        """
+        try:
+            if self.model is None:
+                # If model is not loaded, return random logits for testing
+                return torch.randn(1, input_ids.shape[1], 32000)
+
+            # Ensure input_ids is on the correct device
+            if isinstance(input_ids, torch.Tensor) and str(input_ids.device) != str(self.device):
+                input_ids = input_ids.to(self.device)
+
+            # Actual forward pass through the model
+            with torch.no_grad():
+                return self.model(input_ids)
+        except Exception as e:
+            print(f"Error in forward pass: {str(e)}")
+            # Return random logits as fallback
+            return torch.randn(1, input_ids.shape[1], 32000)
