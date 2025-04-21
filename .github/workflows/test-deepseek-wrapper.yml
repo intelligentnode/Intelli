@@ -1,0 +1,36 @@
+name: Test DeepSeek Wrapper
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "intelli/test/integration/test_deepseek_wrapper.py"
+      - "intelli/wrappers/deepseek_wrapper.py"
+      - "intelli/model/deepseek/**"
+      - "requirements.txt"
+      - ".github/workflows/test-deepseek-wrapper.yml"
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Show default Python version
+        run: python --version
+
+      - name: Install dependencies from requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Set up Hugging Face CLI authentication
+        run: |
+          huggingface-cli login --token "${{ secrets.HF_TOKEN }}"
+
+
+      - name: Run DeepSeekWrapper test
+        run: |
+          python -m unittest intelli.test.integration.test_deepseek_wrapper
