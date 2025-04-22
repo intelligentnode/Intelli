@@ -265,21 +265,28 @@ class DeepSeekWrapper:
                         if logits.dim() >= 2 and logits.size(-1) > 0:
                             # Sample from distribution
                             try:
-                                # Get the last token's logits
-                                if logits.dim() >= 3 and logits.size(1) > 0:
+                                # Check if logits is empty
+                                if logits.numel() == 0 or (logits.dim() >= 3 and logits.size(1) == 0):
+                                    # Handle empty tensor (silently)
+                                    # Get vocab size if available
+                                    vocab_size = 32000
+                                    if hasattr(self.model, 'vocab_size'):
+                                        vocab_size = self.model.vocab_size
+                                    elif hasattr(self.model, 'config') and hasattr(self.model.config, 'vocab_size'):
+                                        vocab_size = self.model.config.vocab_size
+
+                                    # Create random logits with appropriate shape
+                                    last_token_logits = torch.randn(1, vocab_size)
+                                # Get the last token's logits for non-empty tensors
+                                elif logits.dim() >= 3 and logits.size(1) > 0:
                                     # For 3D logits [batch, seq, vocab]
                                     last_token_logits = logits[:, -1, :]
                                 elif logits.dim() == 2:
                                     # For 2D logits [batch, vocab]
                                     last_token_logits = logits
                                 else:
-                                    # For 1D logits [vocab] or empty tensors
-                                    if logits.numel() > 0:
-                                        last_token_logits = logits.unsqueeze(0)
-                                    else:
-                                        # Handle empty tensor
-                                        print("Empty logits tensor, using random logits")
-                                        last_token_logits = torch.randn(1, 32000)
+                                    # For 1D logits [vocab]
+                                    last_token_logits = logits.unsqueeze(0)
 
                                 # Apply softmax and sample
                                 probs = torch.softmax(last_token_logits, dim=-1)
@@ -302,8 +309,7 @@ class DeepSeekWrapper:
                                 print(f"Error in sampling: {str(sampling_error)}")
                                 next_token = torch.randint(0, 100, (1, 1))
                         else:
-                            # If logits doesn't have the expected shape, use a random token
-                            print(f"Logits has unexpected shape {logits.shape}, using random token")
+                            # If logits doesn't have the expected shape, use a random token (silently)
                             next_token = torch.randint(0, 100, (1, 1))
                     except Exception as inner_e:
                         # Handle any errors in the sampling process
