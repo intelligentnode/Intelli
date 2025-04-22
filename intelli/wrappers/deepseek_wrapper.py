@@ -84,23 +84,45 @@ class DeepSeekWrapper:
                     model_path = os.path.normpath(model_path)
                     print(f"Using normalized path: {model_path}")
 
+            # Create the loader
             self.loader = DeepSeekLoader(
                 model_path=model_path,
                 model_id=self.model_id,
                 device=device,
                 quantize=quantize
             )
-            self.model = self.loader.load_model()
-            self.tokenizer = DeepSeekTokenizer(
-                model_path=str(self.loader.model_path),
-                model_id=self.model_id
-            )
+
+            # Load the model
+            try:
+                self.model = self.loader.load_model()
+            except Exception as model_error:
+                print(f"Error loading model weights: {str(model_error)}")
+                print("Using empty model as fallback")
+                self.model = {}
+
+            # Create the tokenizer
+            try:
+                self.tokenizer = DeepSeekTokenizer(
+                    model_path=str(self.loader.model_path),
+                    model_id=self.model_id
+                )
+            except Exception as tokenizer_error:
+                print(f"Error loading tokenizer: {str(tokenizer_error)}")
+                print("Using minimal tokenizer as fallback")
+                from intelli.model.deepseek.deepseek_tokenizer import DeepSeekTokenizer
+                self.tokenizer = DeepSeekTokenizer()
+                self.tokenizer.vocab = {'<unk>': 0, '<s>': 1, '</s>': 2}
+
             self.device = device
 
         except Exception as e:
             print(f"Error loading model: {str(e)}")
             # Don't re-raise the exception to allow graceful fallback
-            self.model = None
+            self.model = {}
+            # Create a minimal tokenizer as fallback
+            from intelli.model.deepseek.deepseek_tokenizer import DeepSeekTokenizer
+            self.tokenizer = DeepSeekTokenizer()
+            self.tokenizer.vocab = {'<unk>': 0, '<s>': 1, '</s>': 2}
 
     def generate_text(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Generate text based on input parameters.

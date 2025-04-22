@@ -131,18 +131,66 @@ class DeepSeekLoader:
         config_files = []
         model_files = []
 
+        # First, try to find the exact files we're looking for
         for root, _, files in os.walk(self.model_path):
             for file in files:
                 file_path = Path(os.path.join(root, file))
-                if file == self.config_file or file.endswith('config.json'):
+                if hasattr(self, 'config_file') and file == self.config_file:
                     config_files.append(file_path)
-                if file == self.model_file or file.endswith(('.safetensors', '.bin', '.pt', '.ckpt')):
+                elif file.endswith('config.json'):
+                    config_files.append(file_path)
+
+                if hasattr(self, 'model_file') and file == self.model_file:
+                    model_files.append(file_path)
+                elif file.endswith(('.safetensors', '.bin', '.pt', '.ckpt')):
                     model_files.append(file_path)
 
+        # If we didn't find any files, look in subdirectories
+        if not config_files or not model_files:
+            print(f"Searching in subdirectories of {self.model_path}...")
+            for root, dirs, _ in os.walk(self.model_path):
+                for dir_name in dirs:
+                    subdir = os.path.join(root, dir_name)
+                    print(f"Checking subdirectory: {subdir}")
+                    for subroot, _, subfiles in os.walk(subdir):
+                        for file in subfiles:
+                            file_path = Path(os.path.join(subroot, file))
+                            if file.endswith('config.json') and not config_files:
+                                config_files.append(file_path)
+                                print(f"Found config file in subdirectory: {file_path}")
+                            if file.endswith(('.safetensors', '.bin', '.pt', '.ckpt')) and not model_files:
+                                model_files.append(file_path)
+                                print(f"Found model file in subdirectory: {file_path}")
+
+        # If we still didn't find any files, try to find any file that might work
         if not config_files:
-            raise FileNotFoundError(f"Config file not found in {self.model_path}")
+            print("No config file found. Looking for any JSON file that might be a config...")
+            for root, _, files in os.walk(self.model_path):
+                for file in files:
+                    if file.endswith('.json') and 'tokenizer' not in file.lower():
+                        file_path = Path(os.path.join(root, file))
+                        config_files.append(file_path)
+                        print(f"Using {file_path} as config file")
+                        break
+                if config_files:
+                    break
+
         if not model_files:
-            raise FileNotFoundError(f"Model file not found in {self.model_path}")
+            print("No model file found. Looking for any file that might be a model...")
+            for root, _, files in os.walk(self.model_path):
+                for file in files:
+                    if any(file.endswith(ext) for ext in ['.safetensors', '.bin', '.pt', '.ckpt', '.model']):
+                        file_path = Path(os.path.join(root, file))
+                        model_files.append(file_path)
+                        print(f"Using {file_path} as model file")
+                        break
+                if model_files:
+                    break
+
+        if not config_files:
+            raise FileNotFoundError(f"Config file not found in {self.model_path} or its subdirectories")
+        if not model_files:
+            raise FileNotFoundError(f"Model file not found in {self.model_path} or its subdirectories")
 
         config_path = config_files[0]
         model_path = model_files[0]

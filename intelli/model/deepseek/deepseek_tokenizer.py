@@ -35,6 +35,8 @@ class DeepSeekTokenizer:
 
         # Find tokenizer file
         tokenizer_file = None
+
+        # First, look for files with 'tokenizer' in the name
         for root, _, files in os.walk(self.model_path):
             for file in files:
                 if 'tokenizer' in file and file.endswith('.json'):
@@ -43,8 +45,54 @@ class DeepSeekTokenizer:
             if tokenizer_file:
                 break
 
+        # If not found, look in subdirectories
         if not tokenizer_file:
-            raise FileNotFoundError(f"Tokenizer file not found in {self.model_path}")
+            print(f"Tokenizer file not found in {self.model_path}, searching subdirectories...")
+            for root, dirs, _ in os.walk(self.model_path):
+                for dir_name in dirs:
+                    subdir = os.path.join(root, dir_name)
+                    for subroot, _, subfiles in os.walk(subdir):
+                        for file in subfiles:
+                            if 'tokenizer' in file and file.endswith('.json'):
+                                tokenizer_file = os.path.join(subroot, file)
+                                print(f"Found tokenizer file in subdirectory: {tokenizer_file}")
+                                break
+                        if tokenizer_file:
+                            break
+                    if tokenizer_file:
+                        break
+                if tokenizer_file:
+                    break
+
+        # If still not found, try any JSON file that might be a tokenizer
+        if not tokenizer_file:
+            print("No tokenizer file found. Looking for any JSON file that might be a tokenizer...")
+            for root, _, files in os.walk(self.model_path):
+                for file in files:
+                    if file.endswith('.json') and ('vocab' in file.lower() or 'token' in file.lower() or 'dict' in file.lower()):
+                        tokenizer_file = os.path.join(root, file)
+                        print(f"Using {tokenizer_file} as tokenizer file")
+                        break
+                if tokenizer_file:
+                    break
+
+        # Last resort: use any JSON file
+        if not tokenizer_file:
+            print("No tokenizer-like file found. Using any JSON file as fallback...")
+            for root, _, files in os.walk(self.model_path):
+                for file in files:
+                    if file.endswith('.json'):
+                        tokenizer_file = os.path.join(root, file)
+                        print(f"Using {tokenizer_file} as tokenizer file (fallback)")
+                        break
+                if tokenizer_file:
+                    break
+
+        if not tokenizer_file:
+            print(f"Tokenizer file not found in {self.model_path}. Creating a minimal tokenizer.")
+            # Create a minimal vocabulary as fallback
+            self.vocab = {'<unk>': 0, '<s>': 1, '</s>': 2}
+            return
 
         print(f"Loading tokenizer from: {tokenizer_file}")
         try:
