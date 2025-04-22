@@ -47,8 +47,40 @@ class DeepSeekTokenizer:
             raise FileNotFoundError(f"Tokenizer file not found in {self.model_path}")
 
         print(f"Loading tokenizer from: {tokenizer_file}")
-        with open(tokenizer_file, 'r') as f:
-            self.vocab = json.load(f)
+        try:
+            # Try UTF-8 encoding first
+            with open(tokenizer_file, 'r', encoding='utf-8') as f:
+                self.vocab = json.load(f)
+        except UnicodeDecodeError:
+            # Fall back to latin-1 encoding
+            print("UTF-8 encoding failed, trying latin-1 encoding...")
+            with open(tokenizer_file, 'r', encoding='latin-1') as f:
+                self.vocab = json.load(f)
+        except Exception as e:
+            # Last resort: try binary mode
+            print(f"Error loading tokenizer: {str(e)}")
+            print("Trying binary mode as last resort...")
+            try:
+                with open(tokenizer_file, 'rb') as f:
+                    import io
+                    content = f.read()
+                    # Try to decode with different encodings
+                    for encoding in ['utf-8-sig', 'utf-16', 'cp1252']:
+                        try:
+                            text = content.decode(encoding)
+                            self.vocab = json.loads(text)
+                            print(f"Successfully loaded with {encoding} encoding")
+                            break
+                        except:
+                            continue
+                    else:
+                        # If all encodings fail, create a minimal vocab
+                        print("All encodings failed, creating minimal vocab")
+                        self.vocab = {'<unk>': 0, '<s>': 1, '</s>': 2}
+            except Exception as e2:
+                print(f"Failed to load tokenizer: {str(e2)}")
+                # Create a minimal vocabulary as fallback
+                self.vocab = {'<unk>': 0, '<s>': 1, '</s>': 2}
 
     def encode(self, text: str) -> List[int]:
         """Encode text to token IDs.

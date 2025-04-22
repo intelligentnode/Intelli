@@ -64,11 +64,19 @@ class DeepSeekWrapper:
             if device is None:
                 device = self.device
 
-            # Convert relative path to absolute if needed
+            # Handle path conversion for cross-platform compatibility
             model_path = self.model_path
-            if model_path and not os.path.isabs(model_path):
-                model_path = os.path.abspath(model_path)
-                print(f"Using absolute path: {model_path}")
+            if model_path:
+                # Convert string path to Path object for better cross-platform handling
+                if isinstance(model_path, str):
+                    # Convert relative path to absolute if needed
+                    if not os.path.isabs(model_path):
+                        model_path = os.path.abspath(model_path)
+                        print(f"Converted to absolute path: {model_path}")
+
+                    # Normalize path separators for the current OS
+                    model_path = os.path.normpath(model_path)
+                    print(f"Using normalized path: {model_path}")
 
             self.loader = DeepSeekLoader(
                 model_path=model_path,

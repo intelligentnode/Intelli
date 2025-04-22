@@ -17,6 +17,15 @@ class TestDeepSeekWrapper(unittest.TestCase):
             # Convert to absolute path if it's a relative path
             if not os.path.isabs(cls.model_path):
                 cls.model_path = os.path.abspath(cls.model_path)
+
+            # Normalize path separators for the current OS
+            cls.model_path = os.path.normpath(cls.model_path)
+
+            # Ensure the directory exists
+            model_dir = Path(cls.model_path)
+            if not model_dir.exists() and not model_dir.is_file():
+                os.makedirs(model_dir, exist_ok=True)
+
             print(f"Using model path: {cls.model_path}")
 
         # Use a smaller model for testing

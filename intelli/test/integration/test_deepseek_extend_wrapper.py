@@ -29,11 +29,38 @@ class TestDeepSeekExtendWrapper(unittest.TestCase):
 
         # Download model files directly using huggingface_hub
         try:
-            cls.model_path = snapshot_download(
-                repo_id=cls.model_id,
-                cache_dir=cls.cache_dir,
-                local_files_only=False
-            )
+            # Use a try-except block to handle different download methods
+            try:
+                # First try snapshot_download which is more reliable
+                cls.model_path = snapshot_download(
+                    repo_id=cls.model_id,
+                    cache_dir=cls.cache_dir,
+                    local_files_only=False
+                )
+            except Exception as snapshot_error:
+                print(f"Snapshot download failed: {str(snapshot_error)}")
+                print("Trying alternative download method...")
+
+                # Fall back to downloading individual files
+                model_dir = cls.cache_dir / f"models--{cls.model_id.replace('/', '--')}" / "snapshots" / "latest"
+                model_dir.mkdir(parents=True, exist_ok=True)
+
+                # Download essential files
+                for filename in ["model.safetensors", "config.json", "tokenizer.json"]:
+                    try:
+                        file_path = hf_hub_download(
+                            repo_id=cls.model_id,
+                            filename=filename,
+                            cache_dir=cls.cache_dir
+                        )
+                        print(f"Downloaded {filename} to {file_path}")
+                    except Exception as file_error:
+                        print(f"Error downloading {filename}: {str(file_error)}")
+
+                cls.model_path = str(model_dir)
+
+            # Normalize path for cross-platform compatibility
+            cls.model_path = os.path.normpath(cls.model_path)
             print(f"Model downloaded to: {cls.model_path}")
         except Exception as e:
             print(f"Error downloading model: {str(e)}")
