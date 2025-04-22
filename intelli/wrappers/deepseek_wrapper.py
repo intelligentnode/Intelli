@@ -28,9 +28,14 @@ class DeepSeekWrapper:
             if hasattr(input_params, 'get_prompt'):
                 # Handle ChatModelInput
                 prompt = input_params.get_prompt()
-                # ChatModelInput doesn't have a get method, access attributes directly
-                max_length = getattr(input_params, 'max_tokens', 100)
-                temperature = getattr(input_params, 'temperature', 0.7)
+                # Use the get method if available, otherwise fall back to getattr
+                if hasattr(input_params, 'get'):
+                    max_length = input_params.get('max_tokens', 100)
+                    temperature = input_params.get('temperature', 0.7)
+                else:
+                    # Fallback for older versions without get method
+                    max_length = getattr(input_params, 'max_tokens', 100)
+                    temperature = getattr(input_params, 'temperature', 0.7)
             else:
                 # Handle dictionary input
                 prompt = input_params.get("prompt", "")

@@ -173,6 +173,31 @@ class Chatbot:
             raise Exception("No choices returned from NVIDIA API")
         return [choices[0]["message"]["content"]]
 
+    def _chat_deepseek(self, params):
+        """Handle DeepSeek model responses.
+
+        Args:
+            params: Parameters for the DeepSeek model
+
+        Returns:
+            List containing the generated text
+        """
+        try:
+            # Use the model instance if it exists, otherwise use the wrapper
+            if self.model:
+                response = self.model.chat(params)
+            else:
+                response = self.wrapper.chat(params)
+
+            # Extract text from the response
+            if isinstance(response, dict) and "choices" in response:
+                return [choice.get("text", "") for choice in response.get("choices", [])]
+            else:
+                return [str(response)]
+        except Exception as e:
+            print(f"Error in DeepSeek chat: {str(e)}")
+            return [f"Error generating response: {str(e)}"]
+
     def stream(self, chat_input):
         """Streams responses from the selected provider for the given chat input."""
 

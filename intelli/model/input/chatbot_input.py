@@ -20,7 +20,20 @@ class ChatModelInput:
         # augemented search parameters
         self.attach_reference = attach_reference
         self.doc_name = filter_options.get('doc_name', None)
-        self.search_k = filter_options.get('search_k', 3) 
+        self.search_k = filter_options.get('search_k', 3)
+
+    def get(self, key, default=None):
+        """Get an attribute by name with a default value if not found.
+        This makes ChatModelInput more compatible with dictionary-based APIs.
+
+        Args:
+            key: The attribute name to get
+            default: The default value to return if the attribute doesn't exist
+
+        Returns:
+            The attribute value or the default
+        """
+        return getattr(self, key, default)
 
     def add_user_message(self, prompt):
         self.messages.append(ChatMessage(prompt, 'user'))
@@ -222,6 +235,35 @@ class ChatModelInput:
 
         if self.numberOfOutputs is not None and self.numberOfOutputs > 1:
             params["n"] = self.numberOfOutputs
+
+        # Add any additional options
+        params.update(self.options)
+
+        return params
+
+    def get_deepseek_input(self):
+        """
+        Format the input for DeepSeek models.
+
+        Returns:
+            dict: Parameters for DeepSeek model request.
+        """
+        # Extract the last user message as the prompt
+        user_messages = [msg for msg in self.messages if msg.role == "user"]
+        if not user_messages:
+            # If no user messages, use system message or empty string
+            system_messages = [msg for msg in self.messages if msg.role == "system"]
+            prompt = system_messages[0].content if system_messages else ""
+        else:
+            # Use the last user message
+            prompt = user_messages[-1].content
+
+        # Create parameters dictionary
+        params = {
+            "prompt": prompt,
+            "max_length": self.max_tokens or 100,
+            "temperature": self.temperature or 0.7
+        }
 
         # Add any additional options
         params.update(self.options)
