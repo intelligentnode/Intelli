@@ -156,22 +156,38 @@ class DeepSeekTokenizer:
             # Return a single token ID as fallback
             return [0]
 
-    def decode(self, token_ids: List[int]) -> str:
+    def decode(self, token_ids: Union[List[int], List[List[int]], torch.Tensor]) -> str:
         """Decode token IDs to text.
 
         Args:
-            token_ids: List of token IDs to decode
+            token_ids: List of token IDs to decode, can be nested lists or tensors
 
         Returns:
             Decoded text
         """
         try:
-            # Ensure token_ids is a list of integers
-            if not isinstance(token_ids, list):
-                if isinstance(token_ids, torch.Tensor):
-                    token_ids = token_ids.tolist()
-                else:
-                    token_ids = [0]  # Default to a single unknown token
+            # Ensure token_ids is a flat list of integers
+            if isinstance(token_ids, torch.Tensor):
+                token_ids = token_ids.tolist()
+
+            # Handle nested lists
+            if isinstance(token_ids, list):
+                # Check if it's a nested list
+                if token_ids and isinstance(token_ids[0], list):
+                    # Flatten the list
+                    flat_ids = []
+                    for sublist in token_ids:
+                        if isinstance(sublist, list):
+                            flat_ids.extend(sublist)
+                        else:
+                            flat_ids.append(sublist)
+                    token_ids = flat_ids
+                # If it's still not a list of integers, try to convert
+                if token_ids and not isinstance(token_ids[0], int):
+                    token_ids = [int(id) for id in token_ids]
+            else:
+                # Default to a single unknown token
+                token_ids = [0]
 
             # Create reverse vocabulary mapping (ID -> token)
             rev_vocab = {v: k for k, v in self.vocab.items() if isinstance(v, int)}
@@ -181,4 +197,4 @@ class DeepSeekTokenizer:
         except Exception as e:
             print(f"Error in decoding: {str(e)}")
             # Return a fallback message
-            return "Error decoding tokens"
+            return f"Error decoding tokens: {str(e)}"
