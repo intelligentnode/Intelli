@@ -14,7 +14,7 @@ bot = Chatbot(
 
 # Create input
 input = ChatModelInput("You are a helpful coding assistant.")
-input.add_user_message("Write a Python function to calculate fibonacci numbers.")
+input.add_user_message("def fibonacci(n):")
 
 # Get response
 try:

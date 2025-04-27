@@ -121,6 +121,8 @@ class DeepSeekWrapper:
                 from intelli.model.deepseek.deepseek_tokenizer import DeepSeekTokenizer as TokenizerClass
                 self.tokenizer = TokenizerClass()
                 self.tokenizer.vocab = {'<unk>': 0, '<s>': 1, '</s>': 2}
+                self.tokenizer.merges = []
+                self.tokenizer.rev_vocab = {0: '<unk>', 1: '<s>', 2: '</s>'}
 
             self.device = device
 
@@ -140,23 +142,58 @@ class DeepSeekWrapper:
                 from intelli.model.deepseek.deepseek_tokenizer import DeepSeekTokenizer as TokenizerClass
                 self.tokenizer = TokenizerClass()
                 self.tokenizer.vocab = {'<unk>': 0, '<s>': 1, '</s>': 2}
+                self.tokenizer.merges = []
+                self.tokenizer.rev_vocab = {0: '<unk>', 1: '<s>', 2: '</s>'}
             except Exception as tokenizer_error:
                 print(f"Error creating minimal tokenizer: {str(tokenizer_error)}")
                 # Create a very basic tokenizer object with minimal functionality
                 class MinimalTokenizer:
                     def __init__(self):
                         self.vocab = {'<unk>': 0, '<s>': 1, '</s>': 2}
+                        self.merges = []
+                        self.rev_vocab = {0: '<unk>', 1: '<s>', 2: '</s>'}
                         self.eos_token_id = 2
+                        self.bos_token_id = 1
+                        self.unk_token_id = 0
 
                     def encode(self, text):
-                        # Unused parameter is intentional - this is a minimal implementation
-                        _ = text  # Acknowledge the parameter to avoid linting warnings
-                        return [1]  # Just return start token
+                        # Ensure text is a string
+                        if not isinstance(text, str):
+                            text = str(text)
+                        # Start with BOS token
+                        token_ids = [self.bos_token_id]
+                        # Simple tokenization by splitting on whitespace as fallback
+                        tokens = text.split()
+                        # Convert tokens to IDs using vocabulary
+                        token_ids.extend([self.vocab.get(token, self.unk_token_id) for token in tokens])
+                        return token_ids
 
                     def decode(self, token_ids):
-                        # Unused parameter is intentional - this is a minimal implementation
-                        _ = token_ids  # Acknowledge the parameter to avoid linting warnings
-                        return "[Error: Could not load tokenizer]"  # Fallback message
+                        try:
+                            # Ensure token_ids is a flat list of integers
+                            if isinstance(token_ids, torch.Tensor):
+                                token_ids = token_ids.tolist()
+
+                            # Handle nested lists
+                            if isinstance(token_ids, list):
+                                # Check if it's a nested list
+                                if token_ids and isinstance(token_ids[0], list):
+                                    # Flatten the list
+                                    flat_ids = []
+                                    for sublist in token_ids:
+                                        if isinstance(sublist, list):
+                                            flat_ids.extend(sublist)
+                                        else:
+                                            flat_ids.append(sublist)
+                                    token_ids = flat_ids
+
+                            # Skip special tokens like BOS
+                            filtered_ids = [id for id in token_ids if id != self.bos_token_id]
+
+                            # Convert IDs to tokens and join with spaces
+                            return ' '.join(self.rev_vocab.get(id, '<unk>') for id in filtered_ids)
+                        except:
+                            return "[Error: Could not decode tokens]"
 
                 self.tokenizer = MinimalTokenizer()
 
