@@ -47,9 +47,11 @@ def download_model_index(repo_id: str, cache_dir: str = "~/.cache/deepseek"):
     return model_index_path
 
 
-def load_basic_tokenizer(repo_id: str, cache_dir: str = "~/.cache/deepseek"):
+def load_bp_tokenizer(repo_id: str, cache_dir: str = "~/.cache/deepseek"):
     """
-    Downloads tokenizer.json (a simple {token: id} map) and returns it as a dict
+    Downloads tokenizer.json, and returns:
+      - vocab: dict[token:str -> id:int]
+      - merges: list of merge rules [(a:str, b:str), ...]
     """
     cache_dir = os.path.expanduser(cache_dir)
     os.makedirs(cache_dir, exist_ok=True)
@@ -58,21 +60,23 @@ def load_basic_tokenizer(repo_id: str, cache_dir: str = "~/.cache/deepseek"):
         tok_path = hf_hub_download(
             repo_id=repo_id, filename="tokenizer.json", cache_dir=cache_dir
         )
-    with open(tok_path, "r", encoding="utf-8") as f:
-        vocab = json.load(f)
-    return vocab.get("model", {}).get("vocab", {})
+    data = json.load(open(tok_path, "r", encoding="utf-8"))
+    vocab  = data["model"]["vocab"]
+    merges = [tuple(pair.split()) for pair in data["model"]["merges"]]
+    return vocab, merges
 
 
-def simple_tokenize(text: str, vocab: dict):
-    """
-    Splits on whitespace and punctuation, looks up IDs in vocab (unk -> 0)
-    """
-    tokens = []
-    for word in text.strip().split():
-        token_id = vocab.get(word, vocab.get("<unk>", 0))
-        tokens.append(token_id)
-    return tokens
+def bpe_tokenize(text: str, vocab: dict, merges: list):
+    tokens = [chr(b) for b in text.encode("utf-8")]
+    for a, b in merges:
+        i = 0
+        while i < len(tokens) - 1:
+            if tokens[i] == a and tokens[i+1] == b:
+                tokens[i:i+2] = [a+b]
+            else:
+                i += 1
 
+    return [vocab.get(t, vocab.get("<unk>", 0)) for t in tokens]
 
 def load_safetensors_weights(
     model, model_path: str, repo_id: str = None, cache_dir: str = "~/.cache/deepseek"

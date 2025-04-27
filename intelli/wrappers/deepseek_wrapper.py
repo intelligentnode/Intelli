@@ -8,8 +8,8 @@ from intelli.model.deepseek.helpers import (
     get_device,
     download_config,
     download_model_index,
-    load_basic_tokenizer,
-    simple_tokenize,
+    load_bpe_tokenizer,
+    bpe_tokenize,
 )
 
 
@@ -35,7 +35,7 @@ class DeepSeekWrapper:
         self.quantized = quantized
 
         self.config = self._load_config()
-        self.vocab = load_basic_tokenizer(self.repo_id)
+        self.vocab, self.merges = load_bpe_tokenizer(self.repo_id)
         self.model = self._build_model()
         load_safetensors_weights(self.model, self.model_path, repo_id=self.repo_id)
         self.model.to(self.device, memory_format=torch.channels_last)
@@ -46,8 +46,11 @@ class DeepSeekWrapper:
             return json.load(f)
 
     def tokenize(self, text):
-        """A basic whitespace‑based tokenizer using our vocab map"""
-        return simple_tokenize(text, self.vocab)
+        """
+        Byte-level BPE tokenization (UTF-8 → subword IDs)
+        using the exact merges the model was trained with
+        """
+        return bpe_tokenize(text, self.vocab, self.merges)
 
     def _build_model(self):
         """Constructs a transformer-based model based on the config"""
