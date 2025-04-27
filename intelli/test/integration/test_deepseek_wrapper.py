@@ -3,7 +3,6 @@ import torch
 import os
 from intelli.wrappers.deepseek_wrapper import DeepSeekWrapper
 
-
 class TestDeepSeekWrapper(unittest.TestCase):
 
     def setUp(self):

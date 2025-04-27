@@ -47,7 +47,7 @@ def download_model_index(repo_id: str, cache_dir: str = "~/.cache/deepseek"):
     return model_index_path
 
 
-def load_bp_tokenizer(repo_id: str, cache_dir: str = "~/.cache/deepseek"):
+def load_bpe_tokenizer(repo_id: str, cache_dir: str = "~/.cache/deepseek"):
     """
     Downloads tokenizer.json, and returns:
       - vocab: dict[token:str -> id:int]
@@ -61,7 +61,7 @@ def load_bp_tokenizer(repo_id: str, cache_dir: str = "~/.cache/deepseek"):
             repo_id=repo_id, filename="tokenizer.json", cache_dir=cache_dir
         )
     data = json.load(open(tok_path, "r", encoding="utf-8"))
-    vocab  = data["model"]["vocab"]
+    vocab = data["model"]["vocab"]
     merges = [tuple(pair.split()) for pair in data["model"]["merges"]]
     return vocab, merges
 
@@ -71,12 +71,13 @@ def bpe_tokenize(text: str, vocab: dict, merges: list):
     for a, b in merges:
         i = 0
         while i < len(tokens) - 1:
-            if tokens[i] == a and tokens[i+1] == b:
-                tokens[i:i+2] = [a+b]
+            if tokens[i] == a and tokens[i + 1] == b:
+                tokens[i : i + 2] = [a + b]
             else:
                 i += 1
 
     return [vocab.get(t, vocab.get("<unk>", 0)) for t in tokens]
+
 
 def load_safetensors_weights(
     model, model_path: str, repo_id: str = None, cache_dir: str = "~/.cache/deepseek"
