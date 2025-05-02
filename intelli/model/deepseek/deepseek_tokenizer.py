@@ -5,6 +5,14 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any, Union, Tuple
 from huggingface_hub import hf_hub_download
 
+# Try to import the Hugging Face tokenizers library
+try:
+    from tokenizers import Tokenizer
+    TOKENIZERS_AVAILABLE = True
+except ImportError:
+    TOKENIZERS_AVAILABLE = False
+    print("Hugging Face tokenizers library not found. Using fallback implementation.")
+
 class DeepSeekTokenizer:
     def __init__(self, model_path: Optional[str] = None, model_id: str = "deepseek-ai/deepseek-coder-6.7b-base"):
         self.model_id = model_id
@@ -23,6 +31,7 @@ class DeepSeekTokenizer:
         self.bos_token_id = 1  # Default BOS token ID
         self.unk_token_id = 0  # Default UNK token ID
         self.rev_vocab = None  # Reverse vocabulary for decoding
+        self.hf_tokenizer = None  # Hugging Face tokenizer instance
         self.load_vocab()
 
     def load_vocab(self):
@@ -112,6 +121,64 @@ class DeepSeekTokenizer:
             return
 
         print(f"Loading tokenizer from: {tokenizer_file}")
+
+        # Try to use Hugging Face tokenizers library if available
+        if TOKENIZERS_AVAILABLE:
+            try:
+                # Load the tokenizer using Hugging Face tokenizers
+                from tokenizers import Tokenizer
+                self.hf_tokenizer = Tokenizer.from_file(tokenizer_file)
+
+                # Extract special token IDs
+                if hasattr(self.hf_tokenizer, "token_to_id"):
+                    # Try to get special token IDs
+                    unk_token = self.hf_tokenizer.token_to_id("<unk>")
+                    if unk_token is not None:
+                        self.unk_token_id = unk_token
+                        print(f"Found special token: <unk> with ID {self.unk_token_id}")
+
+                    bos_token = self.hf_tokenizer.token_to_id("<s>")
+                    if bos_token is not None:
+                        self.bos_token_id = bos_token
+                        print(f"Found special token: <s> with ID {self.bos_token_id}")
+
+                    eos_token = self.hf_tokenizer.token_to_id("</s>")
+                    if eos_token is not None:
+                        self.eos_token_id = eos_token
+                        print(f"Found special token: </s> with ID {self.eos_token_id}")
+
+                # Also load the vocabulary for compatibility with existing code
+                try:
+                    # Load the tokenizer data to extract vocabulary
+                    with open(tokenizer_file, 'r', encoding='utf-8') as f:
+                        tokenizer_data = json.load(f)
+
+                    if "model" in tokenizer_data and "vocab" in tokenizer_data["model"]:
+                        self.vocab = tokenizer_data["model"]["vocab"]
+
+                        # Check if we have merges for BPE
+                        if "merges" in tokenizer_data["model"]:
+                            self.merges = [tuple(pair.split()) for pair in tokenizer_data["model"]["merges"]]
+                        else:
+                            self.merges = []
+
+                        # Create reverse vocabulary for decoding
+                        self.rev_vocab = {v: k for k, v in self.vocab.items() if isinstance(v, int)}
+
+                        print(f"Successfully loaded tokenizer with {len(self.vocab)} vocab entries")
+                except Exception as vocab_error:
+                    print(f"Error loading vocabulary from tokenizer file: {str(vocab_error)}")
+                    # Create minimal vocab for compatibility
+                    self.vocab = {'<unk>': self.unk_token_id, '<s>': self.bos_token_id, '</s>': self.eos_token_id}
+                    self.rev_vocab = {self.unk_token_id: '<unk>', self.bos_token_id: '<s>', self.eos_token_id: '</s>'}
+
+                return
+            except Exception as hf_error:
+                print(f"Error loading tokenizer with Hugging Face tokenizers: {str(hf_error)}")
+                print("Falling back to custom implementation")
+                self.hf_tokenizer = None
+
+        # Fallback to custom implementation if Hugging Face tokenizers is not available
         try:
             # Try UTF-8 encoding first
             with open(tokenizer_file, 'r', encoding='utf-8') as f:
@@ -306,6 +373,23 @@ class DeepSeekTokenizer:
             if not isinstance(text, str):
                 text = str(text)
 
+            # Use Hugging Face tokenizer if available
+            if TOKENIZERS_AVAILABLE and self.hf_tokenizer is not None:
+                # Encode using Hugging Face tokenizer
+                encoding = self.hf_tokenizer.encode(text)
+
+                # Get the token IDs
+                token_ids = encoding.ids
+
+                # Add BOS token if not already present
+                if token_ids and token_ids[0] != self.bos_token_id:
+                    token_ids = [self.bos_token_id] + token_ids
+                elif not token_ids:
+                    token_ids = [self.bos_token_id]
+
+                return token_ids
+
+            # Fallback to custom implementation
             # If we don't have merges, we can't do BPE
             if not self.merges:
                 print("No merge rules found, using fallback tokenization")
@@ -321,56 +405,71 @@ class DeepSeekTokenizer:
             token_ids = [self.bos_token_id]
 
             # Implement proper Byte-level BPE tokenization
-            # Convert text to UTF-8 bytes
-            bytes_encoded = text.encode("utf-8")
+            try:
+                # Convert text to UTF-8 bytes
+                bytes_encoded = text.encode("utf-8")
 
-            # Convert bytes to individual characters
-            tokens = [chr(b) for b in bytes_encoded]
+                # Process bytes using BPE
+                # This is a simplified implementation of byte-level BPE
+                # For proper implementation, we should use a library like tokenizers
 
-            # Apply merges in order
-            i = 0
-            while i < len(self.merges) and len(tokens) > 1:
-                pair = self.merges[i]
-                a, b = pair
+                # Convert bytes to individual characters
+                tokens = []
+                for b in bytes_encoded:
+                    # Convert byte to string representation
+                    byte_str = chr(b)
+                    tokens.append(byte_str)
 
-                # Find all occurrences of the pair and merge them
-                j = 0
-                while j < len(tokens) - 1:
-                    if tokens[j] == a and tokens[j+1] == b:
-                        tokens[j:j+2] = [a+b]  # Merge the pair
+                # Apply merges in order
+                i = 0
+                while i < len(self.merges) and len(tokens) > 1:
+                    pair = self.merges[i]
+                    a, b = pair
+
+                    # Find all occurrences of the pair and merge them
+                    j = 0
+                    while j < len(tokens) - 1:
+                        if tokens[j] == a and tokens[j+1] == b:
+                            tokens[j:j+2] = [a+b]  # Merge the pair
+                        else:
+                            j += 1
+
+                    i += 1
+
+                # Convert tokens to IDs
+                for token in tokens:
+                    if token in self.vocab:
+                        token_ids.append(self.vocab[token])
                     else:
-                        j += 1
-
-                i += 1
-
-            # Convert tokens to IDs
-            for token in tokens:
-                if token in self.vocab:
-                    token_ids.append(self.vocab[token])
-                else:
-                    # If token not in vocab, try to encode it byte by byte
-                    found = False
-                    for char in token:
-                        if char in self.vocab:
-                            token_ids.append(self.vocab[char])
-                            found = True
-                        else:
-                            token_ids.append(self.unk_token_id)
-
-                    # If we couldn't encode any part of the token, handle it specially
-                    if not found:
-                        # Handle common whitespace characters
-                        if token in [' ', '\t', '\n', '\r']:
-                            # Try to find the token in the vocabulary again (it should be there now)
-                            if token in self.vocab:
-                                token_ids.append(self.vocab[token])
+                        # If token not in vocab, try to encode it byte by byte
+                        found = False
+                        for char in token:
+                            if char in self.vocab:
+                                token_ids.append(self.vocab[char])
+                                found = True
                             else:
-                                # If still not found, use UNK but don't print a warning
                                 token_ids.append(self.unk_token_id)
-                        else:
-                            # For non-whitespace tokens, print a warning and use UNK
-                            print(f"Unknown token: {repr(token)}")
-                            token_ids.append(self.unk_token_id)
+
+                        # If we couldn't encode any part of the token, handle it specially
+                        if not found:
+                            # Handle common whitespace characters
+                            if token in [' ', '\t', '\n', '\r']:
+                                # Try to find the token in the vocabulary again (it should be there now)
+                                if token in self.vocab:
+                                    token_ids.append(self.vocab[token])
+                                else:
+                                    # If still not found, use UNK but don't print a warning
+                                    token_ids.append(self.unk_token_id)
+                            else:
+                                # For non-whitespace tokens, print a warning and use UNK
+                                print(f"Unknown token: {repr(token)}")
+                                token_ids.append(self.unk_token_id)
+            except Exception as bpe_error:
+                print(f"Error in BPE encoding: {str(bpe_error)}")
+                # Fallback to simple tokenization
+                token_ids = [self.bos_token_id]
+                tokens = text.split()
+                token_ids.extend([self.vocab.get(token, self.unk_token_id) for token in tokens])
 
             return token_ids
 
@@ -394,6 +493,77 @@ class DeepSeekTokenizer:
                 self.rev_vocab[next_id] = char
                 print(f"Added whitespace character {repr(char)} to vocabulary with ID {next_id}")
                 next_id += 1
+
+    def display_tokens(self, text: str) -> str:
+        """Display the tokens for a given text in a clean, readable format.
+
+        Args:
+            text: The input text to tokenize
+
+        Returns:
+            A string representation of the tokens
+        """
+        try:
+            # Encode the text to get token IDs
+            token_ids = self.encode(text)
+
+            # Use Hugging Face tokenizer if available
+            if TOKENIZERS_AVAILABLE and self.hf_tokenizer is not None:
+                try:
+                    # Get the tokens from the Hugging Face tokenizer
+                    encoding = self.hf_tokenizer.encode(text)
+                    hf_tokens = encoding.tokens
+
+                    # Format the output
+                    result = []
+                    result.append(f"Input text: '{text}'")
+                    result.append(f"Token count: {len(token_ids)}")
+                    result.append("Tokens:")
+
+                    # Add BOS token if needed
+                    if token_ids[0] == self.bos_token_id and (not hf_tokens or hf_tokens[0] != '<s>'):
+                        result.append(f"  1. ID={self.bos_token_id}: <s>")
+                        offset = 1
+                    else:
+                        offset = 0
+
+                    # Display each token with its ID
+                    for i, (token_id, token) in enumerate(zip(token_ids[offset:], hf_tokens)):
+                        result.append(f"  {i+1+offset}. ID={token_id}: '{token}'")
+
+                    return "\n".join(result)
+                except Exception as hf_error:
+                    print(f"Error displaying tokens with Hugging Face tokenizer: {str(hf_error)}")
+                    print("Falling back to custom implementation")
+
+            # Fallback to custom implementation
+            # Get the token strings from the vocabulary
+            tokens = []
+            for token_id in token_ids:
+                if token_id in self.rev_vocab:
+                    token_str = self.rev_vocab[token_id]
+                    # Clean up the token for display
+                    if isinstance(token_str, str) and token_str.startswith('Ġ'):  # This is a space prefix in BBPE
+                        token_str = '▁' + token_str[1:]  # Replace with visible space marker
+                    # Escape special characters for better display
+                    token_str = repr(token_str)
+                    tokens.append(token_str)
+                else:
+                    tokens.append(f"<unknown-{token_id}>")
+
+            # Format the output
+            result = []
+            result.append(f"Input text: '{text}'")
+            result.append(f"Token count: {len(token_ids)}")
+            result.append("Tokens:")
+
+            # Display each token with its ID
+            for i, (token_id, token_str) in enumerate(zip(token_ids, tokens)):
+                result.append(f"  {i+1}. ID={token_id}: {token_str}")
+
+            return "\n".join(result)
+        except Exception as e:
+            return f"Error displaying tokens: {str(e)}"
 
     def decode(self, token_ids: Union[List[int], List[List[int]], torch.Tensor]) -> str:
         """Decode token IDs to text.
@@ -435,6 +605,17 @@ class DeepSeekTokenizer:
             if not filtered_ids:
                 return ""
 
+            # Use Hugging Face tokenizer if available
+            if TOKENIZERS_AVAILABLE and self.hf_tokenizer is not None:
+                try:
+                    # Decode using Hugging Face tokenizer
+                    decoded_text = self.hf_tokenizer.decode(filtered_ids)
+                    return decoded_text
+                except Exception as hf_error:
+                    print(f"Error decoding with Hugging Face tokenizer: {str(hf_error)}")
+                    print("Falling back to custom implementation")
+
+            # Fallback to custom implementation
             # Get the tokens from the IDs
             tokens = []
             for id in filtered_ids:
@@ -468,6 +649,12 @@ class DeepSeekTokenizer:
                     # If the text is empty or just whitespace, try method 2
                     raise ValueError("Empty or whitespace-only text, trying method 2")
 
+                # Handle 'Ġ' prefix which represents spaces in many BPE tokenizers
+                text = text.replace('Ġ', ' ')
+
+                # Clean up any other special characters
+                text = text.replace('▁', ' ')  # Another common space marker
+
                 return text
             except Exception as e:
                 print(f"Method 1 failed: {str(e)}")
@@ -477,6 +664,13 @@ class DeepSeekTokenizer:
                 bytes_data = bytearray()
 
                 for token in filtered_tokens:
+                    # Check if token starts with 'Ġ' (space marker in BPE)
+                    if token.startswith('Ġ'):
+                        # Add a space byte
+                        bytes_data.append(ord(' '))
+                        # Remove the 'Ġ' prefix
+                        token = token[1:]
+
                     # For each character in the token
                     for char in token:
                         # Get the byte value
@@ -504,8 +698,16 @@ class DeepSeekTokenizer:
 
             # Method 3: Last resort - try to interpret tokens as UTF-8 encoded text
             try:
-                # Join tokens and hope for the best
-                return ''.join(filtered_tokens)
+                # Process tokens to handle special prefixes
+                processed_tokens = []
+                for token in filtered_tokens:
+                    if token.startswith('Ġ'):
+                        processed_tokens.append(' ' + token[1:])
+                    else:
+                        processed_tokens.append(token)
+
+                # Join tokens
+                return ''.join(processed_tokens)
             except Exception as e:
                 print(f"Method 3 failed: {str(e)}")
                 # Return something rather than nothing
