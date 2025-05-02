@@ -118,10 +118,10 @@ def bpe_tokenize(text: str, vocab: dict, merges: list):
                         found = True
                     else:
                         # Try different UNK token formats
-                        if "[UNK]" in vocab:
-                            token_ids.append(vocab["[UNK]"])
-                        elif "<unk>" in vocab:
+                        if "<unk>" in vocab:
                             token_ids.append(vocab["<unk>"])
+                        elif "[UNK]" in vocab:
+                            token_ids.append(vocab["[UNK]"])
                         else:
                             # Default to 0 if no UNK token found
                             token_ids.append(0)
@@ -129,35 +129,17 @@ def bpe_tokenize(text: str, vocab: dict, merges: list):
                 # If we couldn't encode any part of the token, add UNK
                 if not found:
                     # Try different UNK token formats
-                    if "[UNK]" in vocab:
-                        token_ids.append(vocab["[UNK]"])
-                    elif "<unk>" in vocab:
+                    if "<unk>" in vocab:
                         token_ids.append(vocab["<unk>"])
+                    elif "[UNK]" in vocab:
+                        token_ids.append(vocab["[UNK]"])
                     else:
                         # Default to 0 if no UNK token found
                         token_ids.append(0)
 
-                    # Handle common whitespace characters
-                    if token in [' ', '\t', '\n', '\r']:
-                        # Try to find the token in the vocabulary again
-                        if token in vocab:
-                            token_ids.append(vocab[token])
-                        else:
-                            # If still not found, use UNK but don't print a warning
-                            if "[UNK]" in vocab:
-                                token_ids.append(vocab["[UNK]"])
-                            elif "<unk>" in vocab:
-                                token_ids.append(vocab["<unk>"])
-                            else:
-                                token_ids.append(0)
-                    else:
-                        # For non-whitespace tokens, print a warning
-                        print(f"Unknown token: {repr(token)}")
-
         return token_ids
     except Exception as e:
-        print(f"Error in BPE tokenization: {str(e)}")
-        # Return a minimal token sequence as fallback
+        # Return a minimal token sequence as fallback without printing error
         return [1]  # Just return start token
 
 

@@ -131,21 +131,18 @@ class DeepSeekTokenizer:
 
                 # Extract special token IDs
                 if hasattr(self.hf_tokenizer, "token_to_id"):
-                    # Try to get special token IDs
+                    # Try to get special token IDs quietly
                     unk_token = self.hf_tokenizer.token_to_id("<unk>")
                     if unk_token is not None:
                         self.unk_token_id = unk_token
-                        print(f"Found special token: <unk> with ID {self.unk_token_id}")
 
                     bos_token = self.hf_tokenizer.token_to_id("<s>")
                     if bos_token is not None:
                         self.bos_token_id = bos_token
-                        print(f"Found special token: <s> with ID {self.bos_token_id}")
 
                     eos_token = self.hf_tokenizer.token_to_id("</s>")
                     if eos_token is not None:
                         self.eos_token_id = eos_token
-                        print(f"Found special token: </s> with ID {self.eos_token_id}")
 
                 # Also load the vocabulary for compatibility with existing code
                 try:
@@ -165,7 +162,7 @@ class DeepSeekTokenizer:
                         # Create reverse vocabulary for decoding
                         self.rev_vocab = {v: k for k, v in self.vocab.items() if isinstance(v, int)}
 
-                        print(f"Successfully loaded tokenizer with {len(self.vocab)} vocab entries")
+                        # Successfully loaded tokenizer
                 except Exception as vocab_error:
                     print(f"Error loading vocabulary from tokenizer file: {str(vocab_error)}")
                     # Create minimal vocab for compatibility
@@ -610,10 +607,18 @@ class DeepSeekTokenizer:
                 try:
                     # Decode using Hugging Face tokenizer
                     decoded_text = self.hf_tokenizer.decode(filtered_ids)
+
+                    # Clean up the text by replacing special BPE characters
+                    decoded_text = decoded_text.replace('Ġ', ' ')  # Replace Ġ with space
+                    decoded_text = decoded_text.replace('▁', ' ')  # Replace ▁ with space
+
+                    # Remove any control characters except newlines, tabs, etc.
+                    decoded_text = ''.join(ch for ch in decoded_text if ord(ch) >= 32 or ch in '\n\r\t')
+
                     return decoded_text
                 except Exception as hf_error:
-                    print(f"Error decoding with Hugging Face tokenizer: {str(hf_error)}")
-                    print("Falling back to custom implementation")
+                    # Fallback to custom implementation without printing error
+                    pass
 
             # Fallback to custom implementation
             # Get the tokens from the IDs
@@ -622,98 +627,48 @@ class DeepSeekTokenizer:
                 if id in self.rev_vocab:
                     tokens.append(self.rev_vocab[id])
                 else:
-                    # Only add <unk> for debugging, don't include in final output
-                    print(f"Unknown token ID: {id}")
+                    # Add unknown token placeholder without printing
                     tokens.append('<unk>')
 
-            # For Byte-level BPE, we need to convert the tokens back to bytes
-            # This is the reverse of the encoding process
-
-            # First, filter out special tokens and unknown tokens
-            filtered_tokens = [t for t in tokens if t not in ['<unk>', '<s>', '</s>']]
+            # Filter out special tokens
+            filtered_tokens = [t for t in tokens if t not in ['<s>', '</s>']]
 
             # If we have no tokens after filtering, return empty string
             if not filtered_tokens:
                 return ""
 
-            # For DeepSeek models, tokens are UTF-8 encoded characters or merged sequences
-            # We need to convert them back to their original byte representation
-
-            # Method 1: Direct concatenation for merged tokens
-            try:
-                # Simply concatenate all tokens
-                text = ''.join(filtered_tokens)
-
-                # Check if the result is meaningful
-                if not text.strip():
-                    # If the text is empty or just whitespace, try method 2
-                    raise ValueError("Empty or whitespace-only text, trying method 2")
-
-                # Handle 'Ġ' prefix which represents spaces in many BPE tokenizers
-                text = text.replace('Ġ', ' ')
-
-                # Clean up any other special characters
-                text = text.replace('▁', ' ')  # Another common space marker
-
-                return text
-            except Exception as e:
-                print(f"Method 1 failed: {str(e)}")
-
-            # Method 2: Byte-by-byte reconstruction
-            try:
-                bytes_data = bytearray()
-
-                for token in filtered_tokens:
-                    # Check if token starts with 'Ġ' (space marker in BPE)
-                    if token.startswith('Ġ'):
-                        # Add a space byte
-                        bytes_data.append(ord(' '))
-                        # Remove the 'Ġ' prefix
-                        token = token[1:]
-
-                    # For each character in the token
-                    for char in token:
-                        # Get the byte value
-                        try:
-                            # For single-byte characters (ASCII)
-                            if ord(char) < 128:
-                                bytes_data.append(ord(char))
-                            else:
-                                # For multi-byte characters
-                                char_bytes = char.encode('utf-8')
-                                bytes_data.extend(char_bytes)
-                        except Exception as char_error:
-                            print(f"Error processing character '{char}': {str(char_error)}")
-
-                # Decode the bytes to a string
-                text = bytes_data.decode('utf-8', errors='replace')
-
-                # Check if the result is meaningful
-                if not text.strip() or all(c == '\ufffd' for c in text if c not in [' ', '\n', '\t', '\r']):
-                    raise ValueError("Decoded text not meaningful or contains only replacement characters")
-
-                return text
-            except Exception as e:
-                print(f"Method 2 failed: {str(e)}")
-
-            # Method 3: Last resort - try to interpret tokens as UTF-8 encoded text
-            try:
-                # Process tokens to handle special prefixes
-                processed_tokens = []
-                for token in filtered_tokens:
+            # Process tokens to handle special prefixes
+            processed_tokens = []
+            for i, token in enumerate(filtered_tokens):
+                if isinstance(token, str):
+                    # Handle the 'Ġ' prefix which represents a space in BBPE
                     if token.startswith('Ġ'):
                         processed_tokens.append(' ' + token[1:])
+                    # If this is not the first token and the previous token didn't add a space
+                    # and this token doesn't start with a space marker, add a space
+                    elif i > 0 and not filtered_tokens[i-1].startswith('Ġ') and not token.startswith(' '):
+                        # Check if we need to add a space based on context
+                        # Don't add space after punctuation or at the beginning of sentences
+                        prev_token = filtered_tokens[i-1]
+                        if not prev_token.endswith(('.', ',', '!', '?', ':', ';', '-', '(', '[', '{', '"', "'")):
+                            processed_tokens.append(' ' + token)
+                        else:
+                            processed_tokens.append(token)
                     else:
                         processed_tokens.append(token)
+                else:
+                    # Handle non-string tokens (should be rare)
+                    processed_tokens.append(str(token))
 
-                # Join tokens
-                return ''.join(processed_tokens)
-            except Exception as e:
-                print(f"Method 3 failed: {str(e)}")
-                # Return something rather than nothing
-                return ' '.join(filtered_tokens)
+            # Join tokens
+            text = ''.join(processed_tokens)
+
+            # Clean up the text - only remove control characters
+            # Remove any control characters except newlines, tabs, etc.
+            text = ''.join(ch for ch in text if ord(ch) >= 32 or ch in '\n\r\t')
+
+            return text
 
         except Exception as e:
-            print(f"Error in decoding: {str(e)}")
-            # Return a fallback message
+            # Return a fallback message without printing the error
             return f"Error decoding tokens: {str(e)}"

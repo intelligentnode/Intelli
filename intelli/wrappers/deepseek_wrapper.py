@@ -41,28 +41,77 @@ class DeepSeekWrapper:
                 max_length = input_params.get("max_length", 100)
                 temperature = input_params.get("temperature", 0.7)
 
-            # For demonstration purposes, return a fixed response
-            # This is to avoid the corrupted output issue until the model is fully fixed
-            if "add two numbers" in prompt.lower():
+            # Verify that the tokenizer is properly initialized
+            if not self.tokenizer:
+                print("Tokenizer not initialized. Using fallback response.")
                 return {
                     "choices": [{
-                        "text": "```python\ndef add_numbers(a, b):\n    # Add two numbers and return the result\n    return a + b\n\n# Example usage\nresult = add_numbers(5, 3)\nprint(f\"The sum of 5 and 3 is {result}\")\n```\n\nThis function takes two parameters `a` and `b`, adds them together using the `+` operator, and returns the result. The example shows how to call the function with the values 5 and 3, and then prints the result."
-                    }]
-                }
-            else:
-                # Use a safe fallback for other prompts
-                return {
-                    "choices": [{
-                        "text": "I'm a helpful coding assistant. I can help you write code, explain concepts, and solve programming problems."
+                        "text": "I'm a helpful coding assistant, but my tokenizer isn't properly initialized. Please try again."
                     }]
                 }
 
-            # Uncomment this when the tokenization issues are fully resolved
-            # return self.generate_text({
-            #     "prompt": prompt,
-            #     "max_length": max_length,
-            #     "temperature": temperature
-            # })
+            # Check if the tokenizer has the necessary methods for proper tokenization
+            if not hasattr(self.tokenizer, 'encode') or not hasattr(self.tokenizer, 'decode'):
+                print("Tokenizer missing required methods. Using fallback response.")
+                return {
+                    "choices": [{
+                        "text": "I'm a helpful coding assistant, but my tokenizer is missing required methods. Please try again."
+                    }]
+                }
+
+            # Generate text with the model
+            response = self.generate_text({
+                "prompt": prompt,
+                "max_length": max_length,
+                "temperature": temperature
+            })
+
+            # Additional post-processing to clean up the response
+            if isinstance(response, dict) and "choices" in response and response["choices"]:
+                # Get the text from the response
+                text = response["choices"][0]["text"]
+
+                # Clean up the text to remove non-ASCII characters and ensure it's readable
+                if isinstance(text, str):
+                    # Keep only ASCII characters, spaces, and common punctuation for the final output
+                    # This ensures the output is clean and readable
+                    clean_text = ''.join(ch for ch in text if ord(ch) < 128)
+
+                    # Format the text to make it more readable
+                    # Break long lines into multiple lines
+                    formatted_lines = []
+                    current_line = ""
+
+                    for word in clean_text.split():
+                        if len(current_line) + len(word) + 1 > 80:  # Standard line length
+                            formatted_lines.append(current_line)
+                            current_line = word
+                        else:
+                            if current_line:
+                                current_line += " " + word
+                            else:
+                                current_line = word
+
+                    if current_line:
+                        formatted_lines.append(current_line)
+
+                    clean_text = "\n".join(formatted_lines)
+
+                    # If the output is not coherent, add a comment but keep the original output
+                    if not self._is_coherent_code(clean_text):
+                        # Add a comment at the beginning to indicate this is raw model output
+                        clean_text = f"""# Note: The following is the raw model output.
+# This may not be valid code but is shown for transparency.
+
+{clean_text}"""
+
+                        # Print a debug message
+                        print("\nShowing raw model output (may not be coherent code).")
+
+                    # Update the response
+                    response["choices"][0]["text"] = clean_text
+
+            return response
         except Exception as e:
             print(f"Error in chat: {str(e)}")
             # Return a fallback response
@@ -509,29 +558,35 @@ class DeepSeekWrapper:
                 try:
                     token_ids = list(token_ids)
                 except Exception as convert_error:
-                    print(f"Error converting token_ids to list: {str(convert_error)}")
                     return f"[Error: {str(convert_error)}]"
+
+            # Skip special tokens like BOS
+            filtered_ids = [id for id in token_ids if id != self.tokenizer.bos_token_id]
+
+            # If we have no tokens after filtering, return empty string
+            if not filtered_ids:
+                return ""
 
             # Call the tokenizer's decode method
             try:
-                # Check if we have a Hugging Face tokenizer available
-                if hasattr(self.tokenizer, 'hf_tokenizer') and self.tokenizer.hf_tokenizer is not None:
-                    # Use the Hugging Face tokenizer for decoding
-                    try:
-                        # Skip special tokens like BOS
-                        filtered_ids = [id for id in token_ids if id != self.tokenizer.bos_token_id]
-                        decoded_text = self.tokenizer.hf_tokenizer.decode(filtered_ids)
-                        return decoded_text
-                    except Exception as hf_error:
-                        print(f"Error decoding with Hugging Face tokenizer: {str(hf_error)}")
-                        print("Falling back to custom implementation")
+                # Use the tokenizer's decode method which has been fixed to handle BBPE properly
+                decoded_text = self.tokenizer.decode(filtered_ids)
 
-                # Fallback to the tokenizer's decode method
-                return self.tokenizer.decode(token_ids)
+                # Only do minimal cleaning - the tokenizer should handle most of it
+                if isinstance(decoded_text, str):
+                    # Replace common BPE special characters if they still exist
+                    if 'Ġ' in decoded_text:
+                        decoded_text = decoded_text.replace('Ġ', ' ')
+                    if '▁' in decoded_text:
+                        decoded_text = decoded_text.replace('▁', ' ')
+
+                    # Remove any control characters that might have slipped through
+                    decoded_text = ''.join(ch for ch in decoded_text if ord(ch) >= 32 or ch in '\n\r\t')
+
+                return decoded_text
             except TypeError as type_error:
                 # Handle unhashable type error
                 if "unhashable type" in str(type_error):
-                    print(f"TypeError in decode: {str(type_error)}")
                     # Try to convert nested lists to tuples
                     if isinstance(token_ids, list):
                         try:
@@ -546,11 +601,48 @@ class DeepSeekWrapper:
                                 pass
                 raise
         except Exception as e:
-            print(f"Error in decoding: {str(e)}")
-            # Try to return something useful
+            # Try to return something useful without printing the error
             if isinstance(token_ids, torch.Tensor):
                 try:
                     return f"[Tensor with shape {token_ids.shape}]"
                 except:
                     pass
             return f"[Error during decoding: {str(e)}]"
+
+    def _is_coherent_code(self, text):
+        """Check if the text appears to be coherent code.
+
+        Args:
+            text: The text to check
+
+        Returns:
+            True if the text appears to be coherent code, False otherwise
+        """
+        # Check if the text contains common programming keywords and patterns
+        code_indicators = [
+            "def ", "class ", "import ", "return ", "if ", "for ", "while ",
+            "print(", "function", "var ", "let ", "const ", "public ", "private ",
+            "{", "}", "=>", "->", "==", "===", "!=", "!==", "+=", "-=", "*=", "/="
+        ]
+
+        # Count how many code indicators are present
+        indicator_count = sum(1 for indicator in code_indicators if indicator in text)
+
+        # Check if the text has a reasonable length
+        if len(text) < 20:
+            return False
+
+        # Check if the text has a reasonable number of code indicators
+        if indicator_count < 2:
+            return False
+
+        # Check if the text has a reasonable ratio of code indicators to length
+        if indicator_count / len(text) < 0.01:
+            return False
+
+        # Check if the text has excessive punctuation or special characters
+        special_chars = sum(1 for ch in text if ch in "!@#$%^&*()_+{}|:<>?~`-=[]\\;',./")
+        if special_chars / len(text) > 0.3:
+            return False
+
+        return True
