@@ -3,18 +3,20 @@ import torch
 import os
 from intelli.wrappers.deepseek_wrapper import DeepSeekWrapper
 
+
 class TestDeepSeekWrapper(unittest.TestCase):
 
     def setUp(self):
         # using a small distill model for CI speed
-        self.repo_id = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
-        self.model_filename = "model.safetensors.index.json"
+        self.repo_id = os.getenv(
+            "DEEPSEEK_MODEL", "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B"
+        )
         self.quantized = True
+        print(f"\n--- Running test: {self._testMethodName} ---")
 
     def test_load_and_infer(self):
         model = DeepSeekWrapper(
             repo_id=self.repo_id,
-            model_filename=self.model_filename,
             config_path=None,
             quantized=self.quantized,
         )
@@ -28,7 +30,6 @@ class TestDeepSeekWrapper(unittest.TestCase):
     def test_bpe_tokenization(self):
         model = DeepSeekWrapper(
             repo_id=self.repo_id,
-            model_filename=self.model_filename,
             config_path=None,
             quantized=self.quantized,
         )
@@ -47,9 +48,9 @@ class TestDeepSeekWrapper(unittest.TestCase):
         self.assertEqual(y.shape[1], len(token_ids))
 
     def test_tokenize_and_infer_from_text(self):
+
         model = DeepSeekWrapper(
             repo_id=self.repo_id,
-            model_filename=self.model_filename,
             config_path=None,
             quantized=self.quantized,
         )
@@ -71,6 +72,17 @@ class TestDeepSeekWrapper(unittest.TestCase):
         self.assertEqual(output.shape[2], model.config["vocab_size"])
         print("Inference successful on text input, output shape:", output.shape)
 
+    def test_encode_decode_roundtrip(self):
+        model = DeepSeekWrapper(
+            repo_id=self.repo_id,
+            config_path=None,
+            quantized=self.quantized,
+        )
+        text = "This is a comprehensive test string for tokenization."
+        ids = model.tokenize(text)
+        decoded = model.decode(ids)
+        print("Round-trip decoded  :", decoded)
+        self.assertEqual(decoded, text)
 
 if __name__ == "__main__":
     unittest.main()

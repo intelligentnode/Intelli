@@ -2,8 +2,9 @@ import os
 import json
 import torch
 from torch import nn
+from typing import List
 from intelli.model.deepseek.helpers import (
-    load_safetensors_weights,
+    load_model_weights,
     download_model,
     get_device,
     download_config,
@@ -11,13 +12,14 @@ from intelli.model.deepseek.helpers import (
     load_bpe_tokenizer,
     bpe_tokenize,
 )
+from huggingface_hub.utils import HfHubHTTPError, EntryNotFoundError
+from huggingface_hub import HfApi, hf_hub_download
 
 
 class DeepSeekWrapper:
     def __init__(
         self,
         repo_id: str,
-        model_filename: str,
         config_path: str = None,
         quantized: bool = False,
     ):
@@ -30,20 +32,24 @@ class DeepSeekWrapper:
         """
         self.repo_id = repo_id
         self.device = get_device()
-        self.model_path = download_model_index(repo_id)
-        self.config_path = config_path or download_config(repo_id)
         self.quantized = quantized
 
-        self.config = self._load_config()
-        self.vocab, self.merges = load_bpe_tokenizer(self.repo_id)
+        self.config_path = config_path or download_config(repo_id)
+        with open(self.config_path, "r") as f:
+            self.config = json.load(f)
+
+        self.vocab, self.merges = load_bpe_tokenizer(repo_id)
+
         self.model = self._build_model()
-        load_safetensors_weights(self.model, self.model_path, repo_id=self.repo_id)
         self.model.to(self.device, memory_format=torch.channels_last)
 
-    def _load_config(self):
-        """Loads model configuration from JSON file."""
-        with open(self.config_path, "r") as f:
-            return json.load(f)
+        api = HfApi()
+        try:
+            files = api.list_repo_files(repo_id)
+        except HfHubHTTPError as e:
+            raise RuntimeError(f"Could not list files in {repo_id}") from e
+
+        load_model_weights(self.model, repo_id, files)
 
     def tokenize(self, text):
         """
@@ -51,6 +57,33 @@ class DeepSeekWrapper:
         using the exact merges the model was trained with
         """
         return bpe_tokenize(text, self.vocab, self.merges)
+
+    def decode(self, token_ids: List[int]) -> str:
+        inv_vocab = {v: k for k, v in self.vocab.items()}
+        toks = []
+        print(f"Decoding tokens: {token_ids}")
+
+        for i in token_ids:
+            t = inv_vocab.get(i, "")
+            if not t or t == "<unk>":
+                continue
+            toks.append(t)
+
+        print(f"Raw tokens: {toks}")
+
+        result = ""
+        for t in toks:
+            if t == "Ġ":
+                result += " "
+            else:
+                if t.startswith("Ġ"):
+                    result += " " + t[1:]
+                else:
+                    if t == "Ä":
+                        result += " "
+                    else:
+                        result += t
+        return result.strip()
 
     def _build_model(self):
         """Constructs a transformer-based model based on the config"""
