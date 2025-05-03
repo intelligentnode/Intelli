@@ -16,7 +16,7 @@ setup(
         "Source Code": "https://github.com/intelligentnode/Intelli",
     },
     packages=find_packages(exclude=["test", "test.*"]),
-    package_data={"": ["*.in"]},
+    package_data={"" : ["*.in"]},
     python_requires=">=3.6",
     install_requires=[
         "python-dotenv==1.0.1",
@@ -26,5 +26,17 @@ setup(
         "visual": ["matplotlib==3.6.0"],
         "offline": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text"],
         "llamacpp": ["llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"],
-    },
+        "deepseek": [
+            "torch>=2.0.0",
+            "safetensors>=0.4.0",
+            "numpy>=1.24.0",
+            "huggingface_hub>=0.19.0",
+        ],
+        "all": [
+            "torch>=2.0.0",
+            "safetensors>=0.4.0",
+            "numpy>=1.24.0",
+            "huggingface_hub>=0.19.0",
+        ]
+    }
 )
