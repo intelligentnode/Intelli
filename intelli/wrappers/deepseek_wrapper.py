@@ -69,8 +69,6 @@ class DeepSeekWrapper:
                 continue
             toks.append(t)
 
-        print(f"Raw tokens: {toks}")
-
         result = ""
         for t in toks:
             if t == "Ġ":
