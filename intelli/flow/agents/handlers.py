@@ -283,34 +283,14 @@ class MCPAgentHandler(AgentHandler):
             return "Error: MCP agent requires the 'mcp' module. Please install it using 'pip install mcp-python-client'."
         
         try:
-            if "command" not in custom_params:
-                raise ValueError("MCPAgent requires 'command' in model_params")
+            # Create server configuration from parameters
+            server_config = self._create_server_config(custom_params)
             
             # Create wrapper with server details
-            wrapper = MCPWrapper(
-                server_command=custom_params["command"],
-                server_args=custom_params.get("args", []),
-                server_env=custom_params.get("env")
-            )
+            wrapper = MCPWrapper(server_config)
             
-            # Get tool name
-            tool_name = custom_params.get("tool", "")
-            if not tool_name:
-                raise ValueError("MCPAgent requires 'tool' name in model_params")
-            
-            # Build arguments dictionary
-            arguments = {}
-            
-            # Look for arg_ prefixed parameters
-            for k, v in custom_params.items():
-                if k.startswith("arg_"):
-                    arg_name = k[4:]  # Strip prefix
-                    arguments[arg_name] = v
-            
-            # Fall back to input_arg if needed
-            if not arguments and "input_arg" in custom_params:
-                input_arg = custom_params["input_arg"]
-                arguments[input_arg] = agent_input.desc
+            # Get tool name and arguments
+            tool_name, arguments = self._prepare_tool_arguments(agent_input, custom_params)
             
             # Debug info
             print(f"MCP Agent executing tool '{tool_name}' with arguments: {arguments}")
@@ -327,6 +307,45 @@ class MCPAgentHandler(AgentHandler):
             return str(result)
         except Exception as e:
             return f"Error executing MCP agent: {str(e)}"
+            
+    def _create_server_config(self, params):
+        """Create server configuration from parameters"""
+        # Check for URL-based configuration
+        if "url" in params:
+            return {"url": params["url"]}
+            
+        # Check for subprocess-based configuration
+        if "command" in params:
+            return {
+                "command": params["command"],
+                "args": params.get("args", []),
+                "env": params.get("env")
+            }
+            
+        raise ValueError("MCPAgent requires either 'url' or 'command' in model_params")
+    
+    def _prepare_tool_arguments(self, agent_input, params):
+        """Extract tool name and prepare arguments dictionary"""
+        # Get tool name
+        tool_name = params.get("tool", "")
+        if not tool_name:
+            raise ValueError("MCPAgent requires 'tool' name in model_params")
+        
+        # Build arguments dictionary
+        arguments = {}
+        
+        # Look for arg_* prefixed parameters first
+        for k, v in params.items():
+            if k.startswith("arg_"):
+                arg_name = k[4:]  # Strip prefix
+                arguments[arg_name] = v
+        
+        # Fall back to input_arg if specified and no arguments found
+        if not arguments and "input_arg" in params:
+            input_arg = params["input_arg"]
+            arguments[input_arg] = agent_input.desc
+        
+        return tool_name, arguments
 
 
 # Factory to get the appropriate handler

@@ -7,9 +7,13 @@ import functools
 try:
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
+    from mcp.client.websocket import websocket_client 
+    from mcp.client.http import http_client
     MCP_AVAILABLE = True
+    REMOTE_AVAILABLE = True
 except ImportError:
     MCP_AVAILABLE = False
+    REMOTE_AVAILABLE = False
     # Define dummy classes for type hints
     class ClientSession:
         pass
@@ -26,25 +30,64 @@ class MCPWrapper:
     This wrapper provides methods to interact with MCP servers using the MCP SDK.
     """
     
-    def __init__(self, server_command, server_args=None, server_env=None):
+    def __init__(self, server_config=None):
         """
         Initialize the MCP wrapper.
         
         Args:
-            server_command (str): The command to run the MCP server.
-            server_args (list, optional): List of arguments to pass to the server command.
-            server_env (dict, optional): Environment variables for the server process.
+            server_config: Either:
+                - A string URL for remote MCP server (ws:// or http://)
+                - A dict with {'command': cmd, 'args': [], 'env': {}} for local subprocess
+                - A dict with {'url': 'ws://...'} for websocket
+                - A dict with {'url': 'http://...'} for HTTP
         """
         if not MCP_AVAILABLE:
             raise ImportError(
                 "MCP SDK is not installed. Please install it using 'pip install mcp-python-client'"
             )
+        
+        self.server_params = None
+        self.connection_type = None
+        self.remote_url = None
+        
+        # Configure based on input type
+        if server_config is None:
+            raise ValueError("Server configuration is required")
+        
+        # String URL - assume websocket if available
+        if isinstance(server_config, str):
+            if not REMOTE_AVAILABLE:
+                raise ImportError("Remote MCP connection requires additional dependencies")
+                
+            self.remote_url = server_config
+            if server_config.startswith('http'):
+                self.connection_type = 'http'
+            else:
+                self.connection_type = 'websocket'
+        
+        # Dict configuration
+        elif isinstance(server_config, dict):
+            if 'url' in server_config:
+                if not REMOTE_AVAILABLE:
+                    raise ImportError("Remote MCP connection requires additional dependencies")
+                    
+                self.remote_url = server_config['url']
+                if self.remote_url.startswith('http'):
+                    self.connection_type = 'http'
+                else:
+                    self.connection_type = 'websocket'
             
-        self.server_params = StdioServerParameters(
-            command=server_command,
-            args=server_args or [],
-            env=server_env
-        )
+            elif 'command' in server_config:
+                self.connection_type = 'stdio'
+                self.server_params = StdioServerParameters(
+                    command=server_config['command'],
+                    args=server_config.get('args', []),
+                    env=server_config.get('env')
+                )
+            else:
+                raise ValueError("Invalid server configuration. Provide 'url' or 'command'")
+        else:
+            raise ValueError("Server configuration must be a URL string or dictionary")
     
     # --------------------------------------------------------------
     # Private helpers
@@ -53,33 +96,42 @@ class MCPWrapper:
         """
         Return (session, session_ctx, client_ctx) to ensure proper cleanup
         """
-        client_ctx = stdio_client(self.server_params)
         try:
-            # Try to handle both old and new MCP API versions
-            aenter_result = await client_ctx.__aenter__()
-            
-            # Check if the result is a tuple with 2 or 3 elements
-            if isinstance(aenter_result, tuple):
-                if len(aenter_result) == 3:
-                    read, write, _proc = aenter_result
-                elif len(aenter_result) == 2:
-                    read, write = aenter_result
-                else:
-                    raise ValueError(f"Unexpected result from stdio_client.__aenter__(): {aenter_result}")
-            else:
-                # If it's not a tuple, assume it's some other object with the streams
-                raise ValueError(f"Unexpected result type from stdio_client.__aenter__(): {type(aenter_result)}")
+            if self.connection_type == 'stdio':
+                client_ctx = stdio_client(self.server_params)
+                aenter_result = await client_ctx.__aenter__()
                 
+                # Handle different return types
+                if isinstance(aenter_result, tuple):
+                    if len(aenter_result) == 3:
+                        read, write, _proc = aenter_result
+                    elif len(aenter_result) == 2:
+                        read, write = aenter_result
+                    else:
+                        raise ValueError(f"Unexpected result from stdio_client.__aenter__(): {aenter_result}")
+                else:
+                    raise ValueError(f"Unexpected result type from stdio_client.__aenter__(): {type(aenter_result)}")
+            
+            elif self.connection_type == 'websocket':
+                client_ctx = websocket_client(self.remote_url)
+                read, write = await client_ctx.__aenter__()
+                
+            elif self.connection_type == 'http':
+                client_ctx = http_client(self.remote_url)
+                read, write = await client_ctx.__aenter__()
+            
             session_ctx = ClientSession(read, write)
             session = await session_ctx.__aenter__()
             await session.initialize()
             return session, session_ctx, client_ctx
+            
         except Exception as e:
-            # If anything goes wrong, ensure we clean up the client context
-            try:
-                await client_ctx.__aexit__(None, None, None)
-            except:
-                pass
+            # Clean up client context if error occurs
+            if 'client_ctx' in locals():
+                try:
+                    await client_ctx.__aexit__(None, None, None)
+                except:
+                    pass
             raise e
     
     async def _close(self, session_ctx, client_ctx):

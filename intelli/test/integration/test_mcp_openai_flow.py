@@ -94,9 +94,8 @@ if __name__ == "__main__":
             model_params={
                 "command": sys.executable,
                 "args": [self.server_path],
-                "tool": "add",  # Default tool, will be updated by pre_process
-                "arg_a": 0,     # Default values, will be updated
-                "arg_b": 0      # Default values, will be updated
+                "tool": "add"  # Default tool, will be updated by pre_process
+                # No need for default arg values, they'll be set by pre_process
             }
         )
         

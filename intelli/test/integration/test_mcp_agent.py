@@ -7,6 +7,7 @@ from intelli.flow.agents.agent import Agent
 from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.tasks.task import Task
 from intelli.flow.types import AgentTypes
+from intelli.wrappers.mcp_config import local_server_config, create_mcp_agent
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -54,19 +55,22 @@ if __name__ == "__main__":
     def test_mcp_agent_add(self):
         """Test using MCP agent to add numbers"""
         
-        # Create an MCP Agent
+        # Create server configuration
+        server_config = local_server_config(self.server_path)
+        
+        # Create model parameters using helper
+        model_params = create_mcp_agent(
+            server_config, 
+            "add",          # Tool name
+            a=5, b=7        # Tool arguments
+        )
+        
+        # Create an MCP Agent with simplified parameters
         mcp_agent = Agent(
             agent_type=AgentTypes.MCP.value,
             provider="mcp",
             mission="Perform addition",
-            model_params={
-                "command": sys.executable,  # Python executable
-                "args": [self.server_path],
-                "tool": "add",
-                "arg_a": 5,
-                "arg_b": 7,
-                "input_arg": "message"  # This argument won't be used for add
-            }
+            model_params=model_params
         )
         
         # Create task using the MCP agent
@@ -110,7 +114,7 @@ if __name__ == "__main__":
             log=True
         )
         
-        # Create an MCP agent for doing the math - set a default tool here
+        # Create an MCP agent with simplified parameters
         mcp_agent = Agent(
             agent_type=AgentTypes.MCP.value,
             provider="mcp",
@@ -118,10 +122,7 @@ if __name__ == "__main__":
             model_params={
                 "command": sys.executable,
                 "args": [self.server_path],
-                "tool": "add",  # Default tool
-                "arg_a": 15,    # Default values
-                "arg_b": 27,
-                "input_arg": "message"  # This is used to determine where to place input text
+                "tool": "add"  # Default tool, parameters will be updated at runtime
             }
         )
         
