@@ -95,7 +95,7 @@ if __name__ == "__main__":
             mission="Extract two numbers from user input and the operation to perform",
             model_params={
                 "key": os.getenv("OPENAI_API_KEY"),
-                "model": "gpt-3.5-turbo"
+                "model": "gpt-4o"
             }
         )
         
