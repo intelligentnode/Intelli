@@ -2,7 +2,6 @@ import unittest
 import os
 import sys
 import asyncio
-import tempfile
 from intelli.flow.agents.agent import Agent
 from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.tasks.task import Task
@@ -14,43 +13,9 @@ load_dotenv()
 
 class TestMCPAgent(unittest.TestCase):
     def setUp(self):
-        # Create a temporary directory for our MCP server script
-        self.temp_dir = tempfile.TemporaryDirectory()
-        
-        # Create the MCP server script
-        self.server_path = os.path.join(self.temp_dir.name, "mcp_server.py")
-        with open(self.server_path, "w") as f:
-            f.write("""
-from mcp.server.fastmcp import FastMCP
-
-# Create an MCP server
-mcp = FastMCP("MathTools")
-
-# Add an addition tool
-@mcp.tool()
-def add(a: int, b: int) -> int:
-    \"\"\"Add two numbers\"\"\"
-    return a + b
-
-# Add a subtraction tool
-@mcp.tool()
-def subtract(a: int, b: int) -> int:
-    \"\"\"Subtract two numbers\"\"\"
-    return a - b
-
-# Add a multiplication tool
-@mcp.tool()
-def multiply(a: int, b: int) -> int:
-    \"\"\"Multiply two numbers\"\"\"
-    return a * b
-
-if __name__ == "__main__":
-    mcp.run(transport="stdio")
-""")
-    
-    def tearDown(self):
-        # Remove temporary directory and its contents
-        self.temp_dir.cleanup()
+        # Get the path to the MCP server file
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        self.server_path = os.path.join(current_dir, "mcp_math_server.py")
     
     def test_mcp_agent_add(self):
         """Test using MCP agent to add numbers"""
