@@ -1,10 +1,20 @@
+# Core dependencies
 python-dotenv~=1.0.1
-networkx~=3.2.1
-requests~=2.31.0
+numpy<2.0
 mcp~=1.9.0
-matplotlib
+matplotlib>=3.6.0
+networkx>=3.2.1
 huggingface_hub>=0.28.1
+
+# ML dependencies
 keras-nlp
 keras>=3
 librosa
 keras-hub
+
+# For testing
+pytest>=7.0.0
+
+# Other dependencies
+asyncio
+json5

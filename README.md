@@ -15,11 +15,16 @@
 </p>
 
 # Intelli
-A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer.
+A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer. Intelli also supports Model Context Protocol (MCP) for standardized interaction with AI models.
 
 # Install
 ```bash
 pip install intelli
+```
+
+For MCP support, install with the MCP extra:
+```bash
+pip install intelli[mcp]
 ```
 
 For detailed usage instructions, refer to the [documentation](https://doc.intellinode.ai/docs/python).

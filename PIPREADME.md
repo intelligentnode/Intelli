@@ -10,7 +10,15 @@
 
 </p>
 
-A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer.
+A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer. Intelli also supports Model Context Protocol (MCP) for standardized interaction with AI models.
+
+## Features
+
+- Unified API for multiple AI providers
+- Async flow-based agent orchestration
+- Multi-modal support (text, images, speech)
+- Model Context Protocol (MCP) integration for standardized model interactions
+- Local and remote model support
 
 
 ```bash
