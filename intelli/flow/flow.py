@@ -505,6 +505,7 @@ class Flow:
             AgentTypes.RECOGNITION.value: "orchid",
             AgentTypes.EMBED.value: "lightcoral",
             AgentTypes.SEARCH.value: "lightskyblue",
+            AgentTypes.MCP.value: "mediumpurple",
         }
 
         node_colors = [

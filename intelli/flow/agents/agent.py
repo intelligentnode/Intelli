@@ -21,6 +21,7 @@ from intelli.model.input.text_speech_input import Text2SpeechInput
 from intelli.model.input.text_recognition_input import SpeechRecognitionInput
 from intelli.model.input.embed_input import EmbedInput
 from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
+from mcp import ClientSession, StdioServerParameters
 
 
 class BasicAgent(ABC):
@@ -89,6 +90,8 @@ class Agent(BasicAgent):
             return self._execute_embed_agent(agent_input, custom_params)
         elif self.type == AgentTypes.SEARCH.value:
             return self._execute_search_agent(agent_input, custom_params)
+        elif self.type == AgentTypes.MCP.value:
+            return self._execute_mcp_agent(agent_input, custom_params)
         else:
             raise ValueError(f"Unsupported agent type: {self.type}.")
 
@@ -375,3 +378,55 @@ class Agent(BasicAgent):
         )
 
         return result
+
+    def _execute_mcp_agent(self, agent_input, custom_params):
+        """Execute MCP agent functionality - fallback implementation"""
+        try:
+            # Try to import MCP wrapper - this will likely fail if the module isn't installed
+            from intelli.wrappers.mcp_wrapper import MCPWrapper
+            
+            if "command" not in custom_params:
+                raise ValueError("MCPAgent requires 'command' in model_params")
+            
+            # Create MCP wrapper with server parameters
+            wrapper = MCPWrapper(
+                server_command=custom_params["command"],
+                server_args=custom_params.get("args", []),
+                server_env=custom_params.get("env")
+            )
+            
+            # Get tool name and arguments from params
+            tool_name = custom_params.get("tool", "")
+            if not tool_name:
+                raise ValueError("MCPAgent requires 'tool' name in model_params")
+            
+            # Prepare arguments
+            arguments = {}
+            # Extract arguments from custom_params that start with "arg_"
+            for k, v in custom_params.items():
+                if k.startswith("arg_"):
+                    arg_name = k[4:]  # Remove 'arg_' prefix
+                    arguments[arg_name] = v
+            
+            # Add input from agent_input to arguments
+            input_arg = custom_params.get("input_arg", "message")
+            arguments[input_arg] = agent_input.desc
+            
+            # Call the tool
+            result = wrapper.execute_tool(tool_name, arguments)
+            
+            # Convert result to string if needed
+            if hasattr(result, "content") and isinstance(result.content, list):
+                # Handle text content from MCP
+                text_content = next((item.text for item in result.content if hasattr(item, 'text')), None)
+                if text_content:
+                    return text_content
+            
+            return str(result)
+            
+        except ImportError:
+            # If the mcp module is not available, provide a helpful error message
+            return "Error: MCP agent requires the 'mcp' module. Please install it using 'pip install mcp-python-client'."
+        except Exception as e:
+            # Handle other exceptions that might occur
+            return f"Error executing MCP agent: {str(e)}"

@@ -273,6 +273,62 @@ class SearchAgentHandler(AgentHandler):
         return result
 
 
+class MCPAgentHandler(AgentHandler):
+    """Handler for MCP-based agents"""
+    
+    def execute(self, agent_input, custom_params):
+        try:
+            from intelli.wrappers.mcp_wrapper import MCPWrapper
+        except ImportError:
+            return "Error: MCP agent requires the 'mcp' module. Please install it using 'pip install mcp-python-client'."
+        
+        try:
+            if "command" not in custom_params:
+                raise ValueError("MCPAgent requires 'command' in model_params")
+            
+            # Create wrapper with server details
+            wrapper = MCPWrapper(
+                server_command=custom_params["command"],
+                server_args=custom_params.get("args", []),
+                server_env=custom_params.get("env")
+            )
+            
+            # Get tool name
+            tool_name = custom_params.get("tool", "")
+            if not tool_name:
+                raise ValueError("MCPAgent requires 'tool' name in model_params")
+            
+            # Build arguments dictionary
+            arguments = {}
+            
+            # Look for arg_ prefixed parameters
+            for k, v in custom_params.items():
+                if k.startswith("arg_"):
+                    arg_name = k[4:]  # Strip prefix
+                    arguments[arg_name] = v
+            
+            # Fall back to input_arg if needed
+            if not arguments and "input_arg" in custom_params:
+                input_arg = custom_params["input_arg"]
+                arguments[input_arg] = agent_input.desc
+            
+            # Debug info
+            print(f"MCP Agent executing tool '{tool_name}' with arguments: {arguments}")
+            
+            # Execute the tool
+            result = wrapper.execute_tool(tool_name, arguments)
+            
+            # Handle result conversion
+            if hasattr(result, "content") and isinstance(result.content, list):
+                text_content = next((item.text for item in result.content if hasattr(item, 'text')), None)
+                if text_content:
+                    return text_content
+            
+            return str(result)
+        except Exception as e:
+            return f"Error executing MCP agent: {str(e)}"
+
+
 # Factory to get the appropriate handler
 def get_agent_handler(agent_type, provider, mission, model_params, options):
     """Factory function to get the appropriate agent handler"""
@@ -284,6 +340,7 @@ def get_agent_handler(agent_type, provider, mission, model_params, options):
         AgentTypes.RECOGNITION.value: RecognitionAgentHandler,
         AgentTypes.EMBED.value: EmbedAgentHandler,
         AgentTypes.SEARCH.value: SearchAgentHandler,
+        AgentTypes.MCP.value: MCPAgentHandler,
     }
 
     if agent_type not in handlers:

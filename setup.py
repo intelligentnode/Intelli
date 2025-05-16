@@ -17,14 +17,16 @@ setup(
     },
     packages=find_packages(exclude=["test", "test.*"]),
     package_data={"": ["*.in"]},
-    python_requires=">=3.6",
+    python_requires=">=3.8",
     install_requires=[
         "python-dotenv==1.0.1",
         "networkx==3.2.1",
+        "requests~=2.31.0"
     ],
     extras_require={
-        "visual": ["matplotlib==3.6.0"],
+        "visual": ["matplotlib==3.8.3"],
         "offline": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text"],
         "llamacpp": ["llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"],
+        "mcp": ["mcp~=1.9.0"],
     },
 )

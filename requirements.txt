@@ -1,4 +1,12 @@
-python-dotenv~=1.0.1
-networkx~=3.2.1
-matplotlib~=3.8.3
-requests~=2.31.0
+# Core dependencies
+numpy<2.0
+mcp-python-client>=0.1.0
+matplotlib>=3.6.0
+networkx>=2.8.0
+
+# For testing
+pytest>=7.0.0
+
+# Other dependencies
+asyncio
+json5 
