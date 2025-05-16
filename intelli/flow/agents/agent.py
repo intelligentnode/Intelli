@@ -21,7 +21,13 @@ from intelli.model.input.text_speech_input import Text2SpeechInput
 from intelli.model.input.text_recognition_input import SpeechRecognitionInput
 from intelli.model.input.embed_input import EmbedInput
 from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
-from mcp import ClientSession, StdioServerParameters
+
+# Optional MCP imports - moved inside try/except
+try:
+    from mcp import ClientSession, StdioServerParameters
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
 
 
 class BasicAgent(ABC):
@@ -48,10 +54,23 @@ class Agent(BasicAgent):
     def _get_handler(self):
         """Get or create the appropriate handler for this agent type"""
         if self._handler is None:
-            from intelli.flow.agents.handlers import get_agent_handler
-            self._handler = get_agent_handler(
-                self.type, self.provider, self.mission, self.model_params, self.options
-            )
+            try:
+                from intelli.flow.agents.handlers import get_agent_handler
+                self._handler = get_agent_handler(
+                    self.type, self.provider, self.mission, self.model_params, self.options
+                )
+                return self._handler
+            except ImportError as e:
+                # Handle specific MCP import errors gracefully
+                if "mcp" in str(e).lower():
+                    if self.type == AgentTypes.MCP.value:
+                        raise ImportError(
+                            "MCP agent requires the 'mcp' module. Please install it using 'pip install intelli[mcp]'. "
+                            f"Original error: {e}"
+                        )
+                # Re-raise other import errors
+                raise e
+                
         return self._handler
 
     def execute(self, agent_input: AgentInput, new_params={}):
@@ -388,12 +407,15 @@ class Agent(BasicAgent):
             if "command" not in custom_params:
                 raise ValueError("MCPAgent requires 'command' in model_params")
             
-            # Create MCP wrapper with server parameters
-            wrapper = MCPWrapper(
-                server_command=custom_params["command"],
-                server_args=custom_params.get("args", []),
-                server_env=custom_params.get("env")
-            )
+            # Build server configuration dictionary for local stdio server
+            server_config = {
+                "command": custom_params["command"],
+                "args": custom_params.get("args", []),
+                "env": custom_params.get("env"),
+            }
+
+            # Create MCP wrapper instance
+            wrapper = MCPWrapper(server_config)
             
             # Get tool name and arguments from params
             tool_name = custom_params.get("tool", "")
@@ -424,9 +446,12 @@ class Agent(BasicAgent):
             
             return str(result)
             
-        except ImportError:
-            # If the mcp module is not available, provide a helpful error message
-            return "Error: MCP agent requires the 'mcp' module. Please install it using 'pip install mcp-python-client'."
+        except ImportError as e:
+            # If the mcp module is not available, provide a helpful error message with details
+            return (
+                "Error: MCP agent requires the 'mcp' module. Install it using 'pip install intelli[mcp]'. "
+                f"Original error: {e}"
+            )
         except Exception as e:
             # Handle other exceptions that might occur
             return f"Error executing MCP agent: {str(e)}"

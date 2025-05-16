@@ -3,21 +3,42 @@ import json
 import threading
 import functools
 
-# Try to import MCP, but make it optional
+# ---------------------------------------------------------------------------
+# Optional MCP SDK imports
+# ---------------------------------------------------------------------------
+
+# Basic availability flag – only requires the core SDK (no transport extras)
 try:
-    from mcp import ClientSession, StdioServerParameters
-    from mcp.client.stdio import stdio_client
-    from mcp.client.websocket import websocket_client 
-    from mcp.client.http import http_client
+    from mcp import ClientSession, StdioServerParameters  # type: ignore
     MCP_AVAILABLE = True
-    REMOTE_AVAILABLE = True
-except ImportError:
+except ImportError as _core_e:  # pragma: no cover
     MCP_AVAILABLE = False
-    REMOTE_AVAILABLE = False
-    # Define dummy classes for type hints
-    class ClientSession:
+    _MCP_CORE_IMPORT_ERROR = _core_e  # Preserve for error messages
+
+# ----------------------------------------------------
+# Optional transport-specific clients.  These live in
+# separate extras (e.g.  `mcp[ws]`, `mcp[cli]`).
+# If they fail to import we merely disable remote
+# capability but still allow stdio usage.
+# ----------------------------------------------------
+
+REMOTE_AVAILABLE = False
+if MCP_AVAILABLE:
+    try:
+        from mcp.client.stdio import stdio_client  # type: ignore
+        from mcp.client.websocket import websocket_client  # type: ignore
+        from mcp.client.http import http_client  # type: ignore
+        REMOTE_AVAILABLE = True
+    except ImportError as _transport_e:  # pragma: no cover
+        # Remote transports require additional deps (websockets, httpx-sse …)
+        _MCP_TRANSPORT_IMPORT_ERROR = _transport_e
+
+# Dummy fallbacks to satisfy type checkers when MCP isn't installed
+if not MCP_AVAILABLE:
+    class ClientSession:  # type: ignore
         pass
-    class StdioServerParameters:
+
+    class StdioServerParameters:  # type: ignore
         def __init__(self, command=None, args=None, env=None):
             self.command = command
             self.args = args or []
@@ -43,7 +64,8 @@ class MCPWrapper:
         """
         if not MCP_AVAILABLE:
             raise ImportError(
-                "MCP SDK is not installed. Please install it using 'pip install mcp-python-client'"
+                "MCP SDK is not installed. Install it with 'pip install intelli[mcp]'. "
+                f"Original error: {_MCP_CORE_IMPORT_ERROR}"
             )
         
         self.server_params = None
@@ -57,7 +79,11 @@ class MCPWrapper:
         # String URL - assume websocket if available
         if isinstance(server_config, str):
             if not REMOTE_AVAILABLE:
-                raise ImportError("Remote MCP connection requires additional dependencies")
+                raise ImportError(
+                    "Remote MCP connection requires additional dependencies. "
+                    "Install the MCP SDK with WebSocket/HTTP extras: 'pip install mcp[ws]' "
+                    f"Original error: {_MCP_TRANSPORT_IMPORT_ERROR}"
+                )
                 
             self.remote_url = server_config
             if server_config.startswith('http'):
@@ -69,7 +95,11 @@ class MCPWrapper:
         elif isinstance(server_config, dict):
             if 'url' in server_config:
                 if not REMOTE_AVAILABLE:
-                    raise ImportError("Remote MCP connection requires additional dependencies")
+                    raise ImportError(
+                        "Remote MCP connection requires additional dependencies. "
+                        "Install the MCP SDK with WebSocket/HTTP extras: 'pip install mcp[ws]' "
+                        f"Original error: {_MCP_TRANSPORT_IMPORT_ERROR}"
+                    )
                     
                 self.remote_url = server_config['url']
                 if self.remote_url.startswith('http'):

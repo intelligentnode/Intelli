@@ -279,8 +279,12 @@ class MCPAgentHandler(AgentHandler):
     def execute(self, agent_input, custom_params):
         try:
             from intelli.wrappers.mcp_wrapper import MCPWrapper
-        except ImportError:
-            return "Error: MCP agent requires the 'mcp' module. Please install it using 'pip install mcp-python-client'."
+        except ImportError as e:
+            return (
+                "Error: MCP agent requires the 'mcp' module. "
+                "Install it using 'pip install intelli[mcp]'. "
+                f"Original error: {e}"
+            )
         
         try:
             # Create server configuration from parameters
