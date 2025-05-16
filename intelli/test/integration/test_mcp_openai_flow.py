@@ -25,92 +25,6 @@ class TestMCPOpenAIFlow(unittest.TestCase):
         if not os.getenv("OPENAI_API_KEY"):
             self.skipTest("OPENAI_API_KEY not available")
         
-        # Create an OpenAI agent to understand the user's request
-        openai_agent = Agent(
-            agent_type=AgentTypes.TEXT.value,
-            provider="openai",
-            mission="Analyze user query to identify arithmetic operations",
-            model_params={
-                "key": os.getenv("OPENAI_API_KEY"),
-                "model": "gpt-4o",
-                "system_message": "You are a helpful assistant that extracts arithmetic operations from user queries. Your task is to parse the input text, extract the numbers and operation, and return ONLY a JSON object with the format: {'operation': 'add/subtract/multiply', 'a': number, 'b': number}. Do not include any other text in your response."
-            }
-        )
-        
-        # Create a task for OpenAI
-        openai_task = Task(
-            TextTaskInput(
-                "The following is a user query containing an arithmetic operation. Extract the numbers and operation.\n"
-                "Return ONLY a JSON object with the format: {'operation': 'add/subtract/multiply', 'a': number, 'b': number}.\n"
-                "Example: For 'What is 5 plus 3?', return {'operation': 'add', 'a': 5, 'b': 3}\n"
-                "Do not perform the calculation. Do not include any other text in your response."
-            ),
-            openai_agent,
-            log=True,
-            # Add preprocessing to append the actual query to the task description
-            pre_process=lambda input_data: f"USER QUERY: {input_data}" if input_data else None
-        )
-        
-        # Create an MCP agent to perform the actual calculation
-        mcp_agent = Agent(
-            agent_type=AgentTypes.MCP.value,
-            provider="mcp",
-            mission="Execute arithmetic operations via MCP",
-            model_params={
-                "command": sys.executable,
-                "args": [self.server_path],
-                "tool": "add"  # Default tool, will be updated by pre_process
-                # No need for default arg values, they'll be set by pre_process
-            }
-        )
-        
-        # Create a task for the MCP agent with custom pre-processing
-        mcp_task = Task(
-            TextTaskInput("Perform the arithmetic operation"),
-            mcp_agent,
-            log=True,
-            pre_process=self._extract_operation_details
-        )
-        
-        # Create a final OpenAI agent to format the result nicely
-        result_agent = Agent(
-            agent_type=AgentTypes.TEXT.value,
-            provider="openai",
-            mission="Format the arithmetic result into a natural language response",
-            model_params={
-                "key": os.getenv("OPENAI_API_KEY"),
-                "model": "gpt-3.5-turbo"
-            }
-        )
-        
-        # Create a task for the result formatting
-        result_task = Task(
-            TextTaskInput(
-                "Format the arithmetic result into a natural language response. "
-                "The input contains the operation details and result."
-            ),
-            result_agent,
-            log=True,
-            pre_process=self._format_calculation_details
-        )
-        
-        # Set up the flow
-        tasks = {
-            "analyze": openai_task,
-            "calculate": mcp_task,
-            "format": result_task
-        }
-        
-        # Connect the tasks
-        map_paths = {
-            "analyze": ["calculate"],
-            "calculate": ["format"],
-            "format": []
-        }
-        
-        # Create the flow and store it as an instance attribute
-        self.flow = Flow(tasks=tasks, map_paths=map_paths, log=True)
-        
         # Test with different arithmetic queries
         test_cases = [
             {"query": "What is 42 plus 17?", "expected": {"operation": "add", "a": 42, "b": 17, "result": 59}},
@@ -124,11 +38,93 @@ class TestMCPOpenAIFlow(unittest.TestCase):
             
             print(f"\n--- Testing: '{test_query}' ---")
             
-            # Set the input data directly to the first task before starting the flow
-            # Pass the query directly as input_data to the execute method
-            # This ensures it gets passed to the pre_process function
-            self.flow.tasks["analyze"].execute(input_data=test_query)
-            results = asyncio.run(self.flow.start())
+            # Create an OpenAI agent to understand the user's request
+            openai_agent = Agent(
+                agent_type=AgentTypes.TEXT.value,
+                provider="openai",
+                mission="Analyze user query to identify arithmetic operations",
+                model_params={
+                    "key": os.getenv("OPENAI_API_KEY"),
+                    "model": "gpt-4o",
+                    "system_message": "You are a helpful assistant that extracts arithmetic operations from user queries. Your task is to parse the input text, extract the numbers and operation, and return ONLY a JSON object with the format: {'operation': 'add/subtract/multiply', 'a': number, 'b': number}. Do not include any other text in your response."
+                }
+            )
+            
+            # Create a task for OpenAI with the test query in its input
+            openai_task = Task(
+                TextTaskInput(
+                    "The following is a user query containing an arithmetic operation. Extract the numbers and operation.\n"
+                    "Return ONLY a JSON object with the format: {'operation': 'add/subtract/multiply', 'a': number, 'b': number}.\n"
+                    "Example: For 'What is 5 plus 3?', return {'operation': 'add', 'a': 5, 'b': 3}\n"
+                    "Do not perform the calculation. Do not include any other text in your response.\n\n"
+                    f"USER QUERY: {test_query}"  # Include the test query directly in the input
+                ),
+                openai_agent,
+                log=True
+            )
+            
+            # Create an MCP agent to perform the actual calculation
+            mcp_agent = Agent(
+                agent_type=AgentTypes.MCP.value,
+                provider="mcp",
+                mission="Execute arithmetic operations via MCP",
+                model_params={
+                    "command": sys.executable,
+                    "args": [self.server_path],
+                    "tool": "add"  # Default tool, will be updated by pre_process
+                }
+            )
+            
+            # Create a task for the MCP agent with custom pre-processing
+            mcp_task = Task(
+                TextTaskInput("Perform the arithmetic operation"),
+                mcp_agent,
+                log=True,
+                pre_process=self._extract_operation_details
+            )
+            
+            # Create a final OpenAI agent to format the result nicely
+            result_agent = Agent(
+                agent_type=AgentTypes.TEXT.value,
+                provider="openai",
+                mission="Format the arithmetic result into a natural language response",
+                model_params={
+                    "key": os.getenv("OPENAI_API_KEY"),
+                    "model": "gpt-4o"
+                }
+            )
+            
+            # Create a task for the result formatting
+            result_task = Task(
+                TextTaskInput(
+                    "Format the arithmetic result into a natural language response. "
+                    "The input contains the operation details and result."
+                ),
+                result_agent,
+                log=True,
+                pre_process=self._format_calculation_details
+            )
+            
+            # Set up the flow
+            tasks = {
+                "analyze": openai_task,
+                "calculate": mcp_task,
+                "format": result_task
+            }
+            
+            # Connect the tasks
+            map_paths = {
+                "analyze": ["calculate"],
+                "calculate": ["format"],
+                "format": []
+            }
+            
+            # Create a new flow for each test case to ensure clean state
+            flow = Flow(tasks=tasks, map_paths=map_paths, log=True)
+            self.flow = flow  # Store for format calculation details method
+            
+            # Start the flow
+            results = asyncio.run(flow.start())
             
             # Verify all tasks produced output
             self.assertIn("analyze", results)
