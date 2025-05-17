@@ -13,10 +13,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class TestMCPOpenAIFlow(unittest.TestCase):
+    # Define output directory
+    OUTPUT_DIR = "./temp/mcp/"
+    
     def setUp(self):
         # Get the path to the MCP server file
         current_dir = os.path.dirname(os.path.abspath(__file__))
         self.server_path = os.path.join(current_dir, "mcp_math_server.py")
+        
+        # Create output directory if it doesn't exist
+        os.makedirs(self.OUTPUT_DIR, exist_ok=True)
     
     def test_openai_mcp_flow(self):
         """Test a flow that combines OpenAI with MCP for arithmetic operations"""
@@ -122,6 +128,17 @@ class TestMCPOpenAIFlow(unittest.TestCase):
             # Create a new flow for each test case to ensure clean state
             flow = Flow(tasks=tasks, map_paths=map_paths, log=True)
             self.flow = flow  # Store for format calculation details method
+            
+            # Generate and save the flow visualization
+            try:
+                graph_name = f"mcp_openai_flow_{expected['operation']}"
+                graph_path = flow.generate_graph_img(
+                    name=graph_name, 
+                    save_path=self.OUTPUT_DIR
+                )
+                print(f"🎨 Flow visualization saved to: {graph_path}")
+            except Exception as e:
+                print(f"⚠️ Warning: Could not generate graph image: {e}")
             
             # Start the flow
             results = asyncio.run(flow.start())
