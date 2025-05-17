@@ -562,7 +562,7 @@ class Flow:
             # Add the node label
             plt.text(
                 pos[node][0],
-                pos[node][1] - 0.03,
+                pos[node][1] - 0.02,
                 s=f"{node}\n[{agent_type}:{model}]",
                 horizontalalignment="center",
                 verticalalignment="top",

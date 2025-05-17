@@ -81,6 +81,18 @@ def create_enhanced_preprocessor(server_url):
     
     return enhanced_preprocessor
 
+# Function to generate and save the flow graph
+def save_flow_graph(flow, name="http_math_flow"):
+    os.makedirs("./temp/mcp", exist_ok=True)
+    try:
+        graph_path = flow.generate_graph_img(
+            name=name,
+            save_path="./temp/mcp"
+        )
+        print(f"\n🎨 Flow visualization saved to: {graph_path}")
+    except Exception as e:
+        print(f"⚠️ Could not generate graph: {e}")
+
 async def run_math_flow(query="What is 7 plus 8?"):
     # Create LLM agent to parse the query
     llm_agent = Agent(
@@ -148,6 +160,9 @@ async def run_math_flow(query="What is 7 plus 8?"):
     map_paths = {"parse": ["calculate"], "calculate": []}
     
     flow = Flow(tasks=tasks, map_paths=map_paths, log=True)
+    
+    # Generate flow visualization
+    save_flow_graph(flow)
     
     print("\n=== Flow Created ===")
     print(f"Tasks: {list(tasks.keys())}")
