@@ -5,10 +5,10 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="0.7.1",
+    version="1.0.12",
     author="Intellinode",
     author_email="admin@intellinode.ai",
-    description="Build your chatbot or AI agent with Intellinode – we make every model smarter.",
+    description="Build AI agents and MCPs with Intellinode – simplifying model orchestration.",
     long_description=pip_description,
     long_description_content_type="text/markdown",
     url="https://www.intellinode.ai/",
@@ -17,14 +17,29 @@ setup(
     },
     packages=find_packages(exclude=["test", "test.*"]),
     package_data={"": ["*.in"]},
-    python_requires=">=3.6",
+    python_requires=">=3.10",
     install_requires=[
-        "python-dotenv==1.0.1",
-        "networkx==3.2.1",
+        "python-dotenv>=1.0.0",
+        "networkx>=3.2.0",
     ],
     extras_require={
-        "visual": ["matplotlib==3.6.0"],
-        "offline": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text"],
+        "visual": ["matplotlib>=3.6.0"],
+        "offline": [
+            "keras-nlp", 
+            "keras>=3", 
+            "librosa", 
+            "keras-hub", 
+            "tensorflow-text"
+        ],
         "llamacpp": ["llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"],
+        "mcp": ["mcp[ws,cli]~=1.9.0"],
+        "all": [
+            "matplotlib>=3.6.0", 
+            "numpy<2.0",
+            "keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text",
+            "llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1", 
+            "mcp[ws,cli]~=1.9.0"
+        ],
+        "dev": ["pytest>=7.0.0"],
     },
 )

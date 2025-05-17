@@ -134,8 +134,27 @@ class Task:
         if self.pre_process:
             try:
                 processed_data = self.pre_process(input_data)
+                
+                # Store for later use
+                self.input_data = processed_data
+                
                 if processed_data is not None:
+                    # Check for model_params updates
+                    if isinstance(processed_data, dict) and "update_model_params" in processed_data:
+                        update_params = processed_data["update_model_params"]
+                        if isinstance(update_params, dict):
+                            self.logger.log(f"Updating model_params with: {update_params}")
+                            
+                            # Update agent params
+                            if hasattr(self.agent, "model_params") and self.agent.model_params is not None:
+                                self.agent.model_params.update(update_params)
+                                self.logger.log(f"Updated agent model_params: {self.agent.model_params}")
+                            
+                            # Update task params too
+                            self.model_params.update(update_params)
+                    
                     input_data = processed_data
+                
                 self.logger.log("Pre-processing completed")
             except Exception as e:
                 self.logger.log(f"Error in pre-processing: {str(e)}")
