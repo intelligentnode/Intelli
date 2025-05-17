@@ -2,6 +2,7 @@ import asyncio
 import json
 import threading
 import functools
+import urllib.parse
 
 # ---------------------------------------------------------------------------
 # Optional MCP SDK imports
@@ -27,11 +28,19 @@ if MCP_AVAILABLE:
     try:
         from mcp.client.stdio import stdio_client  # type: ignore
         from mcp.client.websocket import websocket_client  # type: ignore
-        from mcp.client.http import http_client  # type: ignore
+        # Try importing the streamable HTTP client first, as it's preferred
+        try:
+            from mcp.client.streamable_http import streamablehttp_client as mcp_http_client # Alias
+            print("Intelli MCPWrapper: Using streamablehttp_client for HTTP.")
+        except ImportError:
+            # Fallback to the older http_client if streamable_http is not found
+            from mcp.client.http import http_client as mcp_http_client # Alias
+            print("Intelli MCPWrapper: Using legacy http_client for HTTP (fallback).")
         REMOTE_AVAILABLE = True
     except ImportError as _transport_e:  # pragma: no cover
         # Remote transports require additional deps (websockets, httpx-sse …)
         _MCP_TRANSPORT_IMPORT_ERROR = _transport_e
+        print(f"Intelli MCPWrapper: Failed to import remote transport clients. Error: {_MCP_TRANSPORT_IMPORT_ERROR}")
 
 # Dummy fallbacks to satisfy type checkers when MCP isn't installed
 if not MCP_AVAILABLE:
@@ -122,6 +131,17 @@ class MCPWrapper:
     # --------------------------------------------------------------
     # Private helpers
     # --------------------------------------------------------------
+    def _get_http_base_url(self, url):
+        """
+        Extract the base URL for HTTP connections.
+        Full URL with path works best for this client.
+        """
+        parsed = urllib.parse.urlparse(url)
+        
+        # For streamable_http client, use the full URL including path
+        print(f"Intelli MCPWrapper: Using full URL: {url} for HTTP connection")
+        return url
+
     async def _open(self):
         """
         Return (session, session_ctx, client_ctx) to ensure proper cleanup
@@ -147,8 +167,21 @@ class MCPWrapper:
                 read, write = await client_ctx.__aenter__()
                 
             elif self.connection_type == 'http':
-                client_ctx = http_client(self.remote_url)
-                read, write = await client_ctx.__aenter__()
+                # Normalize HTTP URL for the SDK
+                normalized_url = self._get_http_base_url(self.remote_url)
+                
+                print(f"Intelli MCPWrapper: Connecting to HTTP MCP server at {normalized_url}")
+                
+                # Use the aliased mcp_http_client
+                client_ctx = mcp_http_client(normalized_url)
+                aenter_result = await client_ctx.__aenter__()
+                # streamablehttp_client returns 3 items, older http_client might return 2
+                if isinstance(aenter_result, tuple) and len(aenter_result) == 3:
+                    read, write, _ = aenter_result 
+                elif isinstance(aenter_result, tuple) and len(aenter_result) == 2:
+                    read, write = aenter_result 
+                else:
+                    raise ValueError(f"Unexpected result type or length from HTTP client context manager: {aenter_result}")
             
             session_ctx = ClientSession(read, write)
             session = await session_ctx.__aenter__()
@@ -220,9 +253,23 @@ class MCPWrapper:
             # Remove None values and 'input' parameter 
             filtered_args = {k: v for k, v in arguments.items() if v is not None and k != 'input'}
             
-            print(f"Filtered arguments for tool call: {filtered_args}")
+            # Process parameters based on naming convention
+            # Can handle both normal and arg_* prefixed parameters
+            converted_args = {}
             
-            coro = self._call_tool_async(name, filtered_args)
+            for k, v in filtered_args.items():
+                if k.startswith('arg_'):
+                    # Remove the arg_ prefix
+                    param_name = k[4:]
+                    converted_args[param_name] = v
+                    print(f"Converting parameter '{k}' to '{param_name}', value: {v}")
+                else:
+                    # Use parameter as is
+                    converted_args[k] = v
+
+            print(f"Filtered arguments for tool call: {converted_args}")
+            
+            coro = self._call_tool_async(name, converted_args)
             try:
                 loop = asyncio.get_running_loop()  # Check if in event loop
                 result = loop.run_until_complete(coro)

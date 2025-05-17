@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="1.0.6",
+    version="1.0.12",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Build AI agents and MCPs with Intellinode – simplifying model orchestration.",
@@ -32,13 +32,13 @@ setup(
             "tensorflow-text"
         ],
         "llamacpp": ["llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"],
-        "mcp": ["mcp[cli]~=1.9.0"],
+        "mcp": ["mcp[ws,cli]~=1.9.0"],
         "all": [
             "matplotlib>=3.6.0", 
             "numpy<2.0",
             "keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text",
             "llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1", 
-            "mcp[cli]~=1.9.0"
+            "mcp[ws,cli]~=1.9.0"
         ],
         "dev": ["pytest>=7.0.0"],
     },
