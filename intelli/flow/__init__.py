@@ -28,3 +28,14 @@ from intelli.flow.types import AgentTypes, InputTypes
 from intelli.flow.utils.flow_helper import FlowHelper
 from intelli.flow.store.memory import Memory
 from intelli.flow.store.dbmemory import DBMemory
+
+# MCP utilities (if available)
+try:
+    from intelli.flow.utils.mcp_utils import (
+        MCPServerBuilder,
+        MCPJSONExtractor,
+        create_mcp_preprocessor
+    )
+except ImportError:
+    # MCP utilities may not be available if MCP isn't installed
+    pass

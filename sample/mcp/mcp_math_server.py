@@ -1,26 +1,25 @@
 # mcp_math_server.py
-from mcp.server.fastmcp import FastMCP
+from intelli.flow.utils import MCPServerBuilder
 
-# Create an MCP server
-mcp = FastMCP("MathTools")
+# Create a server using the builder
+server = MCPServerBuilder("MathTools")
 
-# Add an addition tool
-@mcp.tool()
+# Add tools with decorators
+@server.add_tool
 def add(a: int, b: int) -> int:
     """Add two numbers"""
     return a + b
 
-# Add a subtraction tool
-@mcp.tool()
+@server.add_tool
 def subtract(a: int, b: int) -> int:
     """Subtract two numbers"""
     return a - b
 
-# Add a multiplication tool
-@mcp.tool()
+@server.add_tool
 def multiply(a: int, b: int) -> int:
     """Multiply two numbers"""
     return a * b
 
 if __name__ == "__main__":
-    mcp.run(transport="stdio")
+    # Run the server with stdio transport
+    server.run(transport="stdio")
