@@ -569,22 +569,28 @@ class Flow:
                 bbox=dict(facecolor="white", alpha=0.7, edgecolor="none"),
             )
 
-        # Add a legend for agent
+        # Add a legend for agent types
         if show_legend:
             handles = []
             labels = []
-            for agent_type, color in color_map.items():
-                handles.append(
-                    plt.Line2D(
-                        [0],
-                        [0],
-                        marker="o",
-                        color="w",
-                        markerfacecolor=color,
-                        markersize=10,
+            
+            # Get all unique agent types actually used in the graph
+            used_agent_types = set(agent_types.values())
+            
+            # Add legend entries
+            for agent_type in used_agent_types:
+                if agent_type in color_map:
+                    handles.append(
+                        plt.Line2D(
+                            [0],
+                            [0],
+                            marker="o",
+                            color="w",
+                            markerfacecolor=color_map[agent_type],
+                            markersize=10,
+                        )
                     )
-                )
-                labels.append(agent_type)
+                    labels.append(agent_type)
 
             # Add legend for edge types
             handles.append(plt.Line2D([0], [0], color="black", lw=2))
