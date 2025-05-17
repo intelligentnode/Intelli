@@ -1,11 +1,12 @@
-# mcp_calculator_server.py
+# http_mcp_calculator_server.py
 import os
-from mcp.server.fastmcp import FastMCP
+from intelli.flow.utils import MCPServerBuilder
 
-# Create a calculator MCP server with stateless HTTP support
-mcp = FastMCP("Calculator", stateless_http=True)
+# Create a server with HTTP support
+server = MCPServerBuilder("Calculator", stateless_http=True)
 
-@mcp.tool()
+# Add tools with decorators
+@server.add_tool
 def add(a: int, b: int) -> str:
     """Add two numbers"""
     print(f"Adding {a} + {b}")
@@ -13,7 +14,7 @@ def add(a: int, b: int) -> str:
     print(f"Result: {result}")
     return str(result)
 
-@mcp.tool()
+@server.add_tool
 def subtract(a: int, b: int) -> str:
     """Subtract second number from first number"""
     print(f"Subtracting {b} from {a}")
@@ -21,7 +22,7 @@ def subtract(a: int, b: int) -> str:
     print(f"Result: {result}")
     return str(result)
 
-@mcp.tool()
+@server.add_tool
 def multiply(a: int, b: int) -> str:
     """Multiply two numbers"""
     print(f"Multiplying {a} * {b}")
@@ -32,17 +33,16 @@ def multiply(a: int, b: int) -> str:
 if __name__ == "__main__":
     print("Starting Calculator MCP Server...")
     
-    # MCP server endpoint (will be available at this path)
+    # Configure HTTP server with streamable-http transport
     mcp_path = "/mcp"
+    host = "0.0.0.0"    # Used for info display only
+    port = 8000         # Used for info display only
     
-    print(f"Server will run at http://0.0.0.0:8000")
-    print("Registered tools: add, subtract, multiply")
-    print(f"MCP endpoint URL to use in client: http://localhost:8000{mcp_path}")
-    print("NOTE: Client must use arg_a and arg_b parameter names")
-    
-    # Use the FastMCP built-in run method for HTTP
-    # With the correct transport type for HTTP
-    mcp.run(
-        transport="streamable-http",  # Standard HTTP streaming transport
-        mount_path=mcp_path           # Server endpoint path
+    # Run the server with HTTP transport
+    # Note: FastMCP internally handles host/port configuration
+    server.run(
+        transport="streamable-http",
+        mount_path=mcp_path,
+        host=host,
+        port=port
     )

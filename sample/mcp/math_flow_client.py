@@ -1,15 +1,13 @@
 # math_flow_client.py
 import os
 import asyncio
-import json
-import re
-import subprocess
 import sys
 from intelli.flow.agents.agent import Agent
 from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.tasks.task import Task
 from intelli.flow.flow import Flow
 from intelli.flow.types import AgentTypes
+from intelli.flow.utils import create_mcp_preprocessor
 from dotenv import load_dotenv
 
 # Load environment variables for API keys
@@ -54,84 +52,32 @@ async def run_math_flow(query="What is 7 plus 8?"):
         log=True
     )
     
-    # More robust extraction function
-    def extract_operation(input_data):
-        try:
-            print(f"Raw LLM output: {input_data}")
+    # Create a preprocessor for the subprocess-based MCP server with complete operation mapping
+    extract_operation = create_mcp_preprocessor(
+        server_path=server_path,
+        default_tool="add",
+        operations_map={
+            # Addition operations
+            "add": "add",
+            "plus": "add",
+            "sum": "add",
+            "+": "add",
             
-            # Clean the input to find JSON
-            cleaned_input = input_data.strip()
+            # Subtraction operations
+            "subtract": "subtract",
+            "minus": "subtract",
+            "difference": "subtract",
+            "-": "subtract",
             
-            # Try direct JSON parsing first
-            try:
-                data = json.loads(cleaned_input)
-                print("Parsed JSON directly")
-            except json.JSONDecodeError:
-                # Try to extract JSON using regex
-                json_match = re.search(r'\{.*\}', cleaned_input, re.DOTALL)
-                if json_match:
-                    json_str = json_match.group(0).replace("'", '"')
-                    data = json.loads(json_str)
-                    print("Extracted JSON with regex")
-                else:
-                    print("No JSON found, parsing natural language")
-                    # Last resort: parse natural language
-                    words = cleaned_input.lower().split()
-                    
-                    # Extract numbers
-                    numbers = [int(word) for word in words if word.isdigit()]
-                    
-                    # Determine operation
-                    if any(op in words for op in ["add", "plus", "sum"]):
-                        operation = "add"
-                    elif any(op in words for op in ["subtract", "minus", "difference"]):
-                        operation = "subtract"
-                    elif any(op in words for op in ["multiply", "times", "product"]):
-                        operation = "multiply"
-                    else:
-                        operation = "add"  # Default
-                    
-                    # Create data structure
-                    if len(numbers) >= 2:
-                        data = {"operation": operation, "a": numbers[0], "b": numbers[1]}
-                    else:
-                        print("Could not extract numbers, using defaults")
-                        return {"update_model_params": {
-                            "command": sys.executable,
-                            "args": [server_path],
-                            "tool": "add",
-                            "arg_a": 0,
-                            "arg_b": 0
-                        }}
-            
-            # Map operation name to tool
-            op_map = {"add": "add", "plus": "add", "subtract": "subtract", "multiply": "multiply"}
-            operation = data.get("operation", "").lower()
-            tool = op_map.get(operation, "add")
-            
-            a = int(data.get("a", 0))
-            b = int(data.get("b", 0))
-            
-            print(f"Extracted operation: {tool}, a: {a}, b: {b}")
-            
-            return {
-                "update_model_params": {
-                    "command": sys.executable,
-                    "args": [server_path],
-                    "tool": tool,
-                    "arg_a": a,
-                    "arg_b": b
-                }
-            }
-        except Exception as e:
-            print(f"Error parsing LLM output: {e}")
-            return {"update_model_params": {
-                "command": sys.executable,
-                "args": [server_path],
-                "tool": "add",
-                "arg_a": 0,
-                "arg_b": 0
-            }}
+            # Multiplication operations
+            "multiply": "multiply",
+            "times": "multiply",
+            "product": "multiply",
+            "*": "multiply",
+            "x": "multiply"
+        },
+        param_names=["a", "b"]
+    )
     
     # Create proper MCP agent using subprocess approach
     mcp_agent = Agent(
