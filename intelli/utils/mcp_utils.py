@@ -1,8 +1,8 @@
 """
-MCP Utilities for Intelli Flow
+MCP Utilities for Intelli
 
 This module provides utilities for working with MCP (Model Context Protocol),
-making it easier to create MCP servers and integrate them with Intelli Flow.
+making it easier to create MCP servers and integrate them with Intelli.
 """
 import os
 import sys

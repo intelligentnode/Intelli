@@ -6,7 +6,7 @@ This package provides helper utilities for working with Intelli Flows.
 
 # Import utility modules and expose main components
 try:
-    from intelli.flow.utils.mcp_utils import (
+    from intelli.utils.mcp_utils import (
         MCPServerBuilder,
         MCPJSONExtractor,
         create_mcp_preprocessor
