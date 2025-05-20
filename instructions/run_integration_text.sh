@@ -63,3 +63,4 @@ python -m unittest intelli.test.integration.test_flow_with_dbmemory
 
 # mcp
 python -m unittest intelli.test.integration.test_mcp_openai_flow
+python -m unittest intelli.test.integration.

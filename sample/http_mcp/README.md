@@ -7,8 +7,7 @@
 ## Requirements
 - Python 3.10+
 - OpenAI API key (set as OPENAI_API_KEY environment variable)
-- Packages: `mcp`, `intelli`, `httpx`, `openai`
-
+- Packages: `mcp`, `intelli`, `httpx`
 ## Quick Start
 
 1. **Start the server**
