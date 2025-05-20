@@ -60,7 +60,7 @@ python -m unittest intelli.test.integration.test_keras_agent
 python -m unittest intelli.test.integration.test_flow_memory
 python -m unittest intelli.test.integration.test_flow_with_dbmemory
 
-
 # mcp
 python -m unittest intelli.test.integration.test_mcp_openai_flow
-python -m unittest intelli.test.integration.
+python -m unittest intelli.test.integration.test_mcp_dataframe_flow
+
