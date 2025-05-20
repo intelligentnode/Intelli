@@ -7,16 +7,12 @@ Supports Pandas or Polars, depending on what's installed.
 import os
 import sys
 
-# Add project root to path
-current_script_dir = os.path.dirname(os.path.abspath(__file__))
-project_root_dir = os.path.dirname(os.path.dirname(current_script_dir))
-sys.path.insert(0, project_root_dir)
-
-from utils.dataframe_mcp_utils import PandasMCPServerBuilder, PolarsMCPServerBuilder, PANDAS_AVAILABLE, POLARS_AVAILABLE
+from intelli.utils.dataframe_mcp_utils import PandasMCPServerBuilder, PolarsMCPServerBuilder, PANDAS_AVAILABLE, POLARS_AVAILABLE
 
 if __name__ == "__main__":
     # Get path to sample CSV
     csv_file_name = "sample_data.csv"
+    current_script_dir = os.path.dirname(os.path.abspath(__file__))
     csv_file_path = os.path.join(current_script_dir, csv_file_name)
 
     if not os.path.exists(csv_file_path):

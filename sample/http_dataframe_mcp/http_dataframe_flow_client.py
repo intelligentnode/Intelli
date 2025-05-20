@@ -5,22 +5,13 @@ Demonstrates using Intelli Flow to query a DataFrame server via HTTP.
 Query operations include schema, shape, head, column selection and filtering.
 
 Run steps:
-1. Start server: python sample/http_dataframe/http_mcp_dataframe_server.py
+1. Start server: python http_mcp_dataframe_server.py
 2. Check server is running at http://localhost:8000/mcp
-3. Run client: python sample/http_dataframe/http_dataframe_flow_client.py
+3. Run client: python http_dataframe_flow_client.py
 """
 import os
-import sys
 import asyncio
 import json
-from typing import Dict, Any
-
-# Add project root to sys.path for imports
-_current_script_path = os.path.abspath(__file__)
-_intelli_dir_parent = os.path.dirname(os.path.dirname(os.path.dirname(_current_script_path)))
-_project_root = os.path.dirname(_intelli_dir_parent)
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
 
 from intelli.flow.agents.agent import Agent
 from intelli.flow.input.task_input import TextTaskInput
@@ -35,7 +26,7 @@ load_dotenv()
 
 # Server connection settings
 MCP_DATAFRAME_SERVER_URL = "http://localhost:8000/mcp"
-OUTPUT_DIR = os.path.join(os.path.dirname(_current_script_path), "temp", "mcp_dataframe_client")
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp", "mcp_dataframe_client")
 
 # Generate and save flow visualization
 def save_flow_graph(flow: Flow, name: str = "http_dataframe_flow"):
