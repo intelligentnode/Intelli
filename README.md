@@ -23,7 +23,7 @@ A framework for creating chatbots and AI agent workflows. It enables seamless in
 pip install intelli
 
 # With MCP support
-pip install intelli[mcp]
+pip install "intelli[mcp]"
 ```
 
 For detailed usage instructions, refer to the [documentation](https://doc.intellinode.ai/docs/python).
