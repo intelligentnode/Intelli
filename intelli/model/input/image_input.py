@@ -81,10 +81,16 @@ class ImageModelInput:
         if self.quality:
             config_params["quality"] = self.quality
             
-        return {
+        inputs = {
             "prompt": self.prompt,
             "config_params": config_params
         }
+        
+        # Include model override if specified
+        if self.model:
+            inputs["model"] = self.model
+            
+        return inputs
 
     def set_default_values(self, provider):
         if provider == "openai":

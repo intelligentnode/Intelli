@@ -148,9 +148,9 @@ class GeminiAIWrapper:
         """
         return self.image_to_text(prompt, image_data, extension)
 
-    def generate_image(self, prompt, config_params=None):
+    def generate_image(self, prompt, config_params=None, model_override=None):
         """Generate images using Gemini 2.0 Flash Image Generation"""
-        model = self.models['image_generation']
+        model = model_override or self.models['image_generation']
         url = f"{self.API_BASE_URL}/{model}{self.endpoints['generateContent']}"
         
         default_config = {
