@@ -33,7 +33,13 @@ class RemoteImageModel:
             raise ValueError("image_input must be an instance of ImageModelInput or a dictionary.")
 
         if self.provider_name == "gemini":
-            results = self.provider.generate_image(inputs.get("prompt", ""), inputs.get("config_params"))
+            # Extract model override if provided
+            model_override = inputs.get("model")
+            results = self.provider.generate_image(
+                inputs.get("prompt", ""), 
+                inputs.get("config_params"),
+                model_override=model_override
+            )
             # Extract image data from Gemini response
             images = []
             if 'candidates' in results:
