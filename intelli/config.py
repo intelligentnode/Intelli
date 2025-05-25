@@ -94,7 +94,7 @@ config = {
                 "text": "gemini-2.0-flash", 
                 "vision": "gemini-2.0-flash",
                 "embedding": "text-embedding-004",
-                "image_generation": "gemini-1.5-pro-latest",
+                "image_generation": "gemini-2.0-flash-preview-image-generation",
                 "video_generation": "veo-2.0-generate-001",
                 "tts": "gemini-2.5-flash-preview-tts",
                 "tts_pro": "gemini-2.5-pro-preview-tts",
