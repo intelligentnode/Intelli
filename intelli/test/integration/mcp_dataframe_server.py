@@ -17,7 +17,8 @@ parent_dir = os.path.dirname(os.path.dirname(current_dir))
 intelli_root_path = parent_dir
 sys.path.insert(0, intelli_root_path)
 
-from utils.dataframe_mcp_utils import PandasMCPServerBuilder, PolarsMCPServerBuilder, PANDAS_AVAILABLE, POLARS_AVAILABLE
+# Import from new location with fallback
+from intelli.mcp.dataframe_utils import PandasMCPServerBuilder, PolarsMCPServerBuilder, PANDAS_AVAILABLE, POLARS_AVAILABLE
 
 if __name__ == "__main__":
     # Determine the path to the sample CSV file
