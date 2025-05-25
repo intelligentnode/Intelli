@@ -71,6 +71,21 @@ class ImageModelInput:
         inputs = {key: value for key, value in inputs.items() if value is not None}
         return inputs
 
+    def get_gemini_inputs(self):
+        """Get input parameters for Gemini image generation"""
+        config_params = {
+            "responseModalities": ["TEXT", "IMAGE"]
+        }
+        
+        # Add any additional config parameters if available
+        if self.quality:
+            config_params["quality"] = self.quality
+            
+        return {
+            "prompt": self.prompt,
+            "config_params": config_params
+        }
+
     def set_default_values(self, provider):
         if provider == "openai":
             self.number_images = 1
@@ -81,5 +96,9 @@ class ImageModelInput:
             self.height = 1024
             self.width = 1024
             self.engine = 'stable-diffusion-xl-1024-v1-0'
+        elif provider == "gemini":
+            self.number_images = 1
+            self.imageSize = '1024x1024'
+            # Gemini uses default model from config
         else:
             raise ValueError(f"Invalid provider name: {provider}")
