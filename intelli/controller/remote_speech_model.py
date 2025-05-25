@@ -2,11 +2,13 @@ from intelli.model.input.text_speech_input import Text2SpeechInput
 from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.elevenlabs_wrapper import ElevenLabsWrapper
+from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
 
 SupportedSpeechModels = {
     'GOOGLE': 'google',
     'OPENAI': 'openai',
     'ELEVENLABS': 'elevenlabs',
+    'GEMINI': 'gemini',
 }
 
 
@@ -32,6 +34,8 @@ class RemoteSpeechModel:
             self.openai_wrapper = OpenAIWrapper(key_value)
         elif key_type == SupportedSpeechModels['ELEVENLABS']:
             self.elevenlabs_wrapper = ElevenLabsWrapper(key_value)
+        elif key_type == SupportedSpeechModels['GEMINI']:
+            self.gemini_wrapper = GeminiAIWrapper(key_value)
         else:
             raise ValueError('Invalid provider name')
 
@@ -60,6 +64,18 @@ class RemoteSpeechModel:
                 model_id=params.get('model_id'),
                 output_format=params.get('output_format', 'mp3_44100_128')
             )
+            return response
+
+        elif self.key_type == SupportedSpeechModels['GEMINI']:
+            params = input_params.get_gemini_input()
+            response = self.gemini_wrapper.generate_speech(params['text'], params.get('voice_config'))
+            # Extract audio data from Gemini response
+            if 'candidates' in response:
+                for candidate in response['candidates']:
+                    if 'content' in candidate and 'parts' in candidate['content']:
+                        for part in candidate['content']['parts']:
+                            if 'inline_data' in part and part['inline_data'].get('mime_type', '').startswith('audio/'):
+                                return part['inline_data']['data']
             return response
         else:
             raise ValueError('The keyType is not supported')

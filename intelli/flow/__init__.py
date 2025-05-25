@@ -30,7 +30,7 @@ from intelli.flow.store.memory import Memory
 from intelli.flow.store.dbmemory import DBMemory
 
 try:
-    from intelli.utils.mcp_utils import (
+    from intelli.mcp import (
         MCPServerBuilder,
         MCPJSONExtractor,
         create_mcp_preprocessor

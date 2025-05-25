@@ -7,7 +7,7 @@ Supports Pandas or Polars, depending on what's installed.
 import os
 import sys
 
-from intelli.utils.dataframe_mcp_utils import PandasMCPServerBuilder, PolarsMCPServerBuilder, PANDAS_AVAILABLE, POLARS_AVAILABLE
+from intelli.mcp import PandasMCPServerBuilder, PolarsMCPServerBuilder, PANDAS_AVAILABLE, POLARS_AVAILABLE
 
 if __name__ == "__main__":
     # Get path to sample CSV

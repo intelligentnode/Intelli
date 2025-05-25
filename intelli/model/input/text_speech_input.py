@@ -70,3 +70,24 @@ class Text2SpeechInput:
             params["output_format"] = self.output_format
 
         return params
+
+    def get_gemini_input(self):
+        """Get input parameters for Gemini text-to-speech"""
+        voice_config = {
+            "prebuilt_voice_config": {
+                "voice_name": "Kore"  # Default voice
+            }
+        }
+        
+        # Map gender to voice if needed
+        if self.gender == "MALE":
+            voice_config["prebuilt_voice_config"]["voice_name"] = "Puck"
+        
+        # Use custom voice if specified
+        if self.voice:
+            voice_config["prebuilt_voice_config"]["voice_name"] = self.voice
+            
+        return {
+            "text": self.text,
+            "voice_config": voice_config
+        }

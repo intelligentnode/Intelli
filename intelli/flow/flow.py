@@ -4,6 +4,7 @@ import os
 from functools import partial
 import traceback
 from intelli.flow.types import AgentTypes, InputTypes, Matcher
+from intelli.flow.utils.flow_helper import FlowHelper
 from intelli.utils.logging import Logger
 
 try:
@@ -33,6 +34,9 @@ class Flow:
         memory=None,
         memory_map=None,
         output_memory_map=None,
+        auto_save_outputs=False,
+        output_dir="./outputs",
+        output_file_map=None,
     ):
         """Initialize the Flow with tasks, dependencies, and optional memory."""
         self.tasks = tasks
@@ -43,6 +47,12 @@ class Flow:
         self.logger = Logger(log)
         self.errors = {}
         self.sleep_time = sleep_time
+
+        # Auto-save configuration
+        self.auto_save_outputs = auto_save_outputs
+        self.output_dir = output_dir
+        self.output_file_map = output_file_map or {}
+        self.saved_files = {}  # Track saved files
 
         # Initialize memory if provided
         if memory is not None:
@@ -169,6 +179,10 @@ class Flow:
                 self.memory.store(memory_key, output_to_store)
                 self.logger.log(
                     f"Memory storage confirmed - key '{memory_key}' exists: {self.memory.has_key(memory_key)}")
+
+            # Auto-save outputs if enabled
+            if self.auto_save_outputs and task.output is not None:
+                self._auto_save_task_output(task_name, task.output, task.output_type)
 
         # Store output for use by subsequent tasks
         self.output[task_name] = {"output": task.output, "type": task.output_type}
@@ -622,3 +636,102 @@ class Flow:
         plt.close()
 
         return full_path
+
+    def _auto_save_task_output(self, task_name, output, output_type):
+        """
+        Automatically save task output to file if it's an image or audio type.
+        
+        Args:
+            task_name (str): Name of the task
+            output: The output data to save
+            output_type (str): Type of output (image, audio, text)
+        """
+        try:
+            # Ensure output directory exists
+            FlowHelper.ensure_directory(self.output_dir)
+            
+            # Determine file path
+            if task_name in self.output_file_map:
+                # Use custom file path if specified
+                file_path = self.output_file_map[task_name]
+                # Make it relative to output_dir if it's not an absolute path
+                if not os.path.isabs(file_path):
+                    file_path = os.path.join(self.output_dir, file_path)
+            else:
+                # Generate default file path based on output type
+                if output_type == InputTypes.IMAGE.value:
+                    file_path = os.path.join(self.output_dir, f"{task_name}_output.png")
+                elif output_type == InputTypes.AUDIO.value:
+                    file_path = os.path.join(self.output_dir, f"{task_name}_output.mp3")
+                elif output_type == InputTypes.TEXT.value:
+                    file_path = os.path.join(self.output_dir, f"{task_name}_output.txt")
+                else:
+                    # Skip saving for unknown types
+                    self.logger.log(f"Skipping auto-save for unknown output type: {output_type}")
+                    return
+            
+            # Save the output based on type
+            saved_path = None
+            file_size = 0
+            
+            if output_type == InputTypes.IMAGE.value:
+                saved_path, file_size = FlowHelper.save_image_output(output, file_path)
+                if saved_path:
+                    self.logger.log(f"🖼️ Auto-saved image from task '{task_name}' to {saved_path}, size: {file_size} bytes")
+                    
+            elif output_type == InputTypes.AUDIO.value:
+                saved_path, file_size = FlowHelper.save_audio_output(output, file_path)
+                if saved_path:
+                    self.logger.log(f"🔊 Auto-saved audio from task '{task_name}' to {saved_path}, size: {file_size} bytes")
+                    
+            elif output_type == InputTypes.TEXT.value:
+                saved_path = FlowHelper.save_text_output(output, file_path)
+                if saved_path:
+                    self.logger.log(f"📄 Auto-saved text from task '{task_name}' to {saved_path}")
+            
+            # Track saved files
+            if saved_path:
+                self.saved_files[task_name] = {
+                    "path": saved_path,
+                    "type": output_type,
+                    "size": file_size if output_type in [InputTypes.IMAGE.value, InputTypes.AUDIO.value] else len(str(output))
+                }
+                
+        except Exception as e:
+            self.logger.log(f"Error auto-saving output for task '{task_name}': {e}")
+            import traceback
+            self.logger.log(traceback.format_exc())
+
+    def get_saved_files(self):
+        """
+        Get information about files that were automatically saved during flow execution.
+        
+        Returns:
+            dict: Dictionary mapping task names to their saved file information
+        """
+        return self.saved_files.copy()
+
+    def get_flow_summary(self):
+        """
+        Get a comprehensive summary of the flow execution including outputs and saved files.
+        
+        Returns:
+            dict: Summary containing outputs, saved files, and errors
+        """
+        # Filter outputs of excluded tasks
+        filtered_output = {
+            task_name: {
+                "output": self.output[task_name]["output"],
+                "type": self.output[task_name]["type"],
+            }
+            for task_name in self.output.keys()
+            if not self.tasks[task_name].exclude and task_name in self.output
+        }
+        
+        return {
+            "outputs": filtered_output,
+            "saved_files": self.saved_files.copy(),
+            "errors": self.errors.copy(),
+            "auto_save_enabled": self.auto_save_outputs,
+            "output_directory": self.output_dir
+        }

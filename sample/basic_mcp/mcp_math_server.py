@@ -1,5 +1,5 @@
 # mcp_math_server.py
-from intelli.flow.utils import MCPServerBuilder
+from intelli.mcp import MCPServerBuilder
 
 # Create a server using the builder
 server = MCPServerBuilder("MathTools")

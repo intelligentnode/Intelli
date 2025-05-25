@@ -29,7 +29,8 @@ from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.tasks.task import Task
 from intelli.flow.flow import Flow
 from intelli.flow.types import AgentTypes
-from utils.dataframe_mcp_utils import PANDAS_AVAILABLE, POLARS_AVAILABLE
+from intelli.mcp.dataframe_utils import PANDAS_AVAILABLE, POLARS_AVAILABLE
+
 
 # Skip tests if neither pandas nor polars is installed
 SKIP_TESTS = not (PANDAS_AVAILABLE or POLARS_AVAILABLE)

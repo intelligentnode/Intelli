@@ -66,6 +66,27 @@ class TestOpenAIWrapper(unittest.TestCase):
         result = self.openai.generate_images(params)
         print('Image Model Result:\n', result['data'][0]['url'], '\n')
         self.assertTrue("data" in result)
+
+    def test_generate_images_gpt_image_1(self):
+        """Test the latest gpt-image-1 model with new parameters"""
+        params = {
+            "prompt": "A cute baby sea otter floating on its back",
+            "model": "gpt-image-1",
+            "n": 1,
+            "size": "1024x1024",
+            "background": "transparent",
+            "quality": "high",
+            "output_format": "png",
+            "output_compression": 90,
+            "moderation": "auto",
+            "user": "test_user_openai_wrapper"
+        }
+        
+        result = self.openai.generate_images(params)
+        print('GPT-Image-1 Model Result:\n', result, '\n')
+        self.assertTrue("data" in result)
+        # gpt-image-1 returns base64 encoded images, not URLs
+        self.assertTrue(len(result['data']) > 0)
     
     def test_get_embeddings(self):
         params = {

@@ -6,7 +6,7 @@ from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.tasks.task import Task
 from intelli.flow.flow import Flow
 from intelli.flow.types import AgentTypes
-from intelli.flow.utils import create_mcp_preprocessor, MCPJSONExtractor
+from intelli.mcp import create_mcp_preprocessor, MCPJSONExtractor
 from dotenv import load_dotenv
 
 # Load environment variables for API keys
