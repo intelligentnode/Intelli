@@ -24,8 +24,22 @@ class FlowHelper:
 
     @staticmethod
     def save_audio_output(audio_data, file_path):
-        """Save audio data to a file, handling different formats"""
+        """Save audio data to a file, handling different formats including OpenAI generators"""
         try:
+            # Handle OpenAI generator/iterator objects (like from streaming TTS)
+            if hasattr(audio_data, '__iter__') and not isinstance(audio_data, (str, bytes)):
+                print("Detected OpenAI audio generator/iterator - processing chunks")
+                with open(file_path, "wb") as f:
+                    total_bytes = 0
+                    for chunk in audio_data:
+                        if len(chunk) > 0:
+                            f.write(chunk)
+                            total_bytes += len(chunk)
+                        else:
+                            break
+                print(f"Saved OpenAI streaming audio: {total_bytes} bytes")
+                return file_path, total_bytes
+            
             # Handle different audio formats
             audio_bytes = None
 
