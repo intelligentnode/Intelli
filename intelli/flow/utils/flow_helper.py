@@ -1,8 +1,6 @@
 import os
 import base64
 import json
-import requests
-from urllib.parse import urlparse
 
 
 class FlowHelper:
@@ -26,22 +24,8 @@ class FlowHelper:
 
     @staticmethod
     def save_audio_output(audio_data, file_path):
-        """Save audio data to a file, handling different formats including OpenAI generators"""
+        """Save audio data to a file, handling different formats"""
         try:
-            # Handle OpenAI generator/iterator objects (like from streaming TTS)
-            if hasattr(audio_data, '__iter__') and not isinstance(audio_data, (str, bytes)):
-                print("Detected OpenAI audio generator/iterator - processing chunks")
-                with open(file_path, "wb") as f:
-                    total_bytes = 0
-                    for chunk in audio_data:
-                        if len(chunk) > 0:
-                            f.write(chunk)
-                            total_bytes += len(chunk)
-                        else:
-                            break
-                print(f"Saved OpenAI streaming audio: {total_bytes} bytes")
-                return file_path, total_bytes
-            
             # Handle different audio formats
             audio_bytes = None
 
@@ -79,81 +63,26 @@ class FlowHelper:
 
     @staticmethod
     def save_image_output(image_data, file_path):
-        """
-        Save image data to a file, handling different formats dynamically:
-        - URLs (from OpenAI default response format)
-        - Base64 strings (from OpenAI b64_json format or Stability AI)
-        - Binary data
-        """
+        """Save image data to a file, handling different formats"""
         try:
-            image_bytes = None
-            
+            # Convert image data to bytes
             if isinstance(image_data, str):
-                # Check if it's a URL
-                if image_data.startswith(('http://', 'https://')):
-                    print(f"Detected image URL: {image_data[:100]}...")
-                    # Download the image from URL
-                    try:
-                        response = requests.get(image_data, timeout=30)
-                        response.raise_for_status()
-                        image_bytes = response.content
-                        print(f"Successfully downloaded image from URL, size: {len(image_bytes)} bytes")
-                    except requests.RequestException as e:
-                        print(f"Error downloading image from URL: {e}")
-                        return None, 0
-                        
-                # Check if it's a data URI (data:image/png;base64,...)
-                elif image_data.startswith('data:image'):
-                    print("Detected data URI image format")
-                    if "," in image_data:
-                        image_base64 = image_data.split(",")[1]
-                    else:
-                        image_base64 = image_data
-                    try:
-                        image_bytes = base64.b64decode(image_base64)
-                        print(f"Decoded data URI image, size: {len(image_bytes)} bytes")
-                    except Exception as e:
-                        print(f"Error decoding data URI image: {e}")
-                        return None, 0
-                        
-                # Assume it's a base64 string
+                # Handle base64 string
+                if "," in image_data:
+                    image_base64 = image_data.split(",")[1]
                 else:
-                    print("Detected base64 image string")
-                    try:
-                        # Handle base64 with or without padding
-                        image_base64 = image_data.strip()
-                        # Add padding if needed
-                        missing_padding = len(image_base64) % 4
-                        if missing_padding:
-                            image_base64 += '=' * (4 - missing_padding)
-                        image_bytes = base64.b64decode(image_base64)
-                        print(f"Decoded base64 image, size: {len(image_bytes)} bytes")
-                    except Exception as e:
-                        print(f"Error decoding base64 image: {e}")
-                        return None, 0
-                        
-            elif isinstance(image_data, bytes):
-                # Already binary data
+                    image_base64 = image_data
+                image_bytes = base64.b64decode(image_base64)
+            else:
+                # Already bytes
                 image_bytes = image_data
-                print(f"Using direct binary image data, size: {len(image_bytes)} bytes")
-            else:
-                print(f"Unsupported image data type: {type(image_data)}")
-                return None, 0
 
-            # Save image to file
-            if image_bytes:
-                with open(file_path, "wb") as f:
-                    f.write(image_bytes)
-                print(f"Successfully saved image to: {file_path}")
-                return file_path, len(image_bytes)
-            else:
-                print("No image bytes to save")
-                return None, 0
-                
+            # Save image
+            with open(file_path, "wb") as f:
+                f.write(image_bytes)
+            return file_path, len(image_bytes)
         except Exception as e:
             print(f"Error saving image output: {e}")
-            import traceback
-            print(traceback.format_exc())
             return None, 0
 
     @staticmethod
