@@ -273,6 +273,85 @@ class SearchAgentHandler(AgentHandler):
         return result
 
 
+class MCPAgentHandler(AgentHandler):
+    """Handler for MCP-based agents"""
+    
+    def execute(self, agent_input, custom_params):
+        try:
+            from intelli.wrappers.mcp_wrapper import MCPWrapper
+        except ImportError as e:
+            return (
+                "Error: MCP agent requires the 'mcp' module. "
+                "Install it using 'pip install intelli[mcp]'. "
+                f"Original error: {e}"
+            )
+        
+        try:
+            # Create server configuration from parameters
+            server_config = self._create_server_config(custom_params)
+            
+            # Create wrapper with server details
+            wrapper = MCPWrapper(server_config)
+            
+            # Get tool name and arguments
+            tool_name, arguments = self._prepare_tool_arguments(agent_input, custom_params)
+            
+            # Debug info
+            print(f"MCP Agent executing tool '{tool_name}' with arguments: {arguments}")
+            
+            # Execute the tool
+            result = wrapper.execute_tool(tool_name, arguments)
+            
+            # Handle result conversion
+            if hasattr(result, "content") and isinstance(result.content, list):
+                text_content = next((item.text for item in result.content if hasattr(item, 'text')), None)
+                if text_content:
+                    return text_content
+            
+            return str(result)
+        except Exception as e:
+            return f"Error executing MCP agent: {str(e)}"
+            
+    def _create_server_config(self, params):
+        """Create server configuration from parameters"""
+        # Check for URL-based configuration
+        if "url" in params:
+            return {"url": params["url"]}
+            
+        # Check for subprocess-based configuration
+        if "command" in params:
+            return {
+                "command": params["command"],
+                "args": params.get("args", []),
+                "env": params.get("env")
+            }
+            
+        raise ValueError("MCPAgent requires either 'url' or 'command' in model_params")
+    
+    def _prepare_tool_arguments(self, agent_input, params):
+        """Extract tool name and prepare arguments dictionary"""
+        # Get tool name
+        tool_name = params.get("tool", "")
+        if not tool_name:
+            raise ValueError("MCPAgent requires 'tool' name in model_params")
+        
+        # Build arguments dictionary
+        arguments = {}
+        
+        # Look for arg_* prefixed parameters first
+        for k, v in params.items():
+            if k.startswith("arg_"):
+                arg_name = k[4:]  # Strip prefix
+                arguments[arg_name] = v
+        
+        # Fall back to input_arg if specified and no arguments found
+        if not arguments and "input_arg" in params:
+            input_arg = params["input_arg"]
+            arguments[input_arg] = agent_input.desc
+        
+        return tool_name, arguments
+
+
 # Factory to get the appropriate handler
 def get_agent_handler(agent_type, provider, mission, model_params, options):
     """Factory function to get the appropriate agent handler"""
@@ -284,6 +363,7 @@ def get_agent_handler(agent_type, provider, mission, model_params, options):
         AgentTypes.RECOGNITION.value: RecognitionAgentHandler,
         AgentTypes.EMBED.value: EmbedAgentHandler,
         AgentTypes.SEARCH.value: SearchAgentHandler,
+        AgentTypes.MCP.value: MCPAgentHandler,
     }
 
     if agent_type not in handlers:

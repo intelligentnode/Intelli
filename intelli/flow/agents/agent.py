@@ -22,6 +22,13 @@ from intelli.model.input.text_recognition_input import SpeechRecognitionInput
 from intelli.model.input.embed_input import EmbedInput
 from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 
+# Optional MCP imports - moved inside try/except
+try:
+    from mcp import ClientSession, StdioServerParameters
+    MCP_AVAILABLE = True
+except ImportError:
+    MCP_AVAILABLE = False
+
 
 class BasicAgent(ABC):
 
@@ -47,10 +54,23 @@ class Agent(BasicAgent):
     def _get_handler(self):
         """Get or create the appropriate handler for this agent type"""
         if self._handler is None:
-            from intelli.flow.agents.handlers import get_agent_handler
-            self._handler = get_agent_handler(
-                self.type, self.provider, self.mission, self.model_params, self.options
-            )
+            try:
+                from intelli.flow.agents.handlers import get_agent_handler
+                self._handler = get_agent_handler(
+                    self.type, self.provider, self.mission, self.model_params, self.options
+                )
+                return self._handler
+            except ImportError as e:
+                # Handle specific MCP import errors gracefully
+                if "mcp" in str(e).lower():
+                    if self.type == AgentTypes.MCP.value:
+                        raise ImportError(
+                            "MCP agent requires the 'mcp' module. Please install it using 'pip install intelli[mcp]'. "
+                            f"Original error: {e}"
+                        )
+                # Re-raise other import errors
+                raise e
+                
         return self._handler
 
     def execute(self, agent_input: AgentInput, new_params={}):
@@ -89,6 +109,8 @@ class Agent(BasicAgent):
             return self._execute_embed_agent(agent_input, custom_params)
         elif self.type == AgentTypes.SEARCH.value:
             return self._execute_search_agent(agent_input, custom_params)
+        elif self.type == AgentTypes.MCP.value:
+            return self._execute_mcp_agent(agent_input, custom_params)
         else:
             raise ValueError(f"Unsupported agent type: {self.type}.")
 
@@ -375,3 +397,61 @@ class Agent(BasicAgent):
         )
 
         return result
+
+    def _execute_mcp_agent(self, agent_input, custom_params):
+        """Execute MCP agent functionality - fallback implementation"""
+        try:
+            # Try to import MCP wrapper - this will likely fail if the module isn't installed
+            from intelli.wrappers.mcp_wrapper import MCPWrapper
+            
+            if "command" not in custom_params:
+                raise ValueError("MCPAgent requires 'command' in model_params")
+            
+            # Build server configuration dictionary for local stdio server
+            server_config = {
+                "command": custom_params["command"],
+                "args": custom_params.get("args", []),
+                "env": custom_params.get("env"),
+            }
+
+            # Create MCP wrapper instance
+            wrapper = MCPWrapper(server_config)
+            
+            # Get tool name and arguments from params
+            tool_name = custom_params.get("tool", "")
+            if not tool_name:
+                raise ValueError("MCPAgent requires 'tool' name in model_params")
+            
+            # Prepare arguments
+            arguments = {}
+            # Extract arguments from custom_params that start with "arg_"
+            for k, v in custom_params.items():
+                if k.startswith("arg_"):
+                    arg_name = k[4:]  # Remove 'arg_' prefix
+                    arguments[arg_name] = v
+            
+            # Add input from agent_input to arguments
+            input_arg = custom_params.get("input_arg", "message")
+            arguments[input_arg] = agent_input.desc
+            
+            # Call the tool
+            result = wrapper.execute_tool(tool_name, arguments)
+            
+            # Convert result to string if needed
+            if hasattr(result, "content") and isinstance(result.content, list):
+                # Handle text content from MCP
+                text_content = next((item.text for item in result.content if hasattr(item, 'text')), None)
+                if text_content:
+                    return text_content
+            
+            return str(result)
+            
+        except ImportError as e:
+            # If the mcp module is not available, provide a helpful error message with details
+            return (
+                "Error: MCP agent requires the 'mcp' module. Install it using 'pip install intelli[mcp]'. "
+                f"Original error: {e}"
+            )
+        except Exception as e:
+            # Handle other exceptions that might occur
+            return f"Error executing MCP agent: {str(e)}"

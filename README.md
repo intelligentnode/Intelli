@@ -1,5 +1,5 @@
 <p align="center">
-<img src="assets/flow_logo-round.png" width="180em">
+<img src="assets/intelli_concept.png" width="180em">
 </p>
 
 <p align="center">
@@ -15,11 +15,15 @@
 </p>
 
 # Intelli
-A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer.
+A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer. Intelli also supports Model Context Protocol (MCP) for standardized interaction with AI models.
 
 # Install
 ```bash
+# Basic installation
 pip install intelli
+
+# With MCP support
+pip install "intelli[mcp]"
 ```
 
 For detailed usage instructions, refer to the [documentation](https://doc.intellinode.ai/docs/python).
@@ -91,22 +95,6 @@ final_result = flow.start()
 
 To build async flows with multiple paths, refer to the [flow tutorial](https://doc.intellinode.ai/docs/python/flows/async-flow).
 
-
-## Connect Your Docs With Chatbot 
-IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
-
-```python
-# creating chatbot with the intellinode one key
-bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
-
-input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
-input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
-# optional to returne the searched file name
-input.attach_reference = True
-
-response = bot.chat(input)
-```
-
 ## Generate Images
 Use the image controller to generate arts from multiple models with minimum code change:
 ```python
@@ -126,11 +114,29 @@ wrapper = RemoteImageModel(your_api_key, provider)
 results = wrapper.generate_images(image_input)
 ```
 
-## Keras Agent
-Load gemma or mistral models offline using keras agent, [check the docs](https://docs.intellinode.ai/docs/python/flows/kagent).
-
-## GGUF Models
+## GGUF Optimized Models
 Llama CPP provides an efficient way to run language models locally with support for models in the new **GGUF** format,  [check the docs](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).  
+
+## MCP Calculator Demo
+Check out the [MCP Calculator Demo](sample/http_mcp) for sample how to create an MCP server with math operations and a client that uses flow to interpret natural language queries.
+
+## MCP DataFrame Demo
+Check out the [MCP DataFrame Demo](sample/http_dataframe_mcp) for an example of how to serve dataframes as MCP servers and utilize them within Intelli flows, enabling integration with AI models.
+
+## Connect Your Docs With Chatbot 
+IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
+
+```python
+# creating chatbot with the intellinode one key
+bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
+
+input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
+input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
+# optional to returne the searched file name
+input.attach_reference = True
+
+response = bot.chat(input)
+```
 
 # Repository Setup
 1. Install the requirements.

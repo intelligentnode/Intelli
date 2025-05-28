@@ -87,15 +87,27 @@ config = {
         },
         "gemini": {
             "base": "https://generativelanguage.googleapis.com/v1beta/models",
+            "upload_base": "https://generativelanguage.googleapis.com/upload/v1beta/files",
+            "files_base": "https://generativelanguage.googleapis.com/v1beta/files",
+            "vertex_base": "https://us-central1-aiplatform.googleapis.com/v1/projects",
             "models": {
-                "text": "gemini-1.5-pro",  # "gemini-2.0-flash"
-                "vision": "gemini-1.5-pro",
-                "embedding": "gemini-embedding-exp-03-07" # or "text-embedding-004"
+                "text": "gemini-2.0-flash", 
+                "vision": "gemini-2.0-flash",
+                "embedding": "text-embedding-004",
+                "image_generation": "gemini-2.0-flash-preview-image-generation",
+                "video_generation": "veo-2.0-generate-001",
+                "tts": "gemini-2.5-flash-preview-tts",
+                "tts_pro": "gemini-2.5-pro-preview-tts",
+                "legacy_text": "gemini-1.5-pro",
+                "legacy_vision": "gemini-1.5-pro"
             },
             "endpoints": {
                 "generateContent": ":generateContent",
                 "embedContent": ":embedContent",
-                "batchEmbedContents": ":batchEmbedContents"
+                "batchEmbedContents": ":batchEmbedContents",
+                "predictLongRunning": ":predictLongRunning",
+                "upload": "",
+                "files": ""
             }
         },
         "anthropic": {
