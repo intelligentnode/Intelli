@@ -10,26 +10,20 @@
 
 </p>
 
-A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer. Intelli also supports Model Context Protocol (MCP) for standardized interaction with AI models.
+A framework for creating chatbots and AI agent workflows. It enables seamless integration with multiple AI models, including OpenAI, LLaMA, deepseek, Stable Diffusion, and Mistral, through a unified access layer.
 
-## Features
-
-- Unified API for multiple AI providers.
-- Async flow-based agent orchestration.
-- Multi-modal support (text, images, speech).
-- Model Context Protocol (MCP) integration for standardized model interactions.
 
 ```bash
-pip install intelli[mcp]
+pip install intelli
 ```
 
 # Latest changes
-- Support MCP capabilities [doc](https://docs.intellinode.ai/docs/python/mcp/get-started).
 - Improved multi-model collaboration [doc](https://docs.intellinode.ai/docs/python/use-cases/travel-assistant).
-- Support llama.cpp & GGUF models for fast inference [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).
-- Add deepseek and Llama3 integration.
+- Support llama.cpp & GGUF models for fast inference.
+- Add deepseek and Llama3 integration [doc](https://docs.intellinode.ai/docs/python/chatbot/nvidia-chat).
 - Add offline speech2text Whisper [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/whisper).
-- Add Anthropic claude 3.7.
+- Add Anthropic claude 3.7 as a chatbot provider.
+- Add KerasAgent to load open source models offline.
 
 For detailed instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
 
