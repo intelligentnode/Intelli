@@ -88,7 +88,7 @@ class TestChatbot(unittest.TestCase):
 
     def test_anthropic_stream(self):
         print('---- start anthropic stream ----')
-        input = ChatModelInput("You are a helpful assistant.", "claude-3-sonnet-20240229")
+        input = ChatModelInput("You are a helpful assistant.", "claude-3-7-sonnet-20250219")
         input.add_user_message("Give me a detailed explanation of quantum computing.")
 
         # use asyncio.run() to get the result of the coroutine

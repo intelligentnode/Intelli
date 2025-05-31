@@ -70,7 +70,7 @@ class TestFlows(unittest.TestCase):
             agent_type=AgentTypes.VISION.value,
             provider="openai",
             mission="describe flow charts from images",
-            model_params={"key": self.openai_api_key, "extension": "jpg", "model": "gpt-4-vision-preview"},
+            model_params={"key": self.openai_api_key, "extension": "jpg", "model": "gpt-4o"},
         )
         
         coder = Agent(

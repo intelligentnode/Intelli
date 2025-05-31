@@ -8,7 +8,8 @@ class ChatMessage:
 class ChatModelInput:
     def __init__(self, system, model=None, temperature=1,
                  max_tokens=None, numberOfOutputs=1, attach_reference=False,
-                 filter_options={}, **options):
+                 filter_options={}, tools=None, functions=None, function_call=None,
+                 **options):
         self.system = system
         self.model = model
         self.temperature = temperature
@@ -20,7 +21,11 @@ class ChatModelInput:
         # augemented search parameters
         self.attach_reference = attach_reference
         self.doc_name = filter_options.get('doc_name', None)
-        self.search_k = filter_options.get('search_k', 3) 
+        self.search_k = filter_options.get('search_k', 3)
+        # tool/function parameters
+        self.tools = tools
+        self.functions = functions
+        self.function_call = function_call
 
     def add_user_message(self, prompt):
         self.messages.append(ChatMessage(prompt, 'user'))
@@ -50,6 +55,15 @@ class ChatModelInput:
             **({'max_tokens': self.max_tokens} if self.max_tokens is not None else {}),
             **self.options
         }
+        
+        # Add tools/functions if provided
+        if self.tools:
+            params['tools'] = self.tools
+        if self.functions:
+            params['functions'] = self.functions
+        if self.function_call is not None:
+            params['function_call'] = self.function_call
+        
         return params
 
     def get_mistral_input(self):
@@ -101,6 +115,10 @@ class ChatModelInput:
             **({'temperature': self.temperature} if self.temperature is not None else {}),
             **self.options,
         }
+        
+        # Add tools if provided for Anthropic
+        if self.tools:
+            params['tools'] = self.tools
 
         return params
 

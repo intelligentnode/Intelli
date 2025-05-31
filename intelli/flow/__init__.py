@@ -21,6 +21,10 @@ from intelli.flow.sequence_flow import SequenceFlow
 from intelli.flow.tasks.task import Task
 from intelli.flow.flow import Flow
 
+# Dynamic routing
+from intelli.flow.dynamic_connector import DynamicConnector, ConnectorMode
+from intelli.flow.tool_connector import ToolDynamicConnector
+
 # Types
 from intelli.flow.types import AgentTypes, InputTypes
 
