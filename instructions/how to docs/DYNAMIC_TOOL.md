@@ -173,8 +173,6 @@ For these tools to work, you'll need the MCP math server file:
 
 **Download**: [mcp_math_server.py](https://github.com/intelligentnode/Intelli/blob/main/intelli/test/integration/mcp_math_server.py)
 
-**Learn More**: For MCP documentation, see [Get Started with MCP](https://docs.intellinode.ai/docs/python/mcp/get-started)
-
 #### 2. Create Agents
 
 Create agents for LLM decisions, MCP math processing, and direct responses.
@@ -299,143 +297,114 @@ Subtraction result: {'math_processor': {'output': '63', 'type': 'text'}}
 Direct result: {'direct_response': {'output': 'Machine learning is...', 'type': 'text'}}
 ```
 
-## Advanced Multi-Tool Routing
-
-For more complex scenarios, you can create specialized routing based on which specific tool was called:
-
-```python
-def math_tool_router(output, output_type):
-    """Route based on specific math tool called"""
-    if isinstance(output, dict) and output.get("type") == "tool_response":
-        tool_calls = output.get("tool_calls", [])
-        if tool_calls:
-            tool_name = tool_calls[0]["function"]["name"]
-            if tool_name in ["add", "subtract"]:
-                return "basic_math"
-            elif tool_name == "multiply":
-                return "multiplication"
-    return "direct_response"
-
-# Custom routing connector
-custom_connector = ToolDynamicConnector(
-    decision_fn=math_tool_router,
-    destinations={
-        "basic_math": "simple_calculator",
-        "multiplication": "advanced_calculator", 
-        "direct_response": "text_responder",
-        "tool_called": "simple_calculator",  # Required fallback
-        "no_tool": "text_responder"          # Required fallback
-    }
-)
-```
-
-## Multi-Tool Configuration
-
-Configure multiple tools for LLM selection:
-
-```python
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "web_search",
-            "description": "Search web for current information",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query"}
-                },
-                "required": ["query"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "database_query",
-            "description": "Query internal database",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "table": {"type": "string", "description": "Database table"},
-                    "filter": {"type": "string", "description": "Query filter"}
-                },
-                "required": ["table"]
-            }
-        }
-    }
-]
-```
-
 ## Anthropic Integration
 
-Anthropic tools use different schema format:
+Anthropic (Claude) models use a different tool schema format than OpenAI:
 
 ```python
+# Anthropic tool schema
 anthropic_tools = [
     {
         "name": "analyze_data",
-        "description": "Analyze CSV data files",
+        "description": "Analyze CSV data files and generate insights",
         "input_schema": {
             "type": "object",
             "properties": {
-                "file_path": {"type": "string", "description": "Path to CSV file"},
-                "analysis_type": {"type": "string", "description": "Type of analysis"}
+                "file_path": {
+                    "type": "string", 
+                    "description": "Path to the CSV file to analyze"
+                }
             },
             "required": ["file_path"]
         }
     }
 ]
 
-anthropic_agent = Agent(
+# Claude agent with tool support
+claude_agent = Agent(
     agent_type="text",
     provider="anthropic",
-    mission="Data analysis assistant with CSV processing capabilities",
+    mission="Data analysis assistant. Use analyze_data tool for CSV files.",
     model_params={
         "key": "your-anthropic-api-key",
-        "model": "claude-3-sonnet-20240229",
+        "model": "claude-3-7-sonnet-20250219",
         "tools": anthropic_tools
     }
 )
 ```
 
-## Custom Decision Functions
+The key difference is that Anthropic uses `input_schema` instead of `parameters`, and doesn't wrap tools in a `function` object.
 
-Implement custom routing logic beyond tool detection:
+## Advanced Features
+
+### Custom Decision Functions
+
+Create custom routing logic beyond simple tool detection:
 
 ```python
 def custom_routing_logic(output, output_type):
-    """Custom decision function for specialized routing"""
+    """Simple custom decision function"""
+    
     # Check for tool responses
     if isinstance(output, dict):
         if output.get("type") in ["tool_response", "function_response"]:
-            return "execute_tool"
+            return "tool_processor"
     
-    # Keyword-based routing
-    if isinstance(output, str):
-        if any(keyword in output.lower() for keyword in ["search", "query", "analyze"]):
-            return "needs_processing"
-        else:
-            return "direct_answer"
+    # Check for errors in text
+    if isinstance(output, str) and "error" in output.lower():
+        return "error_handler"
     
-    return "direct_answer"
+    return "direct_response"
 
-# Apply custom logic
-custom_connector = ToolDynamicConnector(
+# Simple custom connector
+advanced_connector = ToolDynamicConnector(
     decision_fn=custom_routing_logic,
     destinations={
-        "execute_tool": "tool_processor",
-        "needs_processing": "data_processor",
-        "direct_answer": "response_formatter",
-        "tool_called": "tool_processor",  # Required
-        "no_tool": "response_formatter"   # Required
+        "tool_processor": "process_task",
+        "error_handler": "error_task",
+        "direct_response": "response_task",
+        # Required fallbacks
+        "tool_called": "process_task",
+        "no_tool": "response_task"
     }
 )
 ```
 
-## Tool Information Extraction
+### Dynamic to Static Chaining
 
-Extract tool metadata from LLM responses:
+Combine dynamic routing with static processing chains:
+
+```python
+# Flow with mixed routing
+flow = Flow(
+    tasks={
+        "decision": decision_task,
+        "tool_execution": tool_task,      # Dynamic destination
+        "direct_response": direct_task,   # Dynamic destination  
+        "formatter": formatter_task,      # Static destination
+        "validator": validator_task       # Static destination
+    },
+    map_paths={
+        # Static routing: both dynamic destinations → formatter → validator
+        "tool_execution": ["formatter"],
+        "direct_response": ["formatter"], 
+        "formatter": ["validator"]
+    },
+    dynamic_connectors={
+        # Dynamic routing from decision task
+        "decision": tool_connector
+    }
+)
+```
+
+This creates a flow where:
+1. LLM makes dynamic routing decision
+2. Either tool or direct path executes  
+3. Both paths converge to static formatting and validation
+
+### Tool Information Extraction
+
+Extract tool details from LLM responses:
 
 ```python
 connector = ToolDynamicConnector(
@@ -445,151 +414,9 @@ connector = ToolDynamicConnector(
 # Extract tool details
 tool_info = connector.get_tool_info(llm_output)
 if tool_info:
-    print(f"Tool: {tool_info['name']}")           # e.g., "add"
-    print(f"Arguments: {tool_info['arguments']}")  # e.g., {"a": 15, "b": 23}
+    print(f"Tool: {tool_info['name']}")
+    print(f"Arguments: {tool_info['arguments']}")
     print(f"Call ID: {tool_info['id']}")
 ```
 
-## MCP Server Integration
-
-Route to MCP servers based on tool decisions:
-
-```python
-# MCP agent configuration - for remote HTTP MCP servers
-mcp_agent = Agent(
-    agent_type="mcp",
-    provider="mcp",
-    mission="Process data through MCP server",
-    model_params={
-        "url": "http://localhost:8000/mcp",  # HTTP MCP server
-        "tool": "process_data",
-        "input_arg": "data_path"
-    }
-)
-
-# Route to MCP only when tools are called
-tool_connector = ToolDynamicConnector(
-    destinations={
-        "tool_called": "mcp_processor",
-        "no_tool": "simple_response"
-    }
-)
-```
-
-## Implementation Guidelines
-
-### Tool Schema Design
-
-Define clear, specific tool descriptions:
-
-```python
-{
-    "name": "calculate_tax",
-    "description": "Calculate tax amount for given income and rate. Use only for tax calculations.",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "income": {
-                "type": "number",
-                "description": "Annual income in USD"
-            },
-            "tax_rate": {
-                "type": "number",
-                "description": "Tax rate as decimal (0.25 = 25%)"
-            }
-        },
-        "required": ["income", "tax_rate"]
-    }
-}
-```
-
-### Error Handling
-
-Ensure both routing paths are defined:
-
-```python
-ToolDynamicConnector(
-    destinations={
-        "tool_called": "tool_processor",
-        "no_tool": "fallback_responder"  # Always provide fallback
-    }
-)
-```
-
-### Task Chaining
-
-Chain tool results through processing tasks:
-
-```python
-flow = Flow(
-    tasks={
-        "llm_decision": decision_task,
-        "tool_execution": tool_task,
-        "result_formatter": format_task,
-        "direct_response": response_task
-    },
-    map_paths={
-        "tool_execution": ["result_formatter"]  # Chain tool output to formatter
-        # Tasks without static routing don't need to be listed
-    },
-    dynamic_connectors={
-        "llm_decision": tool_connector
-    }
-)
-```
-
-## Troubleshooting
-
-### Tool Call Issues
-- Verify tool schema matches provider requirements (OpenAI vs Anthropic)
-- Check model supports function calling (GPT-4, Claude-3+)
-- Test with explicit tool invocation requests
-
-### Routing Problems
-- Confirm `ToolDynamicConnector` has required `"tool_called"` and `"no_tool"` keys
-- Verify destination task names match flow task IDs
-- Check decision function return values match destination keys
-
-### MCP Integration Issues
-- Validate MCP server accessibility and tool availability
-- Test MCP agent configuration independently
-- Verify tool parameter mapping between LLM and MCP
-
-## Response Format Detection
-
-The connector detects these LLM response formats:
-
-### OpenAI Tool Response
-```python
-{
-    "type": "tool_response",
-    "tool_calls": [{
-        "id": "call_123",
-        "type": "function",
-        "function": {
-            "name": "add",
-            "arguments": '{"a": 15, "b": 23}'
-        }
-    }]
-}
-```
-
-### Anthropic Tool Response
-```python
-{
-    "type": "tool_response",
-    "tool_calls": [{
-        "id": "call_456",
-        "type": "function",
-        "function": {
-            "name": "multiply",
-            "arguments": '{"a": 7, "b": 8}'
-        }
-    }]
-}
-```
-
-### Direct Text Response
-```python
-"Machine learning is a method of data analysis..."
-``` 
+**Learn More**: For MCP documentation: [Get Started with MCP](https://docs.intellinode.ai/docs/python/mcp/get-started).

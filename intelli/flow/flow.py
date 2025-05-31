@@ -38,7 +38,94 @@ class Flow:
         output_dir="./outputs",
         output_file_map=None,
     ):
-        """Initialize the Flow with tasks, dependencies, and optional memory."""
+        """
+        Initialize the Flow with tasks, dependencies, and optional memory.
+        
+        Args:
+            tasks (dict): Dictionary mapping task names to Task objects.
+                Example: {"task1": task_obj, "task2": task_obj}
+                
+            map_paths (dict): Static routing dependencies between tasks.
+                Dictionary mapping parent task names to lists of child task names.
+                Example: {"task1": ["task2", "task3"], "task2": ["task4"]}
+                Use empty dict {} if only using dynamic routing.
+                
+            dynamic_connectors (dict, optional): Dynamic routing rules based on runtime decisions.
+                Dictionary mapping task names to DynamicConnector objects.
+                Example: {"llm_task": ToolDynamicConnector(destinations={"tool_called": "mcp_task", "no_tool": "direct_task"})}
+                Enables conditional routing based on task output analysis.
+                
+            log (bool, optional): Enable logging for flow execution. Defaults to False.
+                When True, logs task execution progress, routing decisions, and debug information.
+                
+            sleep_time (float, optional): Delay in seconds before executing each task. Defaults to None.
+                Useful for rate limiting or debugging. Applied to all tasks uniformly.
+                Example: sleep_time=0.5 for 500ms delay between task executions.
+                
+            memory (Memory, optional): Memory instance for data persistence across tasks. Defaults to None.
+                If None, creates a new Memory() instance. Can use DBMemory for database-backed storage.
+                Tasks can read from memory using memory_key parameter.
+                
+            memory_map (dict, optional): Reserved for future use. Currently unused. Defaults to None.
+                Placeholder for advanced memory mapping features.
+                
+            output_memory_map (dict, optional): Mapping of task names to memory keys for storing outputs.
+                Dictionary mapping task names to memory keys where their outputs should be stored.
+                Example: {"analysis_task": "analysis_result", "summary_task": "final_summary"}
+                Enables persistent storage of task outputs for later retrieval.
+                
+            auto_save_outputs (bool, optional): Automatically save task outputs to files. Defaults to False.
+                When True, saves image/audio outputs as files and text outputs as .txt files.
+                File saving occurs after each task completion.
+                
+            output_dir (str, optional): Directory path for auto-saved files. Defaults to "./outputs".
+                Directory will be created if it doesn't exist.
+                Used only when auto_save_outputs=True.
+                
+            output_file_map (dict, optional): Custom file names for auto-saved outputs. Defaults to None.
+                Dictionary mapping task names to custom file names.
+                Example: {"image_task": "generated_art.png", "text_task": "summary.txt"}
+                If not specified, uses default naming: "{task_name}_output.{ext}"
+                
+        Raises:
+            ValueError: If the dependency graph has cycles or if dynamic connector destinations are invalid.
+            
+        Examples:
+            Basic flow with static routing:
+            ```python
+            flow = Flow(
+                tasks={"task1": task1_obj, "task2": task2_obj},
+                map_paths={"task1": ["task2"]}
+            )
+            ```
+            
+            Flow with dynamic tool routing:
+            ```python
+            flow = Flow(
+                tasks={"llm": llm_task, "mcp": mcp_task, "direct": direct_task},
+                map_paths={},
+                dynamic_connectors={
+                    "llm": ToolDynamicConnector(
+                        destinations={"tool_called": "mcp", "no_tool": "direct"}
+                    )
+                }
+            )
+            ```
+            
+            Flow with memory and auto-save:
+            ```python
+            flow = Flow(
+                tasks={"analyze": analyze_task, "summarize": summary_task},
+                map_paths={"analyze": ["summarize"]},
+                memory=db_memory,
+                output_memory_map={"analyze": "analysis_result", "summarize": "final_summary"},
+                auto_save_outputs=True,
+                output_dir="./results",
+                output_file_map={"summarize": "report.txt"},
+                log=True
+            )
+            ```
+        """
         self.tasks = tasks
         self.map_paths = map_paths
         self.dynamic_connectors = dynamic_connectors or {}
