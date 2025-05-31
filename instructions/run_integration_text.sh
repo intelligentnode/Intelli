@@ -64,3 +64,10 @@ python -m unittest intelli.test.integration.test_flow_with_dbmemory
 python -m unittest intelli.test.integration.test_mcp_openai_flow
 python -m unittest intelli.test.integration.test_mcp_dataframe_flow
 
+
+# mcp tools routing
+python -m unittest intelli.test.integration.test_flow_mcp_tools
+python -m unittest intelli.test.integration.test_chatbot_tools
+python -m unittest intelli.test.integration.test_flow_tool_routing
+
+

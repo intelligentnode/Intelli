@@ -155,7 +155,12 @@ class Chatbot:
         return [response]
 
     def _chat_openai(self, params):
-        results = self.wrapper.generate_chat_text(params)
+        # Extract functions and function_call if present
+        functions = params.pop('functions', None)
+        function_call = params.pop('function_call', None)
+        
+        # Pass functions and function_call separately to wrapper
+        results = self.wrapper.generate_chat_text(params, functions=functions, function_call=function_call)
         return self._parse_openai_responses(results)
 
     def _chat_mistral(self, params):
@@ -174,7 +179,30 @@ class Chatbot:
 
     def _chat_anthropic(self, params):
         response = self.wrapper.generate_text(params)
-
+        
+        # Check if this is a tool use response
+        if 'stop_reason' in response and response['stop_reason'] == 'tool_use':
+            # Return tool use information in a standardized format
+            tool_uses = []
+            for content in response.get('content', []):
+                if content.get('type') == 'tool_use':
+                    tool_uses.append({
+                        'type': 'tool_response',
+                        'tool_calls': [{
+                            'id': content.get('id'),
+                            'type': 'function',
+                            'function': {
+                                'name': content.get('name'),
+                                'arguments': json.dumps(content.get('input', {}))
+                            }
+                        }]
+                    })
+            
+            # If we have tool uses, return the first one (can be extended for multiple)
+            if tool_uses:
+                return [tool_uses[0]]
+        
+        # Normal text response
         return [message["text"] for message in response["content"]]
 
     def _chat_nvidia(self, params):
@@ -294,12 +322,28 @@ class Chatbot:
     def _parse_openai_responses(self, results):
         responses = []
         for choice in results.get("choices", []):
-            response = choice.get("message", {}).get("content", "")
-            if choice.get(
-                "finish_reason"
-            ) == "function_call" and "function_call" in choice.get("message", {}):
-                response["function_call"] = choice["message"]["function_call"]
-            responses.append(response)
+            # Check for tool/function calls
+            message = choice.get("message", {})
+            
+            # Handle function calls (legacy format)
+            if choice.get("finish_reason") == "function_call" and "function_call" in message:
+                response = {
+                    "type": "function_response",
+                    "function_call": message["function_call"]
+                }
+                responses.append(response)
+            # Handle tool calls (new format)
+            elif message.get("tool_calls"):
+                response = {
+                    "type": "tool_response",
+                    "tool_calls": message["tool_calls"]
+                }
+                responses.append(response)
+            else:
+                # Regular text response
+                response = message.get("content", "")
+                responses.append(response)
+                
         return responses
 
     def _augment_with_semantic_search(self, chat_input):
