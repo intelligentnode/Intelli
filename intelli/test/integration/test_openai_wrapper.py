@@ -120,7 +120,7 @@ class TestOpenAIWrapper(unittest.TestCase):
             image_data = base64.b64encode(image_file.read()).decode('utf-8')
 
         params = {
-            "model": "gpt-4-vision-preview",
+            "model": "gpt-4o",
             "messages": [
                 {
                     "role": "user",
