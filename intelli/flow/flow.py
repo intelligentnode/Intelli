@@ -97,32 +97,18 @@ class Flow:
                 tasks={"task1": task1_obj, "task2": task2_obj},
                 map_paths={"task1": ["task2"]}
             )
+            result = await flow.start()
             ```
             
-            Flow with dynamic tool routing:
-            ```python
-            flow = Flow(
-                tasks={"llm": llm_task, "mcp": mcp_task, "direct": direct_task},
-                map_paths={},
-                dynamic_connectors={
-                    "llm": ToolDynamicConnector(
-                        destinations={"tool_called": "mcp", "no_tool": "direct"}
-                    )
-                }
-            )
-            ```
-            
-            Flow with memory and auto-save:
+            Flow with dynamic initial input:
             ```python
             flow = Flow(
                 tasks={"analyze": analyze_task, "summarize": summary_task},
-                map_paths={"analyze": ["summarize"]},
-                memory=db_memory,
-                output_memory_map={"analyze": "analysis_result", "summarize": "final_summary"},
-                auto_save_outputs=True,
-                output_dir="./results",
-                output_file_map={"summarize": "report.txt"},
-                log=True
+                map_paths={"analyze": ["summarize"]}
+            )
+            result = await flow.start(
+                initial_input="Analyze this user feedback: Great product but slow delivery",
+                initial_input_type="text"
             )
             ```
         """
@@ -315,7 +301,11 @@ class Flow:
             tuple: (merged_input, merged_type) to use for task execution
         """
         if not predecessor_data:
-            # No predecessor data, use task's own input
+            # Check if this is an initial task and we have initial input
+            if hasattr(self, 'initial_input') and self.initial_input is not None:
+                self.logger.log(f"Using provided initial input for task {task.agent.type}")
+                return self.initial_input, self.initial_input_type
+            # No predecessor data and no initial input, use task's own input
             return None, None
 
         # Determine the input type
@@ -407,18 +397,24 @@ class Flow:
         )
         return last_output, last_type
 
-    async def start(self, max_workers=10):
+    async def start(self, max_workers=10, initial_input=None, initial_input_type=None):
         """
         Start the flow execution with optimized concurrency and dynamic routing.
 
         Args:
             max_workers (int): Maximum number of concurrent tasks
+            initial_input: Optional input to pass to the first task(s) in the flow
+            initial_input_type: Optional input type for the initial input (e.g., 'text', 'image', 'audio')
 
         Returns:
             dict: Filtered outputs of non-excluded tasks
         """
         self.errors = {}
         self.output = {}
+        
+        # Store initial input for first tasks
+        self.initial_input = initial_input
+        self.initial_input_type = initial_input_type or InputTypes.TEXT.value
 
         # Identify initial tasks (no predecessors)
         initial_tasks = [
