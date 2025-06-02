@@ -5,11 +5,11 @@ This package provides utilities for working with MCP (Model Context Protocol),
 making it easier to create MCP servers and integrate them with Intelli.
 """
 
-from mcp.utils import MCPServerBuilder, MCPJSONExtractor, create_mcp_preprocessor
+from .utils import MCPServerBuilder, MCPJSONExtractor, create_mcp_preprocessor
 
 # Import DataFrame utilities with graceful fallback
 try:
-    from mcp.dataframe_utils import (
+    from .dataframe_utils import (
         BaseDataFrameMCPServerBuilder,
         PandasMCPServerBuilder, 
         PolarsMCPServerBuilder,
