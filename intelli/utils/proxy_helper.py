@@ -29,6 +29,7 @@ class ProxyHelper:
         self.openai_url = config['azure_openai']['base'].replace('{resource-name}', resource_name)
         self.openai_completion = config['azure_openai']['completions']
         self.openai_chat_gpt = config['azure_openai']['chatgpt']
+        self.openai_responses = config['azure_openai']['responses']
         self.openai_image = config['azure_openai']['imagegenerate']
         self.openai_embed = config['azure_openai']['embeddings']
         self.openai_audio_transcriptions = config['azure_openai']['audiotranscriptions']
@@ -100,6 +101,15 @@ class ProxyHelper:
         else:
             return self.openai_finetuning_job
 
+    def get_openai_responses_url(self, model=''):
+        """
+        Method to get the OpenAI responses URL (for GPT-5 and newer models)
+        """
+        if self.openai_type == 'azure':
+            return self.openai_responses.replace('{deployment-id}', model).replace('{api-version}', ProxyHelper.API_VERSION)
+        else:
+            return self.openai_responses
+
     def set_openai_proxy_values(self, proxy_settings):
 
         self.openai_type = 'custom'
@@ -111,6 +121,7 @@ class ProxyHelper:
             'base': proxy_settings.get('base', proxy_settings.get('url', self.openai_url)),
             'completions': proxy_settings.get('completions', self.openai_completion),
             'chatgpt': proxy_settings.get('chatgpt', self.openai_chat_gpt),
+            'responses': proxy_settings.get('responses', self.openai_responses),
             'imagegenerate': proxy_settings.get('imagegenerate', self.openai_image),
             'embeddings': proxy_settings.get('embeddings', self.openai_embed),
             'audiotranscriptions': proxy_settings.get('audiotranscriptions', self.openai_audio_transcriptions),
@@ -127,6 +138,7 @@ class ProxyHelper:
         self.openai_url = config['base']
         self.openai_completion = config['completions']
         self.openai_chat_gpt = config['chatgpt']
+        self.openai_responses = config.get('responses', '/v1/responses')
         self.openai_image = config['imagegenerate']
         self.openai_embed = config['embeddings']
         self.openai_audio_transcriptions = config['audiotranscriptions']

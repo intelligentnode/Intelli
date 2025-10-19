@@ -5,7 +5,7 @@ Tools for creating MCP servers that expose DataFrame operations.
 Supports both Pandas and Polars DataFrames.
 """
 import sys
-from typing import List, Any, Dict, Optional, Union
+from typing import List, Any, Dict, Optional, Union, TYPE_CHECKING
 
 # Optional imports
 PANDAS_AVAILABLE = False
@@ -13,6 +13,7 @@ try:
     import pandas as pd
     PANDAS_AVAILABLE = True
 except ImportError:
+    pd = None
     pass
 
 POLARS_AVAILABLE = False
@@ -20,7 +21,13 @@ try:
     import polars as pl
     POLARS_AVAILABLE = True
 except ImportError:
+    pl = None
     pass
+
+# Type checking imports
+if TYPE_CHECKING:
+    import pandas as pd
+    import polars as pl
 
 # MCP import
 try:
@@ -177,7 +184,7 @@ class PandasMCPServerBuilder(BaseDataFrameMCPServerBuilder):
             print(f"Error loading Pandas DataFrame: {e}")
             self.df = None
 
-    def _df_to_json(self, df_subset: pd.DataFrame) -> str:
+    def _df_to_json(self, df_subset: "pd.DataFrame") -> str:
         return df_subset.to_json(orient="records", indent=2)
 
     def _get_df_schema(self) -> Dict[str, str]:
@@ -270,7 +277,7 @@ class PolarsMCPServerBuilder(BaseDataFrameMCPServerBuilder):
             print(f"Error loading Polars DataFrame: {e}")
             self.df = None
 
-    def _df_to_json(self, df_subset: pl.DataFrame) -> str:
+    def _df_to_json(self, df_subset: "pl.DataFrame") -> str:
         import json
         return json.dumps(df_subset.to_dicts(), indent=2)
 

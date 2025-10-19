@@ -166,6 +166,27 @@ class OpenAIWrapper:
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
 
+    def generate_gpt5_response(self, params):
+        """
+        Generate responses using GPT-5 API (uses /v1/responses endpoint).
+        
+        Args:
+            params: Dictionary with parameters like 'model', 'input', 'reasoning', etc.
+            
+        Returns:
+            JSON response from OpenAI GPT-5
+        """
+        url = self.proxy_helper.get_openai_responses_url(params.get('model', ''))
+        
+        try:
+            response = self.session.post(url, json=params)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as error:
+            raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            self.session.close()
+
 
 class BaseURLSession(requests.Session):
     def __init__(self, base_url=None, *args, **kwargs):

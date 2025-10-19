@@ -48,8 +48,11 @@ def call_chatbot(provider, model=None, api_key=None, options=None):
 
     return response
 
-# call chatGPT
-call_chatbot(ChatProvider.OPENAI, "gpt-4")
+# call chatGPT (GPT-5 is default)
+call_chatbot(ChatProvider.OPENAI) 
+
+# call GPT-4 explicitly
+call_chatbot(ChatProvider.OPENAI, "gpt-4o")
 
 # call claude3
 call_chatbot(ChatProvider.ANTHROPIC, "claude-3-7-sonnet-20250219")
@@ -130,7 +133,7 @@ IntelliPy allows you to chat with your docs using multiple LLMs. To connect your
 # creating chatbot with the intellinode one key
 bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
 
-input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
+input = ChatModelInput("You are a helpful assistant.")  # uses GPT-5 by default
 input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
 # optional to returne the searched file name
 input.attach_reference = True
