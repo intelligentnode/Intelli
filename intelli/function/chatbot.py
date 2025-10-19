@@ -107,6 +107,10 @@ class Chatbot:
         if self.extended_search:
             references = self._augment_with_semantic_search(chat_input)
 
+        # Set default model to gpt-5 for OpenAI provider if not specified
+        if self.provider == ChatProvider.OPENAI.value and not chat_input.model:
+            chat_input.model = 'gpt-5'
+
         get_input_method = f"get_{self.provider}_input"
         chat_method = getattr(self, f"_chat_{self.provider}", None)
         if not chat_method:
@@ -156,10 +160,6 @@ class Chatbot:
         return [response]
 
     def _chat_openai(self, params):
-        # Set default model to gpt-5 if not specified
-        if not params.get('model'):
-            params['model'] = 'gpt-5'
-        
         # Check if this is a reasoning model (GPT-5+)
         model_name = params.get('model', '')
         is_gpt5_plus = is_reasoning_model(model_name)
@@ -239,6 +239,10 @@ class Chatbot:
         if self.extended_search:
             _ = self._augment_with_semantic_search(chat_input)
 
+        # Set default model to gpt-5 for OpenAI provider if not specified
+        if self.provider == ChatProvider.OPENAI.value and not chat_input.model:
+            chat_input.model = 'gpt-5'
+
         params = getattr(chat_input, f"get_{self.provider}_input")()
 
         for content in streaming_method(params):
@@ -255,10 +259,6 @@ class Chatbot:
         Private helper method to stream text from OpenAI and parse each content chunk.
         Note: GPT-5+ models may not support streaming in the same way as previous models.
         """
-        # Set default model to gpt-5 if not specified
-        if not params.get('model'):
-            params['model'] = 'gpt-5'
-        
         # Check if this is a reasoning model (GPT-5+)
         model_name = params.get('model', '')
         is_gpt5_plus = is_reasoning_model(model_name)

@@ -1,6 +1,6 @@
 # Core dependencies
 python-dotenv~=1.0.1
-numpy<2.0
+numpy>=1.26.0,<2.2.0
 mcp~=1.9.0
 matplotlib>=3.6.0
 networkx>=3.2.1

@@ -82,9 +82,16 @@ class ChatModelInput:
         reasoning_effort = self.reasoning_effort or 'minimal'
         params['reasoning'] = {'effort': reasoning_effort}
         
-        # Add verbosity if specified (GPT-5 uses text.verbosity)
+        # Add verbosity if specified (GPT-5 uses text.verbosity as string: 'low', 'medium', 'high')
         if self.verbosity:
-            params['text'] = {'verbosity': self.verbosity}
+            # Convert numeric verbosity to string if needed
+            if isinstance(self.verbosity, int):
+                # Map integers to verbosity levels
+                verbosity_map = {1: 'low', 2: 'medium', 3: 'high'}
+                verbosity_str = verbosity_map.get(self.verbosity, 'medium')
+            else:
+                verbosity_str = self.verbosity
+            params['text'] = {'verbosity': verbosity_str}
         
         # GPT-5+ doesn't accept temperature or max_tokens
         # Add any additional options that are compatible
