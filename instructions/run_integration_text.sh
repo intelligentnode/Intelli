@@ -70,4 +70,7 @@ python -m unittest intelli.test.integration.test_flow_mcp_tools
 python -m unittest intelli.test.integration.test_chatbot_tools
 python -m unittest intelli.test.integration.test_flow_tool_routing
 
+# GPT5
+python -m unittest intelli.test.integration.test_chatbot_gpt5 
+
 

@@ -24,6 +24,7 @@ pip install intelli[mcp]
 ```
 
 # Latest changes
+- GPT-5 is now the default model for OpenAI chatbots with reasoning capabilities.
 - Support MCP capabilities [doc](https://docs.intellinode.ai/docs/python/mcp/get-started).
 - Improved multi-model collaboration [doc](https://docs.intellinode.ai/docs/python/use-cases/travel-assistant).
 - Support llama.cpp & GGUF models for fast inference [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).
@@ -53,7 +54,10 @@ def call_chatbot(provider, model=None, api_key=None, options=None):
 
     return response
 
-# call chatGPT
+# call chatGPT (GPT-5 is default when model not specified)
+call_chatbot(ChatProvider.OPENAI)  # uses GPT-5 by default
+
+# call GPT-4 explicitly
 call_chatbot(ChatProvider.OPENAI, "gpt-4o")
 
 # call claude3
@@ -76,7 +80,7 @@ Chat with your docs using multiple LLMs. To connect your data, visit the [Intell
 # creating chatbot with the intellinode one key
 bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
 
-input = ChatModelInput("You are a helpful assistant.", "gpt-4o")
+input = ChatModelInput("You are a helpful assistant.")  # uses GPT-5 by default
 input.add_user_message("What is the procedure for requesting a refund according to the user manual?")
 
 response = bot.chat(input)

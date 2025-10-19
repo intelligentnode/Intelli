@@ -1,3 +1,6 @@
+from intelli.utils.model_helper import is_reasoning_model
+
+
 class ChatMessage:
     def __init__(self, content, role, name=None):
         self.content = content
@@ -9,6 +12,7 @@ class ChatModelInput:
     def __init__(self, system, model=None, temperature=1,
                  max_tokens=None, numberOfOutputs=1, attach_reference=False,
                  filter_options={}, tools=None, functions=None, function_call=None,
+                 reasoning_effort=None, verbosity=None,
                  **options):
         self.system = system
         self.model = model
@@ -26,6 +30,9 @@ class ChatModelInput:
         self.tools = tools
         self.functions = functions
         self.function_call = function_call
+        # GPT-5+ parameters
+        self.reasoning_effort = reasoning_effort
+        self.verbosity = verbosity
 
     def add_user_message(self, prompt):
         self.messages.append(ChatMessage(prompt, 'user'))
@@ -46,7 +53,53 @@ class ChatModelInput:
                 return True
         return False
 
+    def is_reasoning_model(self):
+        """Check if the current model is a reasoning model (GPT-5+)"""
+        return is_reasoning_model(self.model)
+
+    def get_openai_gpt5_input(self):
+        """
+        Format input specifically for GPT-5+ API (uses /v1/responses endpoint).
+        
+        GPT-5+ uses 'input' instead of 'messages' and has different parameters.
+        """
+        # Combine all messages into a single input string
+        input_text = ""
+        for msg in self.messages:
+            if msg.role == 'system':
+                input_text += f"{msg.content}\n\n"
+            elif msg.role == 'user':
+                input_text += f"{msg.content}\n"
+            elif msg.role == 'assistant':
+                input_text += f"{msg.content}\n"
+        
+        params = {
+            'model': self.model,
+            'input': input_text.strip(),
+        }
+        
+        # Add reasoning configuration if specified (default to minimal for GPT-5)
+        reasoning_effort = self.reasoning_effort or 'minimal'
+        params['reasoning'] = {'effort': reasoning_effort}
+        
+        # Add verbosity if specified (GPT-5 uses text.verbosity)
+        if self.verbosity:
+            params['text'] = {'verbosity': self.verbosity}
+        
+        # GPT-5+ doesn't accept temperature or max_tokens
+        # Add any additional options that are compatible
+        for key, value in self.options.items():
+            if key not in ['temperature', 'max_tokens']:
+                params[key] = value
+        
+        return params
+
     def get_openai_input(self):
+        # Check if this is a reasoning model (GPT-5+)
+        if self.is_reasoning_model():
+            return self.get_openai_gpt5_input()
+        
+        # Standard OpenAI format for other models
         messages = [{'role': msg.role, 'content': msg.content} for msg in self.messages]
         params = {
             'model': self.model,

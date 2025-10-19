@@ -2,6 +2,7 @@ import json
 
 from intelli.model.input.chatbot_input import ChatModelInput
 from intelli.utils.system_helper import SystemHelper
+from intelli.utils.model_helper import is_reasoning_model
 from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
 from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
@@ -155,13 +156,26 @@ class Chatbot:
         return [response]
 
     def _chat_openai(self, params):
-        # Extract functions and function_call if present
-        functions = params.pop('functions', None)
-        function_call = params.pop('function_call', None)
+        # Set default model to gpt-5 if not specified
+        if not params.get('model'):
+            params['model'] = 'gpt-5'
         
-        # Pass functions and function_call separately to wrapper
-        results = self.wrapper.generate_chat_text(params, functions=functions, function_call=function_call)
-        return self._parse_openai_responses(results)
+        # Check if this is a reasoning model (GPT-5+)
+        model_name = params.get('model', '')
+        is_gpt5_plus = is_reasoning_model(model_name)
+        
+        if is_gpt5_plus:
+            # GPT-5+ uses different endpoint and response format
+            results = self.wrapper.generate_gpt5_response(params)
+            return self._parse_gpt5_responses(results)
+        else:
+            # Extract functions and function_call if present
+            functions = params.pop('functions', None)
+            function_call = params.pop('function_call', None)
+            
+            # Pass functions and function_call separately to wrapper
+            results = self.wrapper.generate_chat_text(params, functions=functions, function_call=function_call)
+            return self._parse_openai_responses(results)
 
     def _chat_mistral(self, params):
         response = self.wrapper.generate_text(params)
@@ -239,7 +253,22 @@ class Chatbot:
     def _stream_openai(self, params):
         """
         Private helper method to stream text from OpenAI and parse each content chunk.
+        Note: GPT-5+ models may not support streaming in the same way as previous models.
         """
+        # Set default model to gpt-5 if not specified
+        if not params.get('model'):
+            params['model'] = 'gpt-5'
+        
+        # Check if this is a reasoning model (GPT-5+)
+        model_name = params.get('model', '')
+        is_gpt5_plus = is_reasoning_model(model_name)
+        
+        if is_gpt5_plus:
+            # GPT-5+ streaming is not yet supported
+            raise NotImplementedError(
+                "GPT-5+ streaming is not yet supported. Please use the chat() method instead."
+            )
+        
         params["stream"] = True
         for response in self.wrapper.generate_chat_text(params):
             if (
@@ -319,6 +348,48 @@ class Chatbot:
                     yield chunk
 
     # helpers
+    def _parse_gpt5_responses(self, results):
+        """
+        Parse GPT-5+ API responses.
+        
+        GPT-5+ response format: 
+        {
+            "output": [
+                {"type": "reasoning", "reasoning": {...}},
+                {"type": "message", "content": [...]}
+            ]
+        }
+        """
+        responses = []
+        
+        if 'output' in results and isinstance(results['output'], list):
+            # Extract text from message content
+            for item in results['output']:
+                if item.get('type') == 'message' and 'content' in item:
+                    content = item['content']
+                    if isinstance(content, list):
+                        # Content is an array of parts
+                        text_parts = []
+                        for part in content:
+                            if isinstance(part, dict):
+                                text_parts.append(part.get('text', str(part)))
+                            else:
+                                text_parts.append(str(part))
+                        responses.append(''.join(text_parts))
+                    elif isinstance(content, str):
+                        responses.append(content)
+                    else:
+                        responses.append(str(content))
+        
+        # Fallback to choices format if available
+        elif 'choices' in results and len(results['choices']) > 0:
+            for choice in results['choices']:
+                output = choice.get('output') or choice.get('text') or choice.get('message', {}).get('content')
+                if output:
+                    responses.append(output)
+        
+        return responses if responses else ['']
+
     def _parse_openai_responses(self, results):
         responses = []
         for choice in results.get("choices", []):
