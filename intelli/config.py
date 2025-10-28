@@ -134,6 +134,10 @@ config = {
                 "stt": "scribe_v1",
                 "sts": "eleven_multilingual_sts_v2"
             }
+        },
+        "speechmatics": {
+            "base": "https://asr.api.speechmatics.com/v2",
+            "realtime": "wss://eu2.rt.speechmatics.com/v2"
         }
     },
     "models": {

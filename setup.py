@@ -28,6 +28,7 @@ setup(
         "llamacpp": ["llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"],
         "mcp": ["mcp[ws,cli]~=1.9.0", "pandas"],
         "dataframe": ["pandas", "polars>=0.19.0"],
+        "speech": ["speechmatics-batch", "speechmatics-rt", "websockets", "librosa", "soundfile", "numpy"],
         "all": [
             "matplotlib>=3.6.0",
             "numpy>=1.26.0,<2.2.0",

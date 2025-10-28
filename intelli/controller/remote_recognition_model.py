@@ -1,6 +1,7 @@
 from intelli.model.input.text_recognition_input import SpeechRecognitionInput
 from intelli.wrappers.keras_wrapper import KerasWrapper
 from intelli.wrappers.elevenlabs_wrapper import ElevenLabsWrapper
+from intelli.wrappers.speechmatics_wrapper import SpeechmaticsWrapper
 import requests
 import os
 
@@ -8,13 +9,14 @@ SupportedRecognitionModels = {
     'OPENAI': 'openai',
     'KERAS': 'keras',
     'ELEVENLABS': 'elevenlabs',
+    'SPEECHMATICS': 'speechmatics',
 }
 
 
 class RemoteRecognitionModel:
     """
     Remote model for speech recognition using OpenAI's API,
-    Keras offline models with Whisper, or Eleven Labs.
+    Keras offline models with Whisper, Eleven Labs, or Speechmatics.
     """
 
     def __init__(self, key_value=None, provider=None, model_name=None, model_params=None):
@@ -46,6 +48,10 @@ class RemoteRecognitionModel:
             if not key_value:
                 raise ValueError("API key is required for Eleven Labs")
             self.elevenlabs_wrapper = ElevenLabsWrapper(key_value)
+        elif key_type == SupportedRecognitionModels['SPEECHMATICS']:
+            if not key_value:
+                raise ValueError("API key is required for Speechmatics")
+            self.speechmatics_wrapper = SpeechmaticsWrapper(key_value)
         else:
             raise ValueError('Invalid provider name')
 
@@ -168,6 +174,31 @@ class RemoteRecognitionModel:
 
             # Return just the transcribed text
             return result.get('text', '')
+
+        elif self.key_type == SupportedRecognitionModels['SPEECHMATICS']:
+            params = input_params.get_speechmatics_input()
+            
+            # Get output format from environment or use default
+            # Options: "text", "speakers", "segments"
+            output_format = os.getenv('SPEECHMATICS_OUTPUT_FORMAT', 'speakers')
+
+            # Determine the input type (file_path or audio_data)
+            if 'file_path' in params and params['file_path']:
+                result = self.speechmatics_wrapper.speech_to_text(
+                    audio_file=params['file_path'],
+                    language=params.get('language'),
+                    output_format=output_format
+                )
+            elif 'audio_data' in params and params['audio_data']:
+                result = self.speechmatics_wrapper.speech_to_text(
+                    audio_file=params['audio_data'],
+                    language=params.get('language'),
+                    output_format=output_format
+                )
+            else:
+                raise ValueError("Either file_path or audio_data must be provided")
+
+            return result
 
         else:
             raise ValueError('The keyType is not supported')
