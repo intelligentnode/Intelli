@@ -24,7 +24,8 @@ pip install intelli[mcp]
 ```
 
 # Latest changes
-- GPT-5 is now the default model for OpenAI chatbots with reasoning capabilities.
+- GPT-5 is the default model for OpenAI chatbots.
+- Add speechmatics support.
 - Support MCP capabilities [doc](https://docs.intellinode.ai/docs/python/mcp/get-started).
 - Improved multi-model collaboration [doc](https://docs.intellinode.ai/docs/python/use-cases/travel-assistant).
 - Support llama.cpp & GGUF models for fast inference [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).
