@@ -42,6 +42,12 @@ setup(
             "mcp[ws,cli]~=1.9.0",
             "pandas",
             "polars",
+            "speechmatics-batch",
+            "speechmatics-rt",
+            "websockets",
+            "librosa",
+            "soundfile",
+            "numpy"
         ],
         "dev": ["pytest>=7.0.0"],
     },
