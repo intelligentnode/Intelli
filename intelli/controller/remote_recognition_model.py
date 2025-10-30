@@ -1,9 +1,14 @@
 from intelli.model.input.text_recognition_input import SpeechRecognitionInput
 from intelli.wrappers.keras_wrapper import KerasWrapper
 from intelli.wrappers.elevenlabs_wrapper import ElevenLabsWrapper
-from intelli.wrappers.speechmatics_wrapper import SpeechmaticsWrapper
 import requests
 import os
+
+# Optional speechmatics support
+try:
+    from intelli.wrappers.speechmatics_wrapper import SpeechmaticsWrapper
+except ImportError:
+    SpeechmaticsWrapper = None
 
 SupportedRecognitionModels = {
     'OPENAI': 'openai',
@@ -51,6 +56,11 @@ class RemoteRecognitionModel:
         elif key_type == SupportedRecognitionModels['SPEECHMATICS']:
             if not key_value:
                 raise ValueError("API key is required for Speechmatics")
+            if SpeechmaticsWrapper is None:
+                raise ImportError(
+                    "Speechmatics is not installed. "
+                    "Install with: pip install intelli[speech]"
+                )
             self.speechmatics_wrapper = SpeechmaticsWrapper(key_value)
         else:
             raise ValueError('Invalid provider name')

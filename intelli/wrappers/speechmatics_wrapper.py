@@ -2,14 +2,32 @@ import os
 import asyncio
 import tempfile
 import logging
-import aiohttp
 import json
-import websockets
 from typing import Dict, Any, Optional, Union, AsyncGenerator
-from speechmatics.batch import AsyncClient, FormatType, JobConfig, JobType, TranscriptionConfig, OperatingPoint
 from datetime import timedelta
 
 from intelli.config import config
+
+# Try to import optional dependencies
+try:
+    import aiohttp
+except ImportError:
+    aiohttp = None
+
+try:
+    import websockets
+except ImportError:
+    websockets = None
+
+try:
+    from speechmatics.batch import AsyncClient, FormatType, JobConfig, JobType, TranscriptionConfig, OperatingPoint
+except ImportError:
+    AsyncClient = None
+    FormatType = None
+    JobConfig = None
+    JobType = None
+    TranscriptionConfig = None
+    OperatingPoint = None
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +43,13 @@ class SpeechmaticsWrapper:
             api_key: Speechmatics API key
             base_url: Optional base URL for Speechmatics batch API (defaults to config)
         """
+        # Check if required dependencies are installed
+        if AsyncClient is None or aiohttp is None or websockets is None:
+            raise ImportError(
+                "Speechmatics dependencies are not installed. "
+                "Install with: pip install intelli[speech]"
+            )
+        
         self.api_key = api_key
         self.api_url = base_url or config["url"]["speechmatics"]["base"]
         self.realtime_url = os.getenv('SPEECHMATICS_REALTIME_URL', config["url"]["speechmatics"]["realtime"])
