@@ -17,6 +17,7 @@ class TestRemoteRecognitionModel(unittest.TestCase):
         """Set up for the test case."""
         self.api_key_openai = os.getenv('OPENAI_API_KEY')
         self.api_key_elevenlabs = os.getenv('ELEVENLABS_API_KEY')
+        self.api_key_speechmatics = os.getenv('SPEECHMATICS_API_KEY')
         self.temp_dir = './temp'
 
         # Define path to test audio file (harvard.wav)
@@ -37,6 +38,12 @@ class TestRemoteRecognitionModel(unittest.TestCase):
             self.elevenlabs_recognition = RemoteRecognitionModel(
                 self.api_key_elevenlabs,
                 SupportedRecognitionModels['ELEVENLABS']
+            )
+
+        if self.api_key_speechmatics:
+            self.speechmatics_recognition = RemoteRecognitionModel(
+                self.api_key_speechmatics,
+                SupportedRecognitionModels['SPEECHMATICS']
             )
 
         # Only set up Keras if we're going to test it
@@ -130,6 +137,31 @@ class TestRemoteRecognitionModel(unittest.TestCase):
                 self.skipTest(f"Eleven Labs speech recognition requires higher subscription tier: {e}")
             else:
                 self.fail(f"Eleven Labs recognition failed with error: {e}")
+
+    def test_speechmatics_recognition(self):
+        """Test speech recognition with Speechmatics"""
+        if not self.api_key_speechmatics:
+            self.skipTest("Speechmatics API key not provided")
+
+        if not os.path.exists(self.test_audio_path):
+            self.skipTest(f"Test audio file not found: {self.test_audio_path}")
+
+        # Create input parameters
+        recognition_input = SpeechRecognitionInput(
+            audio_file_path=self.test_audio_path,
+            language="en"  # Standard language code for Speechmatics
+        )
+
+        try:
+            # Get transcription
+            result = self.speechmatics_recognition.recognize_speech(recognition_input)
+            print(f"Speechmatics Recognition Result: {result}")
+
+            self.assertIsInstance(result, str)
+            self.assertTrue(len(result) > 0, "Transcription should not be empty")
+
+        except Exception as e:
+            self.fail(f"Speechmatics recognition failed with error: {e}")
 
 if __name__ == "__main__":
     unittest.main()

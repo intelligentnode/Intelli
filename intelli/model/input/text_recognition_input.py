@@ -235,6 +235,40 @@ class SpeechRecognitionInput:
 
         return params
 
+    def get_speechmatics_input(self):
+        """
+        Get input parameters for Speechmatics speech-to-text.
+        """
+        params = {}
+
+        # Handle file path
+        if self.audio_file_path and os.path.exists(self.audio_file_path):
+            params['file_path'] = self.audio_file_path
+
+        # Handle audio data
+        elif self.audio_data is not None:
+            if isinstance(self.audio_data, (bytes, bytearray)):
+                params['audio_data'] = self.audio_data
+            else:
+                # Convert numpy array to bytes if needed
+                try:
+                    import soundfile as sf
+                    import io
+                    buffer = io.BytesIO()
+                    sf.write(buffer, self.audio_data, self.sample_rate, format='WAV')
+                    params['audio_data'] = buffer.getvalue()
+                except ImportError:
+                    # Fallback: convert to bytes directly
+                    params['audio_data'] = self.audio_data.tobytes()
+        else:
+            raise ValueError("Either file_path or audio_data must be provided")
+
+        # Add optional parameters
+        if self.language:
+            params['language'] = self.language
+
+        return params
+
     def __del__(self):
         """Clean up temporary files on destruction"""
         if hasattr(self, '_temp_file') and self._temp_file:

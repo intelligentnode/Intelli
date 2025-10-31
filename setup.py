@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="1.2.2",
+    version="1.3.0",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Build AI agents and MCPs with Intellinode.",
@@ -28,6 +28,7 @@ setup(
         "llamacpp": ["llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"],
         "mcp": ["mcp[ws,cli]~=1.9.0", "pandas"],
         "dataframe": ["pandas", "polars>=0.19.0"],
+        "speech": ["speechmatics-batch", "speechmatics-rt", "websockets", "librosa", "soundfile", "numpy"],
         "all": [
             "matplotlib>=3.6.0",
             "numpy>=1.26.0,<2.2.0",
@@ -41,6 +42,12 @@ setup(
             "mcp[ws,cli]~=1.9.0",
             "pandas",
             "polars",
+            "speechmatics-batch",
+            "speechmatics-rt",
+            "websockets",
+            "librosa",
+            "soundfile",
+            "numpy"
         ],
         "dev": ["pytest>=7.0.0"],
     },
