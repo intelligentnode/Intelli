@@ -73,4 +73,6 @@ python -m unittest intelli.test.integration.test_flow_tool_routing
 # GPT5
 python -m unittest intelli.test.integration.test_chatbot_gpt5 
 
-
+# azure openai
+python -m unittest intelli.test.integration.test_azure_openai_wrapper 
+python -m unittest intelli.test.integration.test_azure_whisper_wrapper

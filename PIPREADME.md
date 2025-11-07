@@ -24,14 +24,14 @@ pip install intelli[mcp]
 ```
 
 # Latest changes
-- GPT-5 is the default model for OpenAI chatbots.
-- Add speechmatics support.
+- Add speech services (speechmatics, and more).
+- Update openai to support GPT-5 by default.
 - Support MCP capabilities [doc](https://docs.intellinode.ai/docs/python/mcp/get-started).
 - Improved multi-model collaboration [doc](https://docs.intellinode.ai/docs/python/use-cases/travel-assistant).
 - Support llama.cpp & GGUF models for fast inference [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).
 - Add deepseek and Llama3 integration.
 - Add offline speech2text Whisper [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/whisper).
-- Add Anthropic claude 3.7.
+- Add latest Anthropic claude.
 
 For detailed instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
 
