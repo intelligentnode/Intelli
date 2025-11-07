@@ -15,6 +15,7 @@ class TestAzureOpenAIWrapper(unittest.TestCase):
         self.endpoint = os.getenv('AZURE_OPENAI_ENDPOINT')
         
         if not self.api_key or not self.endpoint:
+            print(' azure keys not found')
             self.skipTest("Azure OpenAI credentials not configured. "
                          "Set AZURE_OPENAI_API_KEY and AZURE_OPENAI_ENDPOINT environment variables.")
         
@@ -25,6 +26,7 @@ class TestAzureOpenAIWrapper(unittest.TestCase):
     
     def test_initialization(self):
         """Test wrapper initialization."""
+        print(f"Test wrapper initialization")
         self.assertIsNotNone(self.wrapper)
         self.assertEqual(self.wrapper.endpoint, self.endpoint)
         self.assertEqual(self.wrapper.timeout, 60.0)
@@ -32,6 +34,7 @@ class TestAzureOpenAIWrapper(unittest.TestCase):
     
     def test_initialization_with_custom_timeout_and_retries(self):
         """Test wrapper initialization with custom timeout and max_retries."""
+        print(f"Test wrapper initialization with custom timeout and max_retries")
         wrapper = AzureOpenAIWrapper(
             api_key=self.api_key,
             endpoint=self.endpoint,
