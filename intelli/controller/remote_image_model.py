@@ -46,8 +46,12 @@ class RemoteImageModel:
                 for candidate in results['candidates']:
                     if 'content' in candidate and 'parts' in candidate['content']:
                         for part in candidate['content']['parts']:
-                            if 'inline_data' in part and part['inline_data'].get('mime_type', '').startswith('image/'):
-                                images.append(part['inline_data']['data'])
+                            # Support both snake_case and camelCase (Gemini may return either)
+                            inline = part.get('inline_data') or part.get('inlineData')
+                            if inline:
+                                mime = inline.get('mime_type') or inline.get('mimeType') or ''
+                                if mime.startswith('image/'):
+                                    images.append(inline.get('data'))
             return images
         elif self.provider_name == "openai":
             results = self.provider.generate_images(inputs)

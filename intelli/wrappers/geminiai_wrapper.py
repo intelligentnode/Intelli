@@ -204,9 +204,9 @@ class GeminiAIWrapper:
 
         return self.image_to_text_params(params=params)
 
-    def image_to_text_params(self, params):
+    def image_to_text_params(self, params, model_override=None):
         """Process image to text with custom parameters"""
-        return self.generate_content(params, True)
+        return self.generate_content(params, True, model_override=model_override)
 
     def image_to_text_with_file_uri(self, user_input, file_uri, mime_type):
         """Convert image to text using uploaded file URI"""

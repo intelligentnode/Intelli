@@ -68,14 +68,23 @@ class RemoteSpeechModel:
 
         elif self.key_type == SupportedSpeechModels['GEMINI']:
             params = input_params.get_gemini_input()
-            response = self.gemini_wrapper.generate_speech(params['text'], params.get('voice_config'))
+            # Allow overriding the Gemini TTS model if provided on the input object.
+            model_override = getattr(input_params, "model", None)
+            response = self.gemini_wrapper.generate_speech(
+                params['text'],
+                params.get('voice_config'),
+                model_override=model_override
+            )
             # Extract audio data from Gemini response
             if 'candidates' in response:
                 for candidate in response['candidates']:
                     if 'content' in candidate and 'parts' in candidate['content']:
                         for part in candidate['content']['parts']:
-                            if 'inline_data' in part and part['inline_data'].get('mime_type', '').startswith('audio/'):
-                                return part['inline_data']['data']
+                            inline = part.get('inline_data') or part.get('inlineData')
+                            if inline:
+                                mime = inline.get('mime_type') or inline.get('mimeType') or ''
+                                if mime.startswith('audio/'):
+                                    return inline.get('data')
             return response
         else:
             raise ValueError('The keyType is not supported')
