@@ -23,6 +23,66 @@ class GeminiAIWrapper:
         self.models = config['url']['gemini']['models']
         self.endpoints = config['url']['gemini']['endpoints']
 
+    # ------------------------------------------------------------------
+    # Backwards-compatible request/response normalization
+    # Gemini REST APIs commonly use camelCase keys; older Intelli code/tests
+    # often use snake_case. We accept either and normalize to avoid breaking
+    # existing users.
+    # ------------------------------------------------------------------
+    _KEY_MAP = {
+        # top-level / common
+        "system_instruction": "systemInstruction",
+        "generation_config": "generationConfig",
+        "safety_settings": "safetySettings",
+        "tool_config": "toolConfig",
+        "response_modalities": "responseModalities",
+        "speech_config": "speechConfig",
+        "voice_config": "voiceConfig",
+        "multi_speaker_voice_config": "multiSpeakerVoiceConfig",
+        "speaker_voice_configs": "speakerVoiceConfigs",
+        "prebuilt_voice_config": "prebuiltVoiceConfig",
+        "voice_name": "voiceName",
+        "response_mime_type": "responseMimeType",
+        "response_schema": "responseSchema",
+        # content parts
+        "inline_data": "inlineData",
+        "file_data": "fileData",
+        "mime_type": "mimeType",
+        "file_uri": "fileUri",
+    }
+
+    _REVERSE_KEY_MAP = {v: k for k, v in _KEY_MAP.items()}
+
+    def _camelize(self, obj: Any) -> Any:
+        """Convert known snake_case keys to camelCase recursively."""
+        if isinstance(obj, list):
+            return [self._camelize(x) for x in obj]
+        if not isinstance(obj, dict):
+            return obj
+        out: Dict[str, Any] = {}
+        for k, v in obj.items():
+            new_k = self._KEY_MAP.get(k, k)
+            out[new_k] = self._camelize(v)
+        return out
+
+    def _snake_alias(self, obj: Any) -> Any:
+        """
+        Add snake_case aliases for known camelCase keys recursively.
+        Does not remove the original camelCase keys.
+        """
+        if isinstance(obj, list):
+            return [self._snake_alias(x) for x in obj]
+        if not isinstance(obj, dict):
+            return obj
+        out: Dict[str, Any] = {}
+        for k, v in obj.items():
+            aliased_v = self._snake_alias(v)
+            out[k] = aliased_v
+            snake_k = self._REVERSE_KEY_MAP.get(k)
+            if snake_k and snake_k not in out:
+                out[snake_k] = aliased_v
+        return out
+
     def generate_content(self, params, vision=False, model_override=None):
         """Generate content using Gemini models"""
         if model_override:
@@ -31,11 +91,12 @@ class GeminiAIWrapper:
             model = self.models['vision'] if vision else self.models['text']
         
         url = f"{self.API_BASE_URL}/{model}{self.endpoints['generateContent']}"
+        normalized_params = self._camelize(params)
 
         try:
-            response = self.session.post(url, json=params, params={'key': self.API_KEY})
+            response = self.session.post(url, json=normalized_params, params={'key': self.API_KEY})
             response.raise_for_status()
-            return response.json()
+            return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
             if hasattr(error, 'response') and error.response:
                 try:
@@ -61,6 +122,67 @@ class GeminiAIWrapper:
             }
             
         return self.generate_content(params, model_override=model_override)
+
+    def generate_structured_content(
+        self,
+        content_parts: List[Dict[str, Any]],
+        response_schema: Dict[str, Any],
+        system_instruction: Optional[str] = None,
+        model_override: Optional[str] = None,
+        response_mime_type: str = "application/json",
+        generation_config: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_config: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Generate structured JSON outputs using Gemini structured outputs.
+        Backwards compatible: callers can pass snake_case keys; we normalize.
+        """
+        gen_cfg = generation_config.copy() if generation_config else {}
+        gen_cfg.setdefault("response_mime_type", response_mime_type)
+        gen_cfg.setdefault("response_schema", response_schema)
+
+        params: Dict[str, Any] = {
+            "contents": [{"parts": content_parts}],
+            "generation_config": gen_cfg,
+        }
+        if system_instruction:
+            params["system_instruction"] = {"parts": [{"text": system_instruction}]}
+        if tools is not None:
+            params["tools"] = tools
+        if tool_config is not None:
+            params["tool_config"] = tool_config
+
+        return self.generate_content(params, model_override=model_override)
+
+    def stream_generate_content(self, params, vision=False, model_override=None):
+        """
+        Stream content from Gemini (yields decoded lines).
+        Backwards compatible: accepts snake_case params and normalizes to camelCase.
+        """
+        if model_override:
+            model = model_override
+        else:
+            model = self.models['vision'] if vision else self.models['text']
+
+        stream_ep = self.endpoints.get('streamGenerateContent', ':streamGenerateContent')
+        url = f"{self.API_BASE_URL}/{model}{stream_ep}"
+        normalized_params = self._camelize(params)
+
+        try:
+            with self.session.post(url, json=normalized_params, params={'key': self.API_KEY}, stream=True) as response:
+                response.raise_for_status()
+                for line in response.iter_lines(decode_unicode=True):
+                    if line:
+                        yield line
+        except requests.exceptions.RequestException as error:
+            if hasattr(error, 'response') and error.response:
+                try:
+                    error_detail = error.response.json()
+                    raise Exception(f"Gemini stream error: {error} - Details: {json.dumps(error_detail)}")
+                except:
+                    pass
+            raise Exception(f"Gemini stream error: {error}")
 
     def image_to_text(self, user_input, image_data, extension):
         """Convert image to text using vision model"""
@@ -168,9 +290,9 @@ class GeminiAIWrapper:
         }
 
         try:
-            response = self.session.post(url, json=params, params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY})
             response.raise_for_status()
-            return response.json()
+            return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
             if hasattr(error, 'response') and error.response:
                 try:
@@ -251,8 +373,10 @@ class GeminiAIWrapper:
             default_voice_config.update(voice_config)
         
         params = {
-            "contents": text,
-            "config": {
+            "contents": [{
+                "parts": [{"text": text}]
+            }],
+            "generation_config": {
                 "response_modalities": ["AUDIO"],
                 "speech_config": {
                     "voice_config": default_voice_config
@@ -261,9 +385,9 @@ class GeminiAIWrapper:
         }
 
         try:
-            response = self.session.post(url, json=params, params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY})
             response.raise_for_status()
-            return response.json()
+            return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
             if hasattr(error, 'response') and error.response:
                 try:
@@ -279,8 +403,10 @@ class GeminiAIWrapper:
         url = f"{self.API_BASE_URL}/{model}{self.endpoints['generateContent']}"
         
         params = {
-            "contents": text,
-            "config": {
+            "contents": [{
+                "parts": [{"text": text}]
+            }],
+            "generation_config": {
                 "response_modalities": ["AUDIO"],
                 "speech_config": {
                     "multi_speaker_voice_config": {
@@ -291,9 +417,9 @@ class GeminiAIWrapper:
         }
 
         try:
-            response = self.session.post(url, json=params, params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY})
             response.raise_for_status()
-            return response.json()
+            return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
             if hasattr(error, 'response') and error.response:
                 try:
@@ -408,9 +534,9 @@ class GeminiAIWrapper:
         url = f"{self.API_BASE_URL}/{model}:embedContent"
 
         try:
-            response = self.session.post(url, json=params, params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY})
             response.raise_for_status()
-            return response.json()
+            return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
             if hasattr(error, 'response') and error.response:
                 try:
@@ -439,9 +565,10 @@ class GeminiAIWrapper:
             batch_params = params
 
         try:
-            response = self.session.post(url, json=batch_params, params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(batch_params), params={'key': self.API_KEY})
             response.raise_for_status()
-            return response.json().get("embeddings", [])
+            data = self._snake_alias(response.json())
+            return data.get("embeddings", [])
         except requests.exceptions.RequestException as error:
             if hasattr(error, 'response') and error.response:
                 try:
