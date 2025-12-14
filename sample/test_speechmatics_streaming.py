@@ -75,9 +75,22 @@ await wrapper.stream_audio(session, audio_chunk_bytes)
 # Receive transcripts
 async for result in wrapper.receive_transcripts(session):
     if result['type'] == 'partial':
-        print(f"Partial: {result['transcript']}")
-    elif result['type'] == 'transcript':
-        print(f"Final: {result['transcript']} (speaker: {result['speaker']})")
+        tokens = result.get('tokens', [])
+        confidence = result.get('confidence', [])
+        if tokens and confidence and len(tokens) == len(confidence):
+            formatted = " ".join([f"{token} [{conf:.2f}]" if conf is not None else f"{token} [N/A]" for token, conf in zip(tokens, confidence)])
+            print(f"Partial: {formatted}")
+        else:
+            print(f"Partial: {result.get('transcript', '')}")
+    elif result['type'] == 'final':
+        tokens = result.get('tokens', [])
+        speaker = result.get('speaker', 'unknown')
+        confidence = result.get('confidence', [])
+        if tokens and confidence and len(tokens) == len(confidence):
+            formatted = " ".join([f"{token} [{conf:.2f}]" if conf is not None else f"{token} [N/A]" for token, conf in zip(tokens, confidence)])
+            print(f"Final: {formatted} (speaker: {speaker})")
+        else:
+            print(f"Final: {result.get('transcript', '')} (speaker: {speaker})")
     elif result['type'] == 'error':
         print(f"Error: {result['message']}")
         """)
@@ -136,8 +149,8 @@ async def streaming_with_file_example():
     
     try:
         print("\n🔄 Starting streaming session...")
-        session = await wrapper.start_streaming_session(language="en")
-        print("✓ Session started")
+        session = await wrapper.start_streaming_session(language="en", enable_partials=True)
+        print("✓ Session started with partials enabled")
         
         print("\n🔄 Converting audio to PCM F32LE...")
         # Convert audio to PCM F32LE format
@@ -159,22 +172,54 @@ async def streaming_with_file_example():
         
         # Receive transcripts
         transcript_count = 0
+        partial_count = 0
+        final_confidences = []
+        partial_confidences = []
         
         async for result in wrapper.receive_transcripts(session):
             if result['type'] == 'partial':
-                # Skip partial transcripts
-                continue
-            elif result['type'] == 'transcript':
+                partial_count += 1
+                tokens = result.get('tokens', [])
+                confidence = result.get('confidence', [])
+                if tokens and confidence and len(tokens) == len(confidence):
+                    formatted = " ".join([f"{token} [{conf:.2f}]" if conf is not None else f"{token} [N/A]" for token, conf in zip(tokens, confidence)])
+                    partial_confidences.extend(confidence)
+                    # Show partials (can be commented out to reduce noise)
+                    print(f"[Partial #{partial_count}] {formatted}")
+                else:
+                    print(f"[Partial #{partial_count}] {result.get('transcript', '')}")
+            elif result['type'] == 'final':
                 transcript_count += 1
                 speaker = result.get('speaker', 'unknown')
-                text = result['transcript']
-                print(f"Speaker {speaker}: {text}")
+                tokens = result.get('tokens', [])
+                confidence = result.get('confidence', [])
+                if tokens and confidence and len(tokens) == len(confidence):
+                    formatted = " ".join([f"{token} [{conf:.2f}]" if conf is not None else f"{token} [N/A]" for token, conf in zip(tokens, confidence)])
+                    final_confidences.extend(confidence)
+                    print(f"[Final #{transcript_count}] Speaker {speaker}: {formatted}")
+                else:
+                    print(f"[Final #{transcript_count}] Speaker {speaker}: {result.get('transcript', '')}")
             elif result['type'] == 'error':
                 print(f"\n❌ Error: {result['message']}")
                 break
         
         print("=" * 60)
-        print(f"\n✓ Received {transcript_count} transcripts")
+        print(f"\n✓ Received {transcript_count} final transcripts and {partial_count} partial transcripts")
+        
+        # Show confidence statistics (filter out None values)
+        valid_final_confidences = [c for c in final_confidences if c is not None]
+        if valid_final_confidences:
+            avg_final_conf = sum(valid_final_confidences) / len(valid_final_confidences)
+            min_final_conf = min(valid_final_confidences)
+            max_final_conf = max(valid_final_confidences)
+            print(f"  Final confidence: avg={avg_final_conf:.2f}, min={min_final_conf:.2f}, max={max_final_conf:.2f}")
+        
+        valid_partial_confidences = [c for c in partial_confidences if c is not None]
+        if valid_partial_confidences:
+            avg_partial_conf = sum(valid_partial_confidences) / len(valid_partial_confidences)
+            min_partial_conf = min(valid_partial_confidences)
+            max_partial_conf = max(valid_partial_confidences)
+            print(f"  Partial confidence: avg={avg_partial_conf:.2f}, min={min_partial_conf:.2f}, max={max_partial_conf:.2f}")
         
         # Close the session
         await session.close()

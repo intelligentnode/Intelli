@@ -3,7 +3,7 @@ import asyncio
 import tempfile
 import logging
 import json
-from typing import Dict, Any, Optional, Union, AsyncGenerator
+from typing import Dict, Any, Optional, Union, AsyncGenerator, List
 from datetime import timedelta
 
 from intelli.config import config
@@ -357,7 +357,19 @@ class SpeechmaticsWrapper:
             session: WebSocket session
             
         Yields:
-            Dictionary with transcription data
+            Dictionary with transcription data. Types:
+            - {"type": "partial", "tokens": [...], "confidence": list, "transcript": "..."} - Interim/partial results with per-token confidence scores (0.0-1.0)
+            - {"type": "final", "tokens": [...], "speaker": "...", "confidence": list, "transcript": "..."} - Final confirmed results with per-token confidence scores (0.0-1.0)
+            - {"type": "error", "message": "..."} - Error messages
+            
+        Note:
+            Tokens and confidence scores are returned directly from Speechmatics API.
+            Each token (word or punctuation) has a corresponding confidence score.
+            The transcript field is provided for convenience (simple join of tokens).
+            
+            Example:
+                for token, conf in zip(result['tokens'], result['confidence']):
+                    print(f"{token} [{conf:.2f}]")
         """
         try:
             async for message in session:
@@ -365,48 +377,73 @@ class SpeechmaticsWrapper:
                     data = json.loads(message)
                     
                     if data.get("message") == "AddTranscript":
-                        # Extract all words with their speakers
+                        # Extract all words with their speakers and confidence scores
                         words = []
                         
-                        if "results" in data:
+                        if "results" in data and isinstance(data["results"], list):
                             for result in data["results"]:
-                                if "alternatives" in result and result["alternatives"]:
+                                if isinstance(result, dict) and "alternatives" in result and result["alternatives"]:
                                     alt = result["alternatives"][0]
-                                    content = alt.get("content", "").strip()
-                                    speaker = alt.get("speaker", "unknown")
-                                    
-                                    if content:
-                                        words.append((content, speaker))
+                                    if isinstance(alt, dict):
+                                        content = alt.get("content", "").strip()
+                                        speaker = alt.get("speaker", "unknown")
+                                        confidence = alt.get("confidence", None)
+                                        
+                                        if content:
+                                            words.append((content, speaker, confidence))
                         
-                        # Group by speaker and yield
                         if words:
                             current_speaker = None
-                            current_text = []
+                            current_tokens = []
+                            confidences = []
                             
-                            for content, speaker in words:
-                                if speaker != current_speaker and current_text:
-                                    # Speaker changed, yield previous group
+                            for content, speaker, confidence in words:
+                                if speaker != current_speaker and current_tokens:
                                     yield {
-                                        "type": "transcript",
-                                        "transcript": " ".join(current_text),
-                                        "speaker": current_speaker or "unknown"
+                                        "type": "final",
+                                        "tokens": current_tokens,
+                                        "speaker": current_speaker or "unknown",
+                                        "confidence": confidences,
+                                        "transcript": " ".join(current_tokens)
                                     }
-                                    current_text = []
+                                    current_tokens = []
+                                    confidences = []
                                 
                                 current_speaker = speaker
-                                current_text.append(content)
+                                current_tokens.append(content)
+                                confidences.append(confidence)
                             
-                            # Yield last group
-                            if current_text:
+                            if current_tokens:
                                 yield {
-                                    "type": "transcript",
-                                    "transcript": " ".join(current_text),
-                                    "speaker": current_speaker or "unknown"
+                                    "type": "final",
+                                    "tokens": current_tokens,
+                                    "speaker": current_speaker or "unknown",
+                                    "confidence": confidences,
+                                    "transcript": " ".join(current_tokens)
                                 }
                     
                     elif data.get("message") == "AddPartialTranscript":
-                        # Skip partial transcripts to reduce noise
-                        continue
+                        # Extract partial transcript with confidence scores
+                        partial_tokens = []
+                        confidences = []
+                        if "results" in data and isinstance(data["results"], list):
+                            for result in data["results"]:
+                                if isinstance(result, dict) and "alternatives" in result and result["alternatives"]:
+                                    alt = result["alternatives"][0]
+                                    if isinstance(alt, dict):
+                                        content = alt.get("content", "").strip()
+                                        confidence = alt.get("confidence", None)
+                                        if content:
+                                            partial_tokens.append(content)
+                                            confidences.append(confidence)
+                        
+                        if partial_tokens:
+                            yield {
+                                "type": "partial",
+                                "tokens": partial_tokens,
+                                "confidence": confidences,
+                                "transcript": " ".join(partial_tokens)
+                            }
                     elif data.get("message") == "Error":
                         yield {
                             "type": "error",
