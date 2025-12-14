@@ -107,9 +107,9 @@ class Chatbot:
         if self.extended_search:
             references = self._augment_with_semantic_search(chat_input)
 
-        # Set default model to gpt-5 for OpenAI provider if not specified
+        # Set default model to gpt-5.2 for OpenAI provider if not specified
         if self.provider == ChatProvider.OPENAI.value and not chat_input.model:
-            chat_input.model = 'gpt-5'
+            chat_input.model = 'gpt-5.2'
 
         get_input_method = f"get_{self.provider}_input"
         chat_method = getattr(self, f"_chat_{self.provider}", None)
@@ -239,9 +239,9 @@ class Chatbot:
         if self.extended_search:
             _ = self._augment_with_semantic_search(chat_input)
 
-        # Set default model to gpt-5 for OpenAI provider if not specified
+        # Set default model to gpt-5.2 for OpenAI provider if not specified
         if self.provider == ChatProvider.OPENAI.value and not chat_input.model:
-            chat_input.model = 'gpt-5'
+            chat_input.model = 'gpt-5.2'
 
         params = getattr(chat_input, f"get_{self.provider}_input")()
 
