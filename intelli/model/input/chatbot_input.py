@@ -158,6 +158,10 @@ class ChatModelInput:
             },
             **self.options
         }
+        # Allow tool/function style params for Gemini when provided.
+        # (Gemini uses "tools" in generateContent requests for function calling.)
+        if self.tools:
+            params['tools'] = self.tools
         return params
 
     def get_anthropic_input(self):

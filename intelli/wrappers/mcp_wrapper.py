@@ -3,6 +3,7 @@ import json
 import threading
 import functools
 import urllib.parse
+import contextlib
 
 # ---------------------------------------------------------------------------
 # Optional MCP SDK imports
@@ -80,6 +81,8 @@ class MCPWrapper:
         self.server_params = None
         self.connection_type = None
         self.remote_url = None
+        # Optional persistent connection (session, session_ctx, client_ctx)
+        self._persistent = None
         
         # Configure based on input type
         if server_config is None:
@@ -201,36 +204,159 @@ class MCPWrapper:
         """Close both context managers properly"""
         await session_ctx.__aexit__(None, None, None)
         await client_ctx.__aexit__(None, None, None)
+
+    async def _acquire(self):
+        """
+        Acquire an MCP session.
+        If inside a persistent context, reuse that session.
+        Returns: (session, session_ctx, client_ctx, should_close)
+        """
+        if self._persistent is not None:
+            session, session_ctx, client_ctx = self._persistent
+            return session, session_ctx, client_ctx, False
+        session, session_ctx, client_ctx = await self._open()
+        return session, session_ctx, client_ctx, True
+
+    async def _release(self, session_ctx, client_ctx, should_close: bool):
+        """Release an MCP session based on ownership."""
+        if should_close:
+            await self._close(session_ctx, client_ctx)
     
     # --------------------------------------------------------------
     # Async implementations
     # --------------------------------------------------------------
     async def _list_tools_async(self):
         """List all available tools from the MCP server."""
-        session, session_ctx, client_ctx = await self._open()
+        session, session_ctx, client_ctx, should_close = await self._acquire()
         try:
             tools = await session.list_tools()
             return tools
         finally:
-            await self._close(session_ctx, client_ctx)
+            await self._release(session_ctx, client_ctx, should_close)
     
     async def _call_tool_async(self, name, arguments):
         """Call a tool on the MCP server."""
-        session, session_ctx, client_ctx = await self._open()
+        session, session_ctx, client_ctx, should_close = await self._acquire()
         try:
             result = await session.call_tool(name, arguments)
             return result
         finally:
-            await self._close(session_ctx, client_ctx)
+            await self._release(session_ctx, client_ctx, should_close)
     
     async def _read_resource_async(self, resource_uri):
         """Read a resource from the MCP server."""
-        session, session_ctx, client_ctx = await self._open()
+        session, session_ctx, client_ctx, should_close = await self._acquire()
         try:
             result = await session.read_resource(resource_uri)
             return result
         finally:
-            await self._close(session_ctx, client_ctx)
+            await self._release(session_ctx, client_ctx, should_close)
+
+    # --------------------------------------------------------------
+    # Persistent connection (optional) – additive, backward compatible
+    # --------------------------------------------------------------
+    @contextlib.asynccontextmanager
+    async def aconnect(self):
+        """
+        Keep a single MCP connection open across multiple calls.
+
+        Usage:
+            async with wrapper.aconnect():
+                await wrapper.execute_tool_async(...)
+        """
+        if self._persistent is not None:
+            # Nested usage: reuse the existing persistent connection.
+            yield self
+            return
+
+        session, session_ctx, client_ctx = await self._open()
+        self._persistent = (session, session_ctx, client_ctx)
+        try:
+            yield self
+        finally:
+            try:
+                await self._close(session_ctx, client_ctx)
+            finally:
+                self._persistent = None
+
+    @contextlib.contextmanager
+    def connect(self):
+        """
+        Synchronous persistent connection context manager.
+        Useful for batching tool calls without reconnect overhead.
+
+        Usage:
+            with wrapper.connect():
+                wrapper.execute_tool(...)
+        """
+        # Open connection using a coroutine in a safe way.
+        if self._persistent is not None:
+            yield self
+            return
+
+        session, session_ctx, client_ctx = self._run_coro_sync(self._open())
+        self._persistent = (session, session_ctx, client_ctx)
+        try:
+            yield self
+        finally:
+            try:
+                self._run_coro_sync(self._close(session_ctx, client_ctx))
+            finally:
+                self._persistent = None
+
+    # --------------------------------------------------------------
+    # Async public APIs (additive)
+    # --------------------------------------------------------------
+    async def execute_tool_async(self, name, arguments):
+        """Async: Call a tool on the MCP server."""
+        filtered_args = {k: v for k, v in (arguments or {}).items() if v is not None and k != 'input'}
+        converted_args = {}
+        for k, v in filtered_args.items():
+            if k.startswith('arg_'):
+                converted_args[k[4:]] = v
+            else:
+                converted_args[k] = v
+        return await self._call_tool_async(name, converted_args)
+
+    async def get_tools_async(self):
+        """Async: List all available tools from the MCP server."""
+        return await self._list_tools_async()
+
+    async def get_resource_async(self, resource_uri):
+        """Async: Read a resource from the MCP server."""
+        return await self._read_resource_async(resource_uri)
+
+    # --------------------------------------------------------------
+    # Coroutine runner for sync facade (safe inside running loops)
+    # --------------------------------------------------------------
+    def _run_coro_sync(self, coro):
+        """
+        Run a coroutine from synchronous code.
+        - If no event loop is running: asyncio.run(coro)
+        - If a loop is running (common in async apps): run in a separate thread
+          so we don't call run_until_complete on a running loop.
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+
+        result_container = {}
+        error_container = {}
+
+        def _runner():
+            try:
+                result_container["result"] = asyncio.run(coro)
+            except Exception as e:
+                error_container["error"] = e
+
+        t = threading.Thread(target=_runner, daemon=True)
+        t.start()
+        t.join()
+
+        if "error" in error_container:
+            raise error_container["error"]
+        return result_container.get("result")
     
     # --------------------------------------------------------------
     # Public synchronous facade
@@ -269,12 +395,7 @@ class MCPWrapper:
 
             print(f"Filtered arguments for tool call: {converted_args}")
             
-            coro = self._call_tool_async(name, converted_args)
-            try:
-                loop = asyncio.get_running_loop()  # Check if in event loop
-                result = loop.run_until_complete(coro)
-            except RuntimeError:
-                result = asyncio.run(coro)  # Create new loop
+            result = self._run_coro_sync(self._call_tool_async(name, converted_args))
                 
             print(f"MCP tool execution result: {result}")
             return result
@@ -293,12 +414,7 @@ class MCPWrapper:
         Returns:
             tuple: (content, mime_type) of the resource.
         """
-        coro = self._read_resource_async(resource_uri)
-        try:
-            loop = asyncio.get_running_loop()
-            return loop.run_until_complete(coro)
-        except RuntimeError:
-            return asyncio.run(coro)
+        return self._run_coro_sync(self._read_resource_async(resource_uri))
     
     def get_tools(self):
         """
@@ -308,9 +424,4 @@ class MCPWrapper:
         Returns:
             List of available tools.
         """
-        coro = self._list_tools_async()
-        try:
-            loop = asyncio.get_running_loop()
-            return loop.run_until_complete(coro)
-        except RuntimeError:
-            return asyncio.run(coro) 
+        return self._run_coro_sync(self._list_tools_async())

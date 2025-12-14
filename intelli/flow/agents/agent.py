@@ -115,11 +115,14 @@ class Agent(BasicAgent):
             raise ValueError(f"Unsupported agent type: {self.type}.")
 
     def _execute_text_agent(self, agent_input, custom_params):
-        f_params = {
-            key: value
-            for key, value in custom_params.items()
-            if hasattr(ChatModelInput("test", None), key)
-        }
+        # Backwards-compatible improvement:
+        # Previously we only forwarded keys that existed as attributes on ChatModelInput.
+        # That unintentionally dropped newer provider params (e.g., OpenAI `tool_choice`,
+        # Gemini `generation_config` / structured output fields).
+        #
+        # ChatModelInput supports **options, so we can safely pass through additional
+        # provider-specific params while excluding the API key.
+        f_params = {k: v for k, v in custom_params.items() if k != "key"}
 
         chat_input = ChatModelInput(self.mission, **f_params)
 
