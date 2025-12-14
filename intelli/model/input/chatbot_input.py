@@ -92,6 +92,10 @@ class ChatModelInput:
             else:
                 verbosity_str = self.verbosity
             params['text'] = {'verbosity': verbosity_str}
+
+        # Allow tools to be passed to GPT-5+/Responses API when provided.
+        if self.tools:
+            params['tools'] = self.tools
         
         # GPT-5+ doesn't accept temperature or max_tokens
         # Add any additional options that are compatible
