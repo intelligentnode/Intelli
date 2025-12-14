@@ -3,6 +3,7 @@ import asyncio
 import tempfile
 import logging
 import json
+import threading
 from typing import Dict, Any, Optional, Union, AsyncGenerator, List
 from datetime import timedelta
 
@@ -90,16 +91,39 @@ class SpeechmaticsWrapper:
         speechmatics_language = self._map_language(language or self.default_language)
         timeout = timeout or self.default_timeout
         
+        coro = self._transcribe_async(
+            file_name, audio_data, speechmatics_language, output_format, timeout
+        )
+
+        # Run safely whether or not an event loop is already running.
         try:
-            loop = asyncio.get_event_loop()
+            asyncio.get_running_loop()
+            loop_running = True
         except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
+            loop_running = False
+
         try:
-            return loop.run_until_complete(
-                self._transcribe_async(file_name, audio_data, speechmatics_language, output_format, timeout)
-            )
+            if not loop_running:
+                return asyncio.run(coro)
+
+            # If a loop is running (common in async apps), run in a separate thread
+            # to avoid "This event loop is already running".
+            result_container: Dict[str, Any] = {}
+            error_container: Dict[str, Exception] = {}
+
+            def _runner():
+                try:
+                    result_container["result"] = asyncio.run(coro)
+                except Exception as e:
+                    error_container["error"] = e
+
+            t = threading.Thread(target=_runner, daemon=True)
+            t.start()
+            t.join()
+
+            if "error" in error_container:
+                raise error_container["error"]
+            return result_container.get("result")
         except Exception as e:
             logger.error(f"Speechmatics transcription failed: {e}")
             raise RuntimeError(f"Transcription failed: {str(e)}")

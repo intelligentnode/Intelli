@@ -24,11 +24,11 @@ class TextAgentHandler(AgentHandler):
         from intelli.function.chatbot import Chatbot
         from intelli.model.input.chatbot_input import ChatModelInput
 
-        f_params = {
-            key: value
-            for key, value in custom_params.items()
-            if hasattr(ChatModelInput("test", None), key)
-        }
+        # Backwards-compatible improvement:
+        # Preserve existing behavior for standard params, but also allow passing
+        # newer provider-specific fields via ChatModelInput(**options).
+        # Exclude the API key so it never becomes part of the model request payload.
+        f_params = {k: v for k, v in custom_params.items() if k != "key"}
 
         chat_input = ChatModelInput(self.mission, **f_params)
         chatbot = Chatbot(custom_params["key"], self.provider, self.options)

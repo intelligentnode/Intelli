@@ -1,6 +1,5 @@
 import os
 import requests
-from urllib.parse import urljoin
 
 from intelli.utils.conn_helper import ConnHelper
 from intelli.utils.proxy_helper import ProxyHelper
@@ -11,39 +10,64 @@ class OpenAIWrapper:
     def __init__(self, api_key, proxy_helper=None):
         self.api_key = api_key
         self.proxy_helper = proxy_helper or ProxyHelper.get_instance()
-        # set the headers
+        # Build default headers once; sessions will be created per request.
         if self.proxy_helper.get_openai_type() == 'azure':
             print('Set OpenAI Azure settings')
             if not self.proxy_helper.get_openai_resource_name():
                 raise ValueError('Set your Azure resource name')
-            headers = {
+            self._headers = {
                 'Content-Type': 'application/json',
                 'api-key': f'{self.api_key}',
             }
         else:
-            headers = {
+            self._headers = {
                 'Content-Type': 'application/json',
                 'Authorization': f'Bearer {self.api_key}',
             }
             # check if organization exists for non-Azure
             organization = self.proxy_helper.get_openai_organization()
             if organization:
-                headers['OpenAI-Organization'] = organization
+                self._headers['OpenAI-Organization'] = organization
 
-        # define the connection session
-        self.session = BaseURLSession(base_url=self.proxy_helper.get_openai_url())
-        self.session.headers.update(headers)
+        self._base_url = self.proxy_helper.get_openai_url()
 
-    def generate_chat_text(self, params, functions=None, function_call=None):
+    def _new_session(self):
+        """
+        Create a fresh session per request.
+        This avoids invalidating the wrapper instance (the old code closed a shared session).
+        """
+        session = BaseURLSession(base_url=self._base_url)
+        session.headers.update(self._headers)
+        return session
+
+    def generate_chat_text(self, params, functions=None, function_call=None, tools=None, tool_choice=None):
+        """
+        Backwards compatible chat API:
+        - Legacy: supports `functions` / `function_call` (function_call responses).
+        - Modern: supports `tools` / `tool_choice` (tool_calls responses).
+        Preference:
+          - If caller supplies tools/tool_choice (either in params or as explicit args), we do NOT
+            inject legacy functions/function_call fields.
+        """
         url = self.proxy_helper.get_openai_chat_url(params['model'])
         payload = params.copy()
-        if functions:
+
+        # Prefer explicit args if provided.
+        if tools is not None:
+            payload['tools'] = tools
+        if tool_choice is not None:
+            payload['tool_choice'] = tool_choice
+
+        # Legacy tool calling: only set if caller didn't opt into tools.
+        if functions and 'tools' not in payload:
             payload['functions'] = functions
-        if function_call:
+        if function_call is not None and 'tool_choice' not in payload and 'tools' not in payload:
             payload['function_call'] = function_call
 
+        session = self._new_session()
+
         try:
-            response = self.session.post(url, json=payload, stream=params.get('stream', False))
+            response = session.post(url, json=payload, stream=params.get('stream', False))
             response.raise_for_status()
             if params.get('stream', False):
                 return response.iter_lines(decode_unicode=True)
@@ -52,63 +76,77 @@ class OpenAIWrapper:
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
         finally:
-            self.session.close()
+            session.close()
 
     def generate_images(self, params):
         url = self.proxy_helper.get_openai_image_url()
+        session = self._new_session()
         try:
-            response = self.session.post(url, json=params)
+            response = session.post(url, json=params)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
         finally:
-            self.session.close()
+            session.close()
 
     def upload_file(self, file_path, purpose):
-
-        url = urljoin(self.proxy_helper.openai_url, self.proxy_helper.get_openai_files_url())
+        # Use relative URL so BaseURLSession preserves base path (important for Azure '/openai').
+        url = self.proxy_helper.get_openai_files_url()
 
         with open(file_path, 'rb') as file:
             files = {
                 'file': (os.path.basename(file_path), file, 'application/jsonl')
             }
             data = {'purpose': purpose}
-            headers = {
-                'Authorization': f'Bearer {self.api_key}'
-            }
+            # Remove JSON content-type for multipart upload.
+            headers = dict(self._headers)
+            headers.pop('Content-Type', None)
 
-            # make direct post request due to conflicts in common content type
-            response = requests.post(url, headers=headers, files=files, data=data)
-            response.raise_for_status()
-            return response.json()
+            session = self._new_session()
+            try:
+                # Use session to keep consistent base URL handling and headers.
+                response = session.post(url, headers=headers, files=files, data=data)
+                response.raise_for_status()
+                return response.json()
+            finally:
+                session.close()
 
     def store_fine_tuning_data(self, params):
         url = self.proxy_helper.get_openai_finetuning_job_url()
+        session = self._new_session()
         try:
-            response = self.session.post(url, json=params)
+            response = session.post(url, json=params)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            session.close()
 
     def list_fine_tuning_data(self):
         url = self.proxy_helper.get_openai_finetuning_job_url()
+        session = self._new_session()
         try:
-            response = self.session.get(url)
+            response = session.get(url)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            session.close()
 
     def get_embeddings(self, params):
         url = self.proxy_helper.get_openai_embed_url(params['model'])
+        session = self._new_session()
         try:
-            response = self.session.post(url, json=params)
+            response = session.post(url, json=params)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            session.close()
 
     def speech_to_text(self, params, headers=None, files=None):
         """
@@ -123,50 +161,59 @@ class OpenAIWrapper:
             JSON response from OpenAI
         """
         url = self.proxy_helper.get_openai_audio_transcriptions_url(params.get('model', ''))
+        session = self._new_session()
         try:
-            custom_headers = self.session.headers.copy()
+            custom_headers = session.headers.copy()
             if headers:
                 custom_headers.update(headers)
 
             # For speech to text, we need to use files parameter for multipart/form-data
             if files:
-                response = self.session.post(url, data=params, files=files, headers=custom_headers)
+                response = session.post(url, data=params, files=files, headers=custom_headers)
             else:
-                response = self.session.post(url, data=params, headers=custom_headers)
+                response = session.post(url, data=params, headers=custom_headers)
 
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            session.close()
 
     def text_to_speech(self, params, headers=None):
         url = self.proxy_helper.get_openai_audio_speech_url(params['model'])
+        session = self._new_session()
         try:
-            custom_headers = self.session.headers.copy()
+            custom_headers = session.headers.copy()
             if headers:
                 custom_headers.update(headers)
-            response = self.session.post(url, json=params, headers=custom_headers, stream=True)
+            response = session.post(url, json=params, headers=custom_headers, stream=True)
             response.raise_for_status()
             return response.iter_content(chunk_size=8192) if params.get('stream', False) else response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            session.close()
 
     def image_to_text(self, params, headers=None):
         url = self.proxy_helper.get_openai_chat_url(params['model'])
+        session = self._new_session()
 
         if headers:
-            combined_headers = {**self.session.headers, **headers}
+            combined_headers = {**session.headers, **headers}
         else:
-            combined_headers = self.session.headers
+            combined_headers = session.headers
 
         try:
-            response = self.session.post(url, json=params, headers=combined_headers)
+            response = session.post(url, json=params, headers=combined_headers)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
+        finally:
+            session.close()
 
-    def generate_gpt5_response(self, params):
+    def generate_gpt5_response(self, params, tools=None, tool_choice=None):
         """
         Generate responses using GPT-5 API (uses /v1/responses endpoint).
         
@@ -177,15 +224,24 @@ class OpenAIWrapper:
             JSON response from OpenAI GPT-5
         """
         url = self.proxy_helper.get_openai_responses_url(params.get('model', ''))
+        payload = params.copy()
+
+        # New-ish API: adding new parameters is safe and backwards compatible.
+        if tools is not None and 'tools' not in payload:
+            payload['tools'] = tools
+        if tool_choice is not None and 'tool_choice' not in payload:
+            payload['tool_choice'] = tool_choice
+
+        session = self._new_session()
         
         try:
-            response = self.session.post(url, json=params)
+            response = session.post(url, json=payload)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
         finally:
-            self.session.close()
+            session.close()
 
 
 class BaseURLSession(requests.Session):

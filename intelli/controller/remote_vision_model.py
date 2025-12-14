@@ -45,7 +45,8 @@ class RemoteVisionModel:
         return " ".join(choice["message"]["content"] for choice in data["choices"])
 
     def call_gemini_vision(self, inputs):
-        data = self.provider_wrapper.image_to_text_params(inputs)
+        model_override = inputs.get("model")
+        data = self.provider_wrapper.image_to_text_params(inputs, model_override=model_override)
         return " ".join(
             part["text"] for part in data["candidates"][0]["content"]["parts"]
         )

@@ -92,6 +92,10 @@ class ChatModelInput:
             else:
                 verbosity_str = self.verbosity
             params['text'] = {'verbosity': verbosity_str}
+
+        # Allow tools to be passed to GPT-5+/Responses API when provided.
+        if self.tools:
+            params['tools'] = self.tools
         
         # GPT-5+ doesn't accept temperature or max_tokens
         # Add any additional options that are compatible
@@ -154,6 +158,10 @@ class ChatModelInput:
             },
             **self.options
         }
+        # Allow tool/function style params for Gemini when provided.
+        # (Gemini uses "tools" in generateContent requests for function calling.)
+        if self.tools:
+            params['tools'] = self.tools
         return params
 
     def get_anthropic_input(self):

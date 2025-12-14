@@ -16,6 +16,8 @@ class TestChatbotGPT5(unittest.TestCase):
     
     def setUp(self):
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not self.openai_api_key:
+            self.skipTest("OPENAI_API_KEY not found")
         self.openai_bot = Chatbot(self.openai_api_key, ChatProvider.OPENAI)
     
     def test_gpt5_chat_minimal_effort(self):
@@ -92,6 +94,71 @@ class TestChatbotGPT5(unittest.TestCase):
         self.assertIn('reasoning', params, "Reasoning should be in GPT-5 params")
         
         print('GPT-5 params structure:', params.keys())
+
+    def test_gpt5_tools_and_tool_choice_params(self):
+        """
+        Test GPT-5 params include tools (new feature) and can pass through tool_choice via options.
+
+        This validates our new Responses/tools support in ChatModelInput without depending on
+        the model actually choosing to call a tool.
+        """
+        print('---- start GPT-5 tools/tool_choice params ----')
+
+        tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "calculate_sum",
+                    "description": "Calculate the sum of 2 numbers a and b",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "a": {"type": "number"},
+                            "b": {"type": "number"},
+                        },
+                        "required": ["a", "b"],
+                    },
+                },
+            }
+        ]
+
+        tool_choice = {
+            "type": "function",
+            "function": {"name": "calculate_sum"},
+        }
+
+        chat_input = ChatModelInput(
+            "You are a helpful assistant that can use tools.",
+            "gpt-5",
+            reasoning_effort="minimal",
+            tools=tools,
+            tool_choice=tool_choice,  # Passed through **options
+        )
+        chat_input.add_user_message("What is 15 plus 27? Use the tool.")
+
+        params = chat_input.get_openai_input()
+
+        # Basic debug prints (no network call) to confirm payload shape.
+        print("GPT-5 params keys:", sorted(params.keys()))
+        print("GPT-5 input preview:", params.get("input", "")[:120])
+        print("GPT-5 tools count:", len(params.get("tools", [])))
+        print("GPT-5 tool_choice:", params.get("tool_choice"))
+
+        # GPT-5 should use Responses-style params
+        self.assertIn("input", params, "GPT-5 params should include 'input'")
+        self.assertNotIn("messages", params, "GPT-5 params should not include 'messages'")
+
+        # New feature: tools are included for GPT-5
+        self.assertIn("tools", params, "GPT-5 params should include tools when provided")
+        self.assertEqual(params["tools"], tools)
+
+        # tool_choice should pass through via options
+        self.assertIn("tool_choice", params, "GPT-5 params should include tool_choice when provided via options")
+        self.assertEqual(params["tool_choice"], tool_choice)
+
+        # Still exclude these for GPT-5
+        self.assertNotIn("temperature", params, "Temperature should not be in GPT-5 params")
+        self.assertNotIn("max_tokens", params, "max_tokens should not be in GPT-5 params")
     
     def test_gpt5_stream_not_supported(self):
         """Test that streaming raises NotImplementedError for GPT-5"""

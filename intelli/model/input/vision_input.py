@@ -68,6 +68,11 @@ class VisionModelInput:
             ]
         }
 
+        # Optional: allow overriding the Gemini vision model downstream.
+        # This is additive and won't affect existing callers.
+        if self.model:
+            inputs["model"] = self.model
+
         return inputs
 
     def get_google_inputs(self):

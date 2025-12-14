@@ -58,9 +58,6 @@ def call_chatbot(provider, model=None, api_key=None, options=None):
 # call chatGPT (GPT-5 is default when model not specified)
 call_chatbot(ChatProvider.OPENAI)  # uses GPT-5 by default
 
-# call GPT-4 explicitly
-call_chatbot(ChatProvider.OPENAI, "gpt-4o")
-
 # call claude3
 call_chatbot(ChatProvider.ANTHROPIC, "claude-3-7-sonnet-20250219")
 
