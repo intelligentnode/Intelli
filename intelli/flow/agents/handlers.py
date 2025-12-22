@@ -249,28 +249,55 @@ class SearchAgentHandler(AgentHandler):
     """Handler for search agents"""
 
     def execute(self, agent_input, custom_params):
-        from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
+        # ------------------------------------------------------------
+        # Provider 1 (existing): Intellicloud semantic search
+        # ------------------------------------------------------------
+        if "one_key" in custom_params:
+            from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 
-        if "one_key" not in custom_params:
-            raise ValueError("SearchAgent requires 'one_key' in model_params")
+            wrapper = IntellicloudWrapper(
+                api_key=custom_params["one_key"], api_base=custom_params.get("api_base")
+            )
 
-        # Create IntelliCloud wrapper
-        wrapper = IntellicloudWrapper(
-            api_key=custom_params["one_key"], api_base=custom_params.get("api_base")
+            filters = {}
+            if "document_name" in custom_params:
+                filters["document_name"] = custom_params["document_name"]
+
+            k = custom_params.get("k", 3)
+            return wrapper.semantic_search(
+                query_text=agent_input.desc, k=k, filters=filters
+            )
+
+        # ------------------------------------------------------------
+        # Provider 2 (new): Google Custom Search JSON API (web search)
+        # ------------------------------------------------------------
+        if custom_params.get("google_api_key") and custom_params.get("google_cse_id"):
+            from intelli.wrappers.google_search_wrapper import GoogleCustomSearchWrapper
+
+            wrapper = GoogleCustomSearchWrapper(
+                api_key=custom_params["google_api_key"],
+                cse_id=custom_params["google_cse_id"],
+            )
+
+            k = custom_params.get("k", 5)
+            safe = custom_params.get("safe", "active")
+            timeout = float(custom_params.get("timeout", 20.0))
+            as_text = bool(custom_params.get("as_text", True))
+
+            results = wrapper.search(
+                agent_input.desc, num=k, safe=safe, timeout=timeout
+            )
+            return (
+                GoogleCustomSearchWrapper.to_text(results)
+                if as_text
+                else results
+            )
+
+        raise ValueError(
+            "SearchAgent missing credentials. Provide either:\n"
+            "- 'one_key' (Intellicloud semantic search)\n"
+            "- OR ('google_api_key' and 'google_cse_id') for Google web search"
         )
-
-        # Prepare filters
-        filters = {}
-        if "document_name" in custom_params:
-            filters["document_name"] = custom_params["document_name"]
-
-        # Perform semantic search
-        k = custom_params.get("k", 3)
-        result = wrapper.semantic_search(
-            query_text=agent_input.desc, k=k, filters=filters
-        )
-
-        return result
 
 
 class MCPAgentHandler(AgentHandler):
