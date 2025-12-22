@@ -9,8 +9,7 @@ from intelli.flow.utils.flow_helper import FlowHelper
 from intelli.flow.types import AgentTypes
 
 # Load .env from the 'intelli' directory where it is located
-env_path = Path(__file__).parent.parent.parent / ".env"
-load_dotenv(dotenv_path=env_path)
+load_dotenv()
 
 class TestBlogPostVibe(unittest.TestCase):
     
