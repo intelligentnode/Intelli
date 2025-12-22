@@ -298,7 +298,7 @@ class VibeFlow:
         if self.preferences["image"]:
             pref_instr += f"- For image tasks, use these model/provider details: {self.preferences['image']}\n"
         else:
-            pref_instr += "- Use 'dall-e-3' or 'gpt-image-1' for OpenAI image generation tasks. Always include 'width': 1024, 'height': 1024, and 'response_format': 'b64_json' in model_params for image tasks.\n"
+            pref_instr += "- For image tasks, use 'openai' or 'gemini' as provider. Always include 'width': 1024, 'height': 1024, and 'response_format': 'b64_json' in model_params for image tasks.\n"
             
         if self.preferences["speech"]:
             pref_instr += f"- For speech generation, use these model/provider details: {self.preferences['speech']}\n"
@@ -315,8 +315,9 @@ class VibeFlow:
             "Your job is to generate a valid FlowSpec JSON for building an Intelli Flow.\n\n"
             "Rules:\n"
             "- Output MUST be a single JSON object (no markdown, no code fences).\n"
-            "- Keep tasks small and clear.\n"
+            "- Keep tasks small and clear. Prefer a linear flow and consolidate redundant steps to avoid overly complex graphs.\n"
             "- Do not include API keys in plaintext. Use placeholders like '${ENV:OPENAI_API_KEY}'.\n"
+            "- For web search, use 'google' as provider and include 'google_api_key': '${ENV:GOOGLE_API_KEY}' and 'google_cse_id': '${ENV:GOOGLE_CSE_ID}' in model_params. Avoid 'intellicloud' search. Search agents MUST use 'google' as provider.\n"
             + pref_instr +
             "- When generating speech, only provide the raw text to be spoken in the task description. Do not include meta-instructions like 'Generate audio for...'.\n"
             "- Set 'stream': false for speech generation tasks if the output is used as input for a subsequent task.\n"
@@ -793,5 +794,3 @@ class VibeFlow:
             return obj
 
         return _walk(spec)
-
-

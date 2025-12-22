@@ -36,7 +36,7 @@ class TestSearchAgentGoogle(unittest.TestCase):
         )
 
         task = Task(
-            TextTaskInput("OpenAI GPT-5 responses API overview"),
+            TextTaskInput("Google responses API overview"),
             search_agent,
             log=True,
         )
