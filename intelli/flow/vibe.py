@@ -119,6 +119,11 @@ class VibeFlow:
         context_files: Optional[List[str]] = None,
         max_context_chars: int = 120_000,
         planner_fn: Optional[Callable[[str, str], Dict[str, Any]]] = None,
+        # Preferred models/providers
+        text_model: Optional[str] = None,
+        image_model: Optional[str] = None,
+        speech_model: Optional[str] = None,
+        recognition_model: Optional[str] = None,
     ):
         planner_provider = (planner_provider or "").lower()
         if planner_provider not in ALLOWED_PLANNER_PROVIDERS:
@@ -133,6 +138,14 @@ class VibeFlow:
         self.context_files = context_files or self.default_context_files()
         self.max_context_chars = max_context_chars
         self._planner_fn = planner_fn  # for tests / offline usage
+
+        # Preferences
+        self.preferences = {
+            "text": text_model,
+            "image": image_model,
+            "speech": speech_model,
+            "recognition": recognition_model,
+        }
 
         self.last_spec: Optional[Dict[str, Any]] = None
         self.last_flow: Optional[Flow] = None
@@ -274,6 +287,29 @@ class VibeFlow:
 
     def _build_system_prompt(self) -> str:
         context = self._load_context_text()
+        
+        # Build preference instructions
+        pref_instr = ""
+        if self.preferences["text"]:
+            pref_instr += f"- For text tasks, use these model/provider details: {self.preferences['text']}\n"
+        else:
+            pref_instr += "- Prefer OpenAI, Gemini, and Anthropic providers for text tasks unless the user explicitly mentions another model.\n"
+            
+        if self.preferences["image"]:
+            pref_instr += f"- For image tasks, use these model/provider details: {self.preferences['image']}\n"
+        else:
+            pref_instr += "- Use 'dall-e-3' or 'gpt-image-1' for OpenAI image generation tasks. Always include 'width': 1024, 'height': 1024, and 'response_format': 'b64_json' in model_params for image tasks.\n"
+            
+        if self.preferences["speech"]:
+            pref_instr += f"- For speech generation, use these model/provider details: {self.preferences['speech']}\n"
+        else:
+            pref_instr += "- Use 'tts-1' for OpenAI speech generation.\n"
+            
+        if self.preferences["recognition"]:
+            pref_instr += f"- For recognition tasks, use these model/provider details: {self.preferences['recognition']}\n"
+        else:
+            pref_instr += "- Use 'whisper-1' for OpenAI recognition tasks.\n"
+
         return (
             "You are VibeFlow Planner for the Intelli Python library.\n"
             "Your job is to generate a valid FlowSpec JSON for building an Intelli Flow.\n\n"
@@ -281,9 +317,7 @@ class VibeFlow:
             "- Output MUST be a single JSON object (no markdown, no code fences).\n"
             "- Keep tasks small and clear.\n"
             "- Do not include API keys in plaintext. Use placeholders like '${ENV:OPENAI_API_KEY}'.\n"
-            "- Prefer OpenAI, Gemini, and Anthropic providers for text tasks unless the user explicitly mentions another model.\n"
-            "- Use 'tts-1' for OpenAI speech generation and 'whisper-1' for OpenAI recognition tasks.\n"
-            "- Use 'dall-e-3' or 'gpt-image-1' for OpenAI image generation tasks. Always include 'width': 1024, 'height': 1024, and 'response_format': 'b64_json' in model_params for image tasks.\n"
+            + pref_instr +
             "- When generating speech, only provide the raw text to be spoken in the task description. Do not include meta-instructions like 'Generate audio for...'.\n"
             "- Set 'stream': false for speech generation tasks if the output is used as input for a subsequent task.\n"
             "- Only use standard model parameters (e.g., 'model', 'key', 'temperature', 'max_tokens'). Avoid inventing new parameter names like 'target_language'.\n"
