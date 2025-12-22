@@ -2,7 +2,7 @@
 sidebar_position: 11
 ---
 
-# Vibe Flow
+# Vibe Code
 
 `VibeFlow` allows you to build and execute complex multi-modal AI flows using **natural language descriptions**. Instead of manually defining tasks and dependencies, you describe your goal, and `VibeFlow` handles the orchestration.
 

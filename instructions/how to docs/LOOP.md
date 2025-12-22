@@ -10,7 +10,6 @@ sidebar_position: 10
 
 This is the easiest way to do looping **without creating cycles** in the main Flow graph.
 
-
 ### Key parameters
 
 - **max_loops**: maximum iterations (default `5`)
@@ -21,45 +20,36 @@ This is the easiest way to do looping **without creating cycles** in the main Fl
 
 ```python
 import asyncio
-
 from intelli.flow.flow import Flow
-from intelli.flow.store.memory import Memory
+from intelli.flow.tasks.task import Task
+from intelli.flow.agents.agent import Agent
+from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.tasks.loop_task import LoopTask
-from intelli.flow.types import InputTypes
 
+# 1. Define a regular Agent and Task
+agent = Agent(
+    agent_type="text",
+    provider="openai",
+    mission="Summarize and expand the input",
+    model_params={"key": "YOUR_API_KEY", "model": "gpt-4o"}
+)
+task = Task(TextTaskInput("Generate an expanded summary"), agent)
 
-class GrowText:
-    def __init__(self, key="text"):
-        self.key = key
-        self.output = None
-        self.output_type = InputTypes.TEXT.value
+# 2. Define a simple stop condition function
+def stop_if_long_enough(iteration, last_output, last_type, memory):
+    return len(last_output) > 1000
 
-    def execute(self, input_data=None, input_type=None, memory=None):
-        prev = memory.retrieve(self.key, "") if memory else ""
-        self.output = (prev + " more").strip()
-        if memory:
-            memory.store(self.key, self.output)
-        return self.output
-
-
-def stop_when_long(iteration, last_output, last_type, memory):
-    return isinstance(last_output, str) and len(last_output) >= 20
-
-
-memory = Memory()
+# 3. Create the Loop unit
 loop = LoopTask(
-    desc="grow text until long enough",
-    steps=[GrowText()],
-    # max_loops defaults to 5
-    stop_condition=stop_when_long,
-    store_history_memory_key="loop_history",
+    desc="iterative refinement",
+    steps=[task],
+    max_loops=3,
+    stop_condition=stop_if_long_enough
 )
 
-flow = Flow(tasks={"loop": loop}, map_paths={}, memory=memory)
-result = asyncio.run(flow.start(initial_input="start", initial_input_type="text"))
+# 4. Execute in a Flow
+flow = Flow(tasks={"loop_step": loop}, map_paths={})
+result = asyncio.run(flow.start(initial_input="AI is the future of..."))
 
-print(result["loop"]["output"])
-print("iterations:", len(memory.retrieve("loop_history", [])))
+print(result["loop_step"]["output"])
 ```
-
-

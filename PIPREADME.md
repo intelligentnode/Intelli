@@ -25,13 +25,13 @@ pip install intelli[mcp]
 
 # Latest changes
 
-- Add speech services (speechmatics, Whisper, and more).
+- Update the speech recognition (speechmatics, Whisper, and more) [doc](https://docs.intellinode.ai/docs/python/controllers/recognition).
 - Update OpenAI + Anthropic models (GPT-5 by default, latest Claude).
 - Support MCP capabilities [doc](https://docs.intellinode.ai/docs/python/mcp/get-started).
 - Support llama.cpp & GGUF models for fast inference [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).
 - Add DeepSeek integration [doc](https://docs.intellinode.ai/docs/python/chatbot/nvidia-chat).
-- Add Flow loop task for iterative workflows.
-- Add web search via Search agent (Google Custom Search).
+- Add Flow loop task for iterative workflows [doc](https://docs.intellinode.ai/docs/python/flows/loop).
+- Add web search via [Search agent](https://docs.intellinode.ai/docs/python/flows/search-agent).
 
 For detailed instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
 
