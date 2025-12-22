@@ -422,6 +422,15 @@ class VibeFlow:
                     raise ValueError(
                         f"Unsupported text agent provider '{p}'. Allowed: {sorted(ALLOWED_PLANNER_PROVIDERS)}"
                     )
+            
+            # Sanity check for OpenAI image generation
+            if agent.get("agent_type") == AgentTypes.IMAGE.value and agent.get("provider") == "openai":
+                m_params = agent.get("model_params", {})
+                if "response_format" not in m_params:
+                    # Injecting default if missing to avoid corrupted outputs
+                    m_params["response_format"] = "b64_json"
+                    if "size" not in m_params:
+                        m_params["size"] = "1024x1024"
 
         # validate dynamic connectors
         dyn = spec.get("dynamic_connectors", []) or []

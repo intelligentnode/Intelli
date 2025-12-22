@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, List, Optional
 
 from intelli.flow.types import InputTypes
+from intelli.utils.logging import Logger
 
 
 @dataclass
@@ -33,8 +34,10 @@ class LoopTask:
         *,
         max_loops: int = 5,
         stop_condition: Optional[Callable[[int, Any, str, Any], bool]] = None,
+        stop_on_error: bool = False,
         exclude: bool = False,
         store_history_memory_key: Optional[str] = None,
+        log: bool = False,
     ):
         if not steps:
             raise ValueError("LoopTask requires at least one step in `steps`")
@@ -45,8 +48,10 @@ class LoopTask:
         self.steps = steps
         self.max_loops = max_loops
         self.stop_condition = stop_condition
+        self.stop_on_error = stop_on_error
         self.exclude = exclude
         self.store_history_memory_key = store_history_memory_key
+        self.logger = Logger(log)
 
         # Satisfy Flow._prepare_graph() expectations.
         self.agent = _LoopAgentStub()
@@ -61,21 +66,34 @@ class LoopTask:
         history: List[dict] = []
 
         for iteration in range(1, self.max_loops + 1):
+            self.logger.log(f"LoopTask iteration {iteration}/{self.max_loops}")
+            
+            error_occurred = False
             for step in self.steps:
                 step.execute(current, input_type=current_type, memory=memory)
                 current = getattr(step, "output", None)
                 current_type = getattr(step, "output_type", None)
+                
+                if self.stop_on_error and isinstance(current, str) and (current.startswith("Error") or "Error executing agent" in current):
+                    self.logger.log(f"LoopTask stopping early due to error in step: {current}")
+                    error_occurred = True
+                    break
 
             history.append(
                 {"iteration": iteration, "output": current, "type": current_type}
             )
+            
+            if error_occurred:
+                break
 
             if self.stop_condition is not None:
                 try:
                     if self.stop_condition(iteration, current, current_type, memory):
+                        self.logger.log(f"LoopTask stop condition met at iteration {iteration}")
                         break
-                except Exception:
-                    # Fail-safe: never crash the flow due to stop condition bugs.
+                except Exception as e:
+                    # Fail-safe: log but don't crash
+                    self.logger.log(f"Warning: LoopTask stop_condition error: {e}")
                     pass
 
         self.output = current
