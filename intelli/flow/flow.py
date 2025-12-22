@@ -228,7 +228,13 @@ class Flow:
                 )
                 # Run the synchronous function in a thread pool
                 await loop.run_in_executor(None, execute_task)
-                self.logger.log(f"Task {task_name} executed successfully")
+                
+                # Catch soft errors that didn't raise exceptions but returned an error string
+                if isinstance(task.output, str) and (task.output.startswith("Error executing agent") or task.output.startswith("Error:")):
+                    self.errors[task_name] = task.output
+                    self.logger.log(f"Soft error detected in task '{task_name}': {task.output}")
+                else:
+                    self.logger.log(f"Task {task_name} executed successfully")
             except Exception as e:
                 full_stack_trace = traceback.format_exc()
                 error_message = f"Error in task '{task_name}': {e}\nFull stack trace:\n{full_stack_trace}"
