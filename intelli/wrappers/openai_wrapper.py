@@ -189,7 +189,7 @@ class OpenAIWrapper:
                 custom_headers.update(headers)
             response = session.post(url, json=params, headers=custom_headers, stream=True)
             response.raise_for_status()
-            return response.iter_content(chunk_size=8192) if params.get('stream', False) else response.json()
+            return response.iter_content(chunk_size=8192) if params.get('stream', False) else response.content
         except requests.RequestException as error:
             raise Exception(ConnHelper.get_error_message(error))
         finally:

@@ -266,8 +266,14 @@ class Task:
         if not combined_results:
             result = None
         elif Matcher.output[self.agent.type] == InputTypes.TEXT.value:
-            # For text output, join all results
-            result = " ".join([str(r) for r in combined_results if r is not None])
+            # For text output, join all results.
+            # IMPORTANT: Preserve structured tool/function responses (dict) for Flow dynamic routing.
+            dict_result = next((r for r in combined_results if isinstance(r, dict)), None)
+            if dict_result is not None:
+                # If any dict is present, return it as-is (tool/function call payload).
+                result = dict_result
+            else:
+                result = " ".join([str(r) for r in combined_results if r is not None])
         else:
             # For non-text outputs (audio, image), use the first result
             result = combined_results[0]

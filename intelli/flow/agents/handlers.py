@@ -95,6 +95,9 @@ class SpeechAgentHandler(AgentHandler):
             text=text_content,
             language=custom_params.get("language", "en"),
             gender=custom_params.get("gender", "FEMALE"),
+            voice=custom_params.get("voice", "alloy"),
+            model=custom_params.get("model", "tts-1"),
+            stream=custom_params.get("stream", True),
         )
 
         # Provider-specific parameters

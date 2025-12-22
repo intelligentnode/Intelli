@@ -78,8 +78,8 @@ class ChatModelInput:
             'input': input_text.strip(),
         }
         
-        # Add reasoning configuration if specified (default to minimal for GPT-5)
-        reasoning_effort = self.reasoning_effort or 'minimal'
+        # Add reasoning configuration if specified (default to low for GPT-5)
+        reasoning_effort = self.reasoning_effort or 'low'
         params['reasoning'] = {'effort': reasoning_effort}
         
         # Add verbosity if specified (GPT-5 uses text.verbosity as string: 'low', 'medium', 'high')

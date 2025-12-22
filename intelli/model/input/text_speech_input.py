@@ -6,7 +6,7 @@ class Text2SpeechInput:
         text,
         language="en-gb",
         gender="FEMALE",
-        voice=None,
+        voice="alloy",
         model="tts-1",
         stream=True,
     ):
