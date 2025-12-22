@@ -6,6 +6,7 @@ This file aggregates key classes and functions from submodules for easier access
 # Agents
 from intelli.flow.agents.agent import Agent
 from intelli.flow.agents.kagent import KerasAgent
+from intelli.flow.agents.custom_agent import CustomAgent
 from intelli.flow.agents.handlers import get_agent_handler
 
 # Input types for tasks and agents
