@@ -6,6 +6,7 @@ This file aggregates key classes and functions from submodules for easier access
 # Agents
 from intelli.flow.agents.agent import Agent
 from intelli.flow.agents.kagent import KerasAgent
+from intelli.flow.agents.custom_agent import CustomAgent
 from intelli.flow.agents.handlers import get_agent_handler
 
 # Input types for tasks and agents
@@ -19,6 +20,7 @@ from intelli.flow.template.basic_template import TextInputTemplate
 # Core flow
 from intelli.flow.sequence_flow import SequenceFlow
 from intelli.flow.tasks.task import Task
+from intelli.flow.tasks.loop_task import LoopTask
 from intelli.flow.flow import Flow
 
 # Dynamic routing
@@ -32,6 +34,7 @@ from intelli.flow.types import AgentTypes, InputTypes
 from intelli.flow.utils.flow_helper import FlowHelper
 from intelli.flow.store.memory import Memory
 from intelli.flow.store.dbmemory import DBMemory
+from intelli.flow.vibe import VibeFlow
 
 try:
     from intelli.mcp import (

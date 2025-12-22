@@ -118,15 +118,33 @@ class FlowHelper:
                         
                 # Assume it's a base64 string
                 else:
+                    # Basic validation: image base64 should be reasonably long
+                    # Real images are typically > 1000 bytes. Error messages are shorter.
+                    if len(image_data) < 500 or image_data.strip().startswith(("Error", "Unexpected", "{", "http")):
+                        print(f"Warning: Image data seems invalid, too short, or a URL ({len(image_data)} chars), skipping save. Data: {image_data[:100]}...")
+                        return None, 0
+                    
                     print("Detected base64 image string")
                     try:
                         # Handle base64 with or without padding
                         image_base64 = image_data.strip()
+                        
+                        # Remove possible data:image prefix if it missed previous blocks
+                        if ";base64," in image_base64:
+                            image_base64 = image_base64.split(";base64,")[-1]
+                        
                         # Add padding if needed
                         missing_padding = len(image_base64) % 4
                         if missing_padding:
                             image_base64 += '=' * (4 - missing_padding)
+                        
                         image_bytes = base64.b64decode(image_base64)
+                        
+                        # PNG/JPG signatures check to ensure it's a real image
+                        if len(image_bytes) < 100 or not (image_bytes.startswith(b'\x89PNG') or image_bytes.startswith(b'\xff\xd8')):
+                            print(f"Warning: Decoded data is not a valid PNG or JPG image. Size: {len(image_bytes)}")
+                            return None, 0
+                            
                         print(f"Decoded base64 image, size: {len(image_bytes)} bytes")
                     except Exception as e:
                         print(f"Error decoding base64 image: {e}")

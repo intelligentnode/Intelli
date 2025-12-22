@@ -92,6 +92,9 @@ flow = SequenceFlow([task1, task2, task3], log=True)
 final_result = flow.start()
 ```
 
+Or build the entire flow using natural language with **Vibe Flow**.
+Refer to [the documentation](https://docs.intellinode.ai/docs/python/vibe-agents) for more details.
+
 ## Graph-Based AI Flows
 
 <img src="assets/flow_graph_example.jpg" width="600em">
