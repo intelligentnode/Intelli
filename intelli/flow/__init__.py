@@ -19,6 +19,7 @@ from intelli.flow.template.basic_template import TextInputTemplate
 # Core flow
 from intelli.flow.sequence_flow import SequenceFlow
 from intelli.flow.tasks.task import Task
+from intelli.flow.tasks.loop_task import LoopTask
 from intelli.flow.flow import Flow
 
 # Dynamic routing
