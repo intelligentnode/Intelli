@@ -265,8 +265,11 @@ class VibeFlow:
     # Planner prompt + parsing
     # ------------------------------------------------------------------
     def _plan(self, description: str, existing_spec: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+        # Redact existing spec before sending it to the LLM for security
+        safe_existing_spec = self._redact_spec(existing_spec) if existing_spec else None
+
         system_prompt = self._build_system_prompt()
-        user_prompt = self._build_user_prompt(description, existing_spec)
+        user_prompt = self._build_user_prompt(description, safe_existing_spec)
 
         if self._planner_fn is not None:
             return self._planner_fn(system_prompt, user_prompt)
