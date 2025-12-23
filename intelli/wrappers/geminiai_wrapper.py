@@ -10,11 +10,12 @@ from intelli.config import config
 
 class GeminiAIWrapper:
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, timeout=180):
         self.API_BASE_URL = config['url']['gemini']['base']
         self.UPLOAD_BASE_URL = config['url']['gemini']['upload_base']
         self.FILES_BASE_URL = config['url']['gemini']['files_base']
         self.VERTEX_BASE_URL = config['url']['gemini']['vertex_base']
+        self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json'
@@ -94,7 +95,7 @@ class GeminiAIWrapper:
         normalized_params = self._camelize(params)
 
         try:
-            response = self.session.post(url, json=normalized_params, params={'key': self.API_KEY})
+            response = self.session.post(url, json=normalized_params, params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
@@ -102,7 +103,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Gemini API error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"Gemini API error: {error}")
         except Exception as error:
@@ -170,7 +171,7 @@ class GeminiAIWrapper:
         normalized_params = self._camelize(params)
 
         try:
-            with self.session.post(url, json=normalized_params, params={'key': self.API_KEY}, stream=True) as response:
+            with self.session.post(url, json=normalized_params, params={'key': self.API_KEY}, stream=True, timeout=self.timeout) as response:
                 response.raise_for_status()
                 for line in response.iter_lines(decode_unicode=True):
                     if line:
@@ -180,7 +181,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Gemini stream error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"Gemini stream error: {error}")
 
@@ -290,7 +291,7 @@ class GeminiAIWrapper:
         }
 
         try:
-            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
@@ -298,7 +299,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Gemini Image Generation error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"Gemini Image Generation error: {error}")
 
@@ -326,7 +327,7 @@ class GeminiAIWrapper:
         }
 
         try:
-            response = self.session.post(url, json=payload, params={'key': self.API_KEY})
+            response = self.session.post(url, json=payload, params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as error:
@@ -334,7 +335,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Veo Video Generation error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"Veo Video Generation error: {error}")
 
@@ -346,7 +347,7 @@ class GeminiAIWrapper:
         url = f"{self.VERTEX_BASE_URL}/{operation_name}"
         
         try:
-            response = self.session.get(url, params={'key': self.API_KEY})
+            response = self.session.get(url, params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as error:
@@ -354,7 +355,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Video status check error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"Video status check error: {error}")
 
@@ -385,7 +386,7 @@ class GeminiAIWrapper:
         }
 
         try:
-            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
@@ -393,7 +394,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Gemini TTS error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"Gemini TTS error: {error}")
 
@@ -417,7 +418,7 @@ class GeminiAIWrapper:
         }
 
         try:
-            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
@@ -425,7 +426,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Gemini Multi-Speaker TTS error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"Gemini Multi-Speaker TTS error: {error}")
 
@@ -460,7 +461,8 @@ class GeminiAIWrapper:
                 self.UPLOAD_BASE_URL,
                 headers=headers,
                 json=metadata,
-                params={'key': self.API_KEY}
+                params={'key': self.API_KEY},
+                timeout=self.timeout
             )
             response.raise_for_status()
             
@@ -482,7 +484,8 @@ class GeminiAIWrapper:
             upload_response = self.session.post(
                 upload_url,
                 headers=upload_headers,
-                data=file_content
+                data=file_content,
+                timeout=self.timeout
             )
             upload_response.raise_for_status()
             
@@ -493,14 +496,14 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"File upload error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"File upload error: {error}")
 
     def list_files(self):
         """List uploaded files"""
         try:
-            response = self.session.get(self.FILES_BASE_URL, params={'key': self.API_KEY})
+            response = self.session.get(self.FILES_BASE_URL, params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as error:
@@ -508,7 +511,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"List files error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"List files error: {error}")
 
@@ -516,7 +519,7 @@ class GeminiAIWrapper:
         """Delete an uploaded file"""
         url = f"{self.FILES_BASE_URL}/{file_name}"
         try:
-            response = self.session.delete(url, params={'key': self.API_KEY})
+            response = self.session.delete(url, params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return response.json() if response.content else {"status": "deleted"}
         except requests.exceptions.RequestException as error:
@@ -524,7 +527,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Delete file error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(f"Delete file error: {error}")
 
@@ -534,7 +537,7 @@ class GeminiAIWrapper:
         url = f"{self.API_BASE_URL}/{model}:embedContent"
 
         try:
-            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             return self._snake_alias(response.json())
         except requests.exceptions.RequestException as error:
@@ -542,7 +545,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Gemini API error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(str(error))
 
@@ -565,7 +568,7 @@ class GeminiAIWrapper:
             batch_params = params
 
         try:
-            response = self.session.post(url, json=self._camelize(batch_params), params={'key': self.API_KEY})
+            response = self.session.post(url, json=self._camelize(batch_params), params={'key': self.API_KEY}, timeout=self.timeout)
             response.raise_for_status()
             data = self._snake_alias(response.json())
             return data.get("embeddings", [])
@@ -574,7 +577,7 @@ class GeminiAIWrapper:
                 try:
                     error_detail = error.response.json()
                     raise Exception(f"Gemini API error: {error} - Details: {json.dumps(error_detail)}")
-                except:
+                except Exception:
                     pass
             raise Exception(str(error))
 

@@ -11,10 +11,12 @@ class RemoteImageModel:
         "gemini": GeminiAIWrapper,
     }
 
-    def __init__(self, api_key, provider="openai"):
+    def __init__(self, api_key, provider="openai", options=None):
         if provider in self.supported_image_models:
             self.provider_name = provider
-            self.provider = self.supported_image_models[provider](api_key)
+            self.options = options or {}
+            self.timeout = self.options.get("timeout", 180)
+            self.provider = self.supported_image_models[provider](api_key, timeout=self.timeout)
         else:
             supported_models = ", ".join(self.supported_image_models.keys())
             raise ValueError(f"The received provider {provider} not supported. Supported providers: {supported_models}")

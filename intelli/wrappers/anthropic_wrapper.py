@@ -5,9 +5,10 @@ from intelli.utils.conn_helper import ConnHelper
 
 
 class AnthropicWrapper:
-    def __init__(self, api_key):
+    def __init__(self, api_key, timeout=180):
         self.API_BASE_URL = config['url']['anthropic']['base']
         self.API_VERSION = config['url']['anthropic']['version']
+        self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
@@ -18,7 +19,7 @@ class AnthropicWrapper:
 
     def generate_text(self, params):
         url = f"{self.API_BASE_URL}{config['url']['anthropic']['messages']}"
-        response = self.session.post(url, json=params)
+        response = self.session.post(url, json=params, timeout=self.timeout)
         try:
             response.raise_for_status()
             return response.json()
@@ -34,7 +35,7 @@ class AnthropicWrapper:
         headers = self.session.headers.copy()
         params['stream'] = True
         try:
-            with requests.post(url, headers=headers, json=params, stream=True) as response:
+            with requests.post(url, headers=headers, json=params, stream=True, timeout=self.timeout) as response:
                 response.raise_for_status()
                 for line in response.iter_lines():
                     if line:

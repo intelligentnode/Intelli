@@ -6,8 +6,9 @@ from intelli.utils.conn_helper import ConnHelper
 
 class MistralAIWrapper:
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, timeout=180):
         self.API_BASE_URL = config['url']['mistral']['base']
+        self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update({
             'Content-Type': 'application/json',
@@ -19,7 +20,7 @@ class MistralAIWrapper:
         url = f"{self.API_BASE_URL}{config['url']['mistral']['completions']}"
 
         try:
-            response = self.session.post(url, json=params)
+            response = self.session.post(url, json=params, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -29,7 +30,7 @@ class MistralAIWrapper:
         url = f"{self.API_BASE_URL}{config['url']['mistral']['embed']}"
 
         try:
-            response = self.session.post(url, json=params)
+            response = self.session.post(url, json=params, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:

@@ -7,9 +7,10 @@ from intelli.config import config
 
 
 class ElevenLabsWrapper:
-    def __init__(self, api_key):
+    def __init__(self, api_key, timeout=180):
         self.api_key = api_key
         self.base_url = config['url']['elevenlabs']['base']
+        self.timeout = timeout
         self.session = requests.Session()
         self.session.headers.update({
             'xi-api-key': self.api_key,
@@ -33,7 +34,7 @@ class ElevenLabsWrapper:
             payload["model_id"] = model_id
 
         try:
-            response = self.session.post(url, json=payload, params=params)
+            response = self.session.post(url, json=payload, params=params, timeout=self.timeout)
             response.raise_for_status()
             return response.content
         except requests.exceptions.RequestException as error:
@@ -56,7 +57,7 @@ class ElevenLabsWrapper:
             payload["model_id"] = model_id
 
         try:
-            response = self.session.post(url, json=payload, params=params, stream=True)
+            response = self.session.post(url, json=payload, params=params, stream=True, timeout=self.timeout)
             response.raise_for_status()
             return response
         except requests.exceptions.RequestException as error:
@@ -96,7 +97,7 @@ class ElevenLabsWrapper:
         }
 
         try:
-            response = requests.post(url, headers=headers, files=files, data=data)
+            response = requests.post(url, headers=headers, files=files, data=data, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as error:
@@ -146,7 +147,7 @@ class ElevenLabsWrapper:
         }
 
         try:
-            response = requests.post(url, headers=headers, files=files, data=data, params=params)
+            response = requests.post(url, headers=headers, files=files, data=data, params=params, timeout=self.timeout)
             response.raise_for_status()
             return response.content
         except requests.exceptions.RequestException as error:
@@ -165,7 +166,7 @@ class ElevenLabsWrapper:
             params["show_legacy"] = "true"
 
         try:
-            response = self.session.get(url, params=params)
+            response = self.session.get(url, params=params, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as error:

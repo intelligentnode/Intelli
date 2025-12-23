@@ -24,10 +24,12 @@ class RemoteRecognitionModel:
     Keras offline models with Whisper, Eleven Labs, or Speechmatics.
     """
 
-    def __init__(self, key_value=None, provider=None, model_name=None, model_params=None):
+    def __init__(self, key_value=None, provider=None, model_name=None, model_params=None, options=None):
         if not provider:
             provider = SupportedRecognitionModels['OPENAI']
 
+        self.options = options or {}
+        self.timeout = self.options.get("timeout", 180)
         supported_models = self.get_supported_models()
 
         if provider in supported_models:
@@ -44,7 +46,7 @@ class RemoteRecognitionModel:
             if not key_value:
                 raise ValueError("API key is required for OpenAI")
             from intelli.wrappers.openai_wrapper import OpenAIWrapper
-            self.openai_wrapper = OpenAIWrapper(key_value)
+            self.openai_wrapper = OpenAIWrapper(key_value, timeout=self.timeout)
         elif key_type == SupportedRecognitionModels['KERAS']:
             if not model_name:
                 model_name = "whisper_tiny_en"  # Default model
@@ -52,7 +54,7 @@ class RemoteRecognitionModel:
         elif key_type == SupportedRecognitionModels['ELEVENLABS']:
             if not key_value:
                 raise ValueError("API key is required for Eleven Labs")
-            self.elevenlabs_wrapper = ElevenLabsWrapper(key_value)
+            self.elevenlabs_wrapper = ElevenLabsWrapper(key_value, timeout=self.timeout)
         elif key_type == SupportedRecognitionModels['SPEECHMATICS']:
             if not key_value:
                 raise ValueError("API key is required for Speechmatics")
@@ -102,7 +104,7 @@ class RemoteRecognitionModel:
                 'Authorization': f'Bearer {self.api_key}'
             }
 
-            response = requests.post(url, headers=headers, files=files, data=data)
+            response = requests.post(url, headers=headers, files=files, data=data, timeout=180)
             response.raise_for_status()
             result = response.json().get('text', '')
             print(f"OpenAI transcription successful, length: {len(result)}")

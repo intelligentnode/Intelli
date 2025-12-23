@@ -759,6 +759,7 @@ class VibeFlow:
                 with open(path, "r", encoding="utf-8") as f:
                     txt = f.read()
             except Exception:
+                # Silently skip files that cannot be read
                 continue
 
             if remaining <= 0:

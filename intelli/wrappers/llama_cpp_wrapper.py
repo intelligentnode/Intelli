@@ -50,6 +50,7 @@ class IntelliLlamaCPPWrapper:
         model_path: Optional[str] = None,
         server_url: Optional[str] = None,
         model_params: Optional[Dict] = None,
+        timeout: int = 180,
     ):
         """
         If server_url is set, we'll use a running llama.cpp server. Otherwise, if model_path is provided,
@@ -59,6 +60,7 @@ class IntelliLlamaCPPWrapper:
             model_path: Path to a local GGUF model file or None if using server.
             server_url: URL to a llama.cpp server.
             model_params: Dictionary with model parameters (e.g., n_ctx, n_gpu_layers, embedding, etc.)
+            timeout: Request timeout in seconds for server mode. Defaults to 180.
         """
         # Declare globals at the top of __init__
         global llama_cpp
@@ -68,6 +70,7 @@ class IntelliLlamaCPPWrapper:
         self.model = None
         self.server_url = server_url
         self.model_params = model_params or {}
+        self.timeout = timeout
 
         # If llama_cpp is still None, try dynamic import
         if llama_cpp is None:
@@ -226,7 +229,7 @@ class IntelliLlamaCPPWrapper:
             "top_p": top_p,
         }
         try:
-            resp = requests.post(url, json=payload)
+            resp = requests.post(url, json=payload, timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()  # e.g. {"choices": [{"text": "..."}]}
         except requests.RequestException as e:
@@ -255,7 +258,7 @@ class IntelliLlamaCPPWrapper:
             "stream": True,
         }
         try:
-            with requests.post(url, json=payload, stream=True) as r:
+            with requests.post(url, json=payload, stream=True, timeout=self.timeout) as r:
                 r.raise_for_status()
                 for line in r.iter_lines(decode_unicode=True):
                     if line and line.startswith("data: "):
@@ -378,7 +381,7 @@ class IntelliLlamaCPPWrapper:
             "input": params.get("input", ""),
         }
         try:
-            resp = requests.post(url, json=payload)
+            resp = requests.post(url, json=payload, timeout=self.timeout)
             resp.raise_for_status()
             return resp.json()
         except requests.RequestException as e:
