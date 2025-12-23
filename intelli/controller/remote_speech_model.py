@@ -14,10 +14,12 @@ SupportedSpeechModels = {
 
 class RemoteSpeechModel:
 
-    def __init__(self, key_value, provider=None):
+    def __init__(self, key_value, provider=None, options=None):
         if not provider:
             provider = SupportedSpeechModels['GOOGLE']
 
+        self.options = options or {}
+        self.timeout = self.options.get("timeout", 180)
         supported_models = self.get_supported_models()
 
         if provider in supported_models:
@@ -29,13 +31,13 @@ class RemoteSpeechModel:
     def initiate(self, key_value, key_type):
         self.key_type = key_type
         if key_type == SupportedSpeechModels['GOOGLE']:
-            self.google_wrapper = GoogleAIWrapper(key_value)
+            self.google_wrapper = GoogleAIWrapper(key_value, timeout=self.timeout)
         elif key_type == SupportedSpeechModels['OPENAI']:
-            self.openai_wrapper = OpenAIWrapper(key_value)
+            self.openai_wrapper = OpenAIWrapper(key_value, timeout=self.timeout)
         elif key_type == SupportedSpeechModels['ELEVENLABS']:
-            self.elevenlabs_wrapper = ElevenLabsWrapper(key_value)
+            self.elevenlabs_wrapper = ElevenLabsWrapper(key_value, timeout=self.timeout)
         elif key_type == SupportedSpeechModels['GEMINI']:
-            self.gemini_wrapper = GeminiAIWrapper(key_value)
+            self.gemini_wrapper = GeminiAIWrapper(key_value, timeout=self.timeout)
         else:
             raise ValueError('Invalid provider name')
 

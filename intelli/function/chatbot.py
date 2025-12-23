@@ -35,6 +35,7 @@ class Chatbot:
         self.api_key = api_key
         self.provider = self._get_provider(provider)
         self.options = options
+        self.timeout = options.get("timeout", 180)
         self.wrapper = self._initialize_provider()
         self.add_rag(options)
         self.system_helper = SystemHelper()
@@ -44,7 +45,7 @@ class Chatbot:
 
     def add_rag(self, options):
         self.extended_search = (
-            IntellicloudWrapper(options["one_key"], options.get("api_base", None))
+            IntellicloudWrapper(options["one_key"], options.get("api_base", None), timeout=self.timeout)
             if "one_key" in options
             else None
         )
@@ -64,13 +65,13 @@ class Chatbot:
     def _initialize_provider(self):
         if self.provider == ChatProvider.OPENAI.value:
             proxy_helper = self.options.get("proxy_helper", None)
-            return OpenAIWrapper(self.api_key, proxy_helper=proxy_helper)
+            return OpenAIWrapper(self.api_key, proxy_helper=proxy_helper, timeout=self.timeout)
         elif self.provider == ChatProvider.MISTRAL.value:
-            return MistralAIWrapper(self.api_key)
+            return MistralAIWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.GEMINI.value:
-            return GeminiAIWrapper(self.api_key)
+            return GeminiAIWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.ANTHROPIC.value:
-            return AnthropicWrapper(self.api_key)
+            return AnthropicWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.KERAS.value:
             return KerasWrapper(
                 self.options["model_name"], self.options.get("model_params", {})
@@ -79,23 +80,23 @@ class Chatbot:
             nvidia_options = self.options.get("nvidiaOptions", {})
             base_url = self.options.get("baseUrl", {})
             if "baseUrl" in nvidia_options and nvidia_options["baseUrl"]:
-                return NvidiaWrapper(self.api_key, base_url=nvidia_options["baseUrl"])
+                return NvidiaWrapper(self.api_key, base_url=nvidia_options["baseUrl"], timeout=self.timeout)
             elif base_url:
-                return NvidiaWrapper(self.api_key, base_url=base_url)
+                return NvidiaWrapper(self.api_key, base_url=base_url, timeout=self.timeout)
             else:
-                return NvidiaWrapper(self.api_key)
+                return NvidiaWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.LLAMACPP.value:
             # assume options has "model_path" and optionally "model_params"
             model_path = self.options.get("model_path")
             model_params = self.options.get("model_params", {"n_ctx": 512})
             return IntelliLlamaCPPWrapper(
-                model_path=model_path, model_params=model_params
+                model_path=model_path, model_params=model_params, timeout=self.timeout
             )
         elif self.provider == ChatProvider.VLLM.value:
             vllm_base_url = self.options.get("vllmBaseUrl") or self.options.get("baseUrl")
             if not vllm_base_url:
                 raise ValueError("VLLM provider requires baseUrl in options")
-            return VLLMWrapper(vllm_base_url, self.api_key)
+            return VLLMWrapper(vllm_base_url, self.api_key, timeout=self.timeout)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 

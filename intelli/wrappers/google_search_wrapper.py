@@ -51,6 +51,9 @@ class GoogleCustomSearchWrapper:
             params
         )
 
+        if not url.startswith(('http://', 'https://')):
+            raise ValueError(f"Invalid URL scheme: {url}")
+
         req = urllib.request.Request(url, headers={"Accept": "application/json"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             raw = resp.read().decode("utf-8")

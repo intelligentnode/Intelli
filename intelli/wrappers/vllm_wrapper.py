@@ -7,15 +7,17 @@ from intelli.utils.conn_helper import ConnHelper
 
 class VLLMWrapper:
 
-    def __init__(self, api_base_url, api_key=None):
+    def __init__(self, api_base_url, api_key=None, timeout=180):
         """
         Initialize the VLLM wrapper.
 
         Args:
             api_base_url (str): Base URL for the VLLM API.
             api_key (str, optional): API key for authentication. Defaults to None.
+            timeout (int, optional): Request timeout in seconds. Defaults to 180.
         """
         self.api_base_url = api_base_url
+        self.timeout = timeout
         self.session = requests.Session()
         headers = {"Content-Type": "application/json"}
         if api_key:
@@ -45,11 +47,11 @@ class VLLMWrapper:
 
         try:
             if params.get("stream", False):
-                response = self.session.post(endpoint, json=params, stream=True)
+                response = self.session.post(endpoint, json=params, stream=True, timeout=self.timeout)
                 response.raise_for_status()
                 return response.iter_lines(decode_unicode=True)
             else:
-                response = self.session.post(endpoint, json=params)
+                response = self.session.post(endpoint, json=params, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
         except requests.exceptions.RequestException as e:
@@ -120,11 +122,11 @@ class VLLMWrapper:
 
         try:
             if params.get("stream", False):
-                response = self.session.post(endpoint, json=params, stream=True)
+                response = self.session.post(endpoint, json=params, stream=True, timeout=self.timeout)
                 response.raise_for_status()
                 return response.iter_lines(decode_unicode=True)
             else:
-                response = self.session.post(endpoint, json=params)
+                response = self.session.post(endpoint, json=params, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
         except requests.exceptions.RequestException as e:
@@ -189,7 +191,7 @@ class VLLMWrapper:
         endpoint = f"{self.api_base_url}{config['url']['vllm']['embed']}"
 
         try:
-            response = self.session.post(endpoint, json=params)
+            response = self.session.post(endpoint, json=params, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:

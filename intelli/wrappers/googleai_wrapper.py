@@ -9,8 +9,9 @@ from intelli.utils.conn_helper import ConnHelper
 
 class GoogleAIWrapper:
 
-    def __init__(self, api_key):
+    def __init__(self, api_key, timeout=180):
         self.api_key = api_key
+        self.timeout = timeout
         self.headers = {
             'Content-Type': 'application/json; charset=utf-8',
             'X-Goog-Api-Key': self.api_key,
@@ -31,7 +32,7 @@ class GoogleAIWrapper:
         param = self.get_synthesize_input(params)
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(param))
+            response = requests.post(url, headers=self.headers, data=json.dumps(param), timeout=self.timeout)
             response.raise_for_status()
             return response.json()['audioContent']
         except requests.exceptions.RequestException as e:
@@ -71,7 +72,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(param))
+            response = requests.post(url, headers=self.headers, data=json.dumps(param), timeout=self.timeout)
             response.raise_for_status()
             return response.json()['audioContent']
         except requests.exceptions.RequestException as e:
@@ -97,7 +98,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -122,7 +123,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -152,7 +153,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -182,7 +183,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -267,7 +268,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -285,7 +286,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -303,7 +304,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -324,7 +325,7 @@ class GoogleAIWrapper:
             payload['source'] = source_language
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -339,7 +340,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -354,7 +355,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.get(url, headers=self.headers, params=params)
+            response = requests.get(url, headers=self.headers, params=params, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
@@ -491,7 +492,7 @@ class GoogleAIWrapper:
         }
 
         try:
-            response = requests.post(url, headers=self.headers, data=json.dumps(payload))
+            response = requests.post(url, headers=self.headers, data=json.dumps(payload), timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:

@@ -11,12 +11,14 @@ class RemoteVisionModel:
         "google": GoogleAIWrapper,
     }
 
-    def __init__(self, api_key, provider="openai"):
+    def __init__(self, api_key, provider="openai", options=None):
         self.api_key = api_key
+        self.options = options or {}
+        self.timeout = self.options.get("timeout", 180)
 
         if provider in self.supported_vision_models:
             self.provider = provider
-            self.provider_wrapper = self.supported_vision_models[provider](api_key)
+            self.provider_wrapper = self.supported_vision_models[provider](api_key, timeout=self.timeout)
         else:
             supported_models = ", ".join(self.supported_vision_models.keys())
             raise ValueError(

@@ -10,6 +10,7 @@ class RemoteEmbedModel:
     def __init__(self, api_key, provider_name, options=None):
         self.provider_name = provider_name.lower()
         self.options = options or {}
+        self.timeout = self.options.get("timeout", 180)
         providers = {
             'openai': OpenAIWrapper,
             'mistral': MistralAIWrapper,
@@ -22,9 +23,9 @@ class RemoteEmbedModel:
             base_url = self.options.get("baseUrl")
             if not base_url:
                 raise ValueError("VLLM provider requires baseUrl in options")
-            self.provider = providers[self.provider_name](base_url, api_key)
+            self.provider = providers[self.provider_name](base_url, api_key, timeout=self.timeout)
         elif self.provider_name in providers:
-            self.provider = providers[self.provider_name](api_key)
+            self.provider = providers[self.provider_name](api_key, timeout=self.timeout)
         else:
             if api_key in providers:
                 raise Exception(f"Send the provider name as second parameter (api_key, provider_name).")

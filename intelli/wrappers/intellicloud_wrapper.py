@@ -5,9 +5,10 @@ from intelli.utils.conn_helper import ConnHelper
 
 
 class IntellicloudWrapper:
-    def __init__(self, api_key, api_base=None):
+    def __init__(self, api_key, api_base=None, timeout=180):
         self.ONE_KEY = api_key
         self.API_BASE_URL = api_base if api_base else config['url']['intellicloud']['base']
+        self.timeout = timeout
 
     def semantic_search(self, query_text, k=3, filters=None):
         if filters is None:
@@ -21,7 +22,7 @@ class IntellicloudWrapper:
 
         # call the document search
         try:
-            response = requests.post(url, data=data)
+            response = requests.post(url, data=data, timeout=self.timeout)
             response.raise_for_status()
             return response.json()['data']
         except requests.RequestException as e:

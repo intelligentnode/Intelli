@@ -223,8 +223,9 @@ class PandasMCPServerBuilder(BaseDataFrameMCPServerBuilder):
             elif operator == 'in' and isinstance(value, list):
                 try:
                     value = [type(self.df[column].iloc[0])(v) for v in value]
-                except:
-                    pass # keep original if conversion fails
+                except Exception:
+                    # Keep original value if conversion fails
+                    pass
 
         except Exception as e:
             return f"Error converting value for filtering: {str(e)}. Ensure value type is compatible with column '{column}' ({col_dtype})."

@@ -7,8 +7,9 @@ from intelli.utils.proxy_helper import ProxyHelper
 
 class OpenAIWrapper:
 
-    def __init__(self, api_key, proxy_helper=None):
+    def __init__(self, api_key, proxy_helper=None, timeout=180):
         self.api_key = api_key
+        self.timeout = timeout
         self.proxy_helper = proxy_helper or ProxyHelper.get_instance()
         # Build default headers once; sessions will be created per request.
         if self.proxy_helper.get_openai_type() == 'azure':
@@ -46,8 +47,8 @@ class OpenAIWrapper:
         - Legacy: supports `functions` / `function_call` (function_call responses).
         - Modern: supports `tools` / `tool_choice` (tool_calls responses).
         Preference:
-          - If caller supplies tools/tool_choice (either in params or as explicit args), we do NOT
-            inject legacy functions/function_call fields.
+        - If caller supplies tools/tool_choice (either in params or as explicit args), we do NOT
+          inject legacy functions/function_call fields.
         """
         url = self.proxy_helper.get_openai_chat_url(params['model'])
         payload = params.copy()
@@ -67,7 +68,7 @@ class OpenAIWrapper:
         session = self._new_session()
 
         try:
-            response = session.post(url, json=payload, stream=params.get('stream', False))
+            response = session.post(url, json=payload, stream=params.get('stream', False), timeout=self.timeout)
             response.raise_for_status()
             if params.get('stream', False):
                 return response.iter_lines(decode_unicode=True)
@@ -82,7 +83,7 @@ class OpenAIWrapper:
         url = self.proxy_helper.get_openai_image_url()
         session = self._new_session()
         try:
-            response = session.post(url, json=params)
+            response = session.post(url, json=params, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
@@ -106,7 +107,7 @@ class OpenAIWrapper:
             session = self._new_session()
             try:
                 # Use session to keep consistent base URL handling and headers.
-                response = session.post(url, headers=headers, files=files, data=data)
+                response = session.post(url, headers=headers, files=files, data=data, timeout=self.timeout)
                 response.raise_for_status()
                 return response.json()
             finally:
@@ -116,7 +117,7 @@ class OpenAIWrapper:
         url = self.proxy_helper.get_openai_finetuning_job_url()
         session = self._new_session()
         try:
-            response = session.post(url, json=params)
+            response = session.post(url, json=params, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
@@ -128,7 +129,7 @@ class OpenAIWrapper:
         url = self.proxy_helper.get_openai_finetuning_job_url()
         session = self._new_session()
         try:
-            response = session.get(url)
+            response = session.get(url, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
@@ -140,7 +141,7 @@ class OpenAIWrapper:
         url = self.proxy_helper.get_openai_embed_url(params['model'])
         session = self._new_session()
         try:
-            response = session.post(url, json=params)
+            response = session.post(url, json=params, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
@@ -169,9 +170,9 @@ class OpenAIWrapper:
 
             # For speech to text, we need to use files parameter for multipart/form-data
             if files:
-                response = session.post(url, data=params, files=files, headers=custom_headers)
+                response = session.post(url, data=params, files=files, headers=custom_headers, timeout=self.timeout)
             else:
-                response = session.post(url, data=params, headers=custom_headers)
+                response = session.post(url, data=params, headers=custom_headers, timeout=self.timeout)
 
             response.raise_for_status()
             return response.json()
@@ -187,7 +188,7 @@ class OpenAIWrapper:
             custom_headers = session.headers.copy()
             if headers:
                 custom_headers.update(headers)
-            response = session.post(url, json=params, headers=custom_headers, stream=True)
+            response = session.post(url, json=params, headers=custom_headers, stream=True, timeout=self.timeout)
             response.raise_for_status()
             return response.iter_content(chunk_size=8192) if params.get('stream', False) else response.content
         except requests.RequestException as error:
@@ -205,7 +206,7 @@ class OpenAIWrapper:
             combined_headers = session.headers
 
         try:
-            response = session.post(url, json=params, headers=combined_headers)
+            response = session.post(url, json=params, headers=combined_headers, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
@@ -235,7 +236,7 @@ class OpenAIWrapper:
         session = self._new_session()
         
         try:
-            response = session.post(url, json=payload)
+            response = session.post(url, json=payload, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
         except requests.RequestException as error:
