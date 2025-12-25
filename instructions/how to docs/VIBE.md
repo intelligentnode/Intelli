@@ -1,10 +1,17 @@
 ---
-sidebar_position: 11
+sidebar_position: 1
 ---
 
-# Vibe Code
+# Vibe Agents
 
-`VibeFlow` allows you to build and execute complex multi-modal AI flows using **natural language descriptions**. Instead of manually defining tasks and dependencies, you describe your goal, and `VibeFlow` handles the orchestration.
+
+`VibeAgent` allows you to build and execute multi-modal flows using natural language descriptions. Instead of manually defining tasks and dependencies, you describe your intent, and Vibe Agent handles the orchestration using LLMs.
+
+Your intent is compiled into **execution graph**, each node represents an agent or tool action, and each edge encodes dependencies and data flow.
+
+:::info
+VibeAgent is beta supported starting from version **1.4.0** as we work toward AGI where agents generate agents.
+:::
 
 ### How it works
 
@@ -20,11 +27,11 @@ Build a text-based joke generator using a natural language "vibe":
 ```python
 import asyncio
 import os
-from intelli.flow.vibe import VibeFlow
+from intelli.flow import VibeAgent
 
 async def main():
     # 1. Setup the planner (requires an API key)
-    vf = VibeFlow(
+    vf = VibeAgent(
         planner_provider="gemini",
         planner_api_key=os.getenv("GEMINI_API_KEY"),
         planner_model="gemini-2.0-flash"
@@ -48,7 +55,7 @@ if __name__ == "__main__":
 
 ### Multi-Modal Vibe
 
-`VibeFlow` can orchestrate different types of agents (text, image, audio) in a single request:
+`VibeAgent` can orchestrate different types of agents (text, image, audio) in a single request:
 
 ```python
 description = (
@@ -62,13 +69,13 @@ results = await flow.start()
 
 ### Key Features
 
-- **Environment Variables**: Use `${ENV:VARIABLE_NAME}` in your prompts, and VibeFlow will automatically resolve them from your `.env` file.
+- **Environment Variables**: Use `${ENV:VARIABLE_NAME}` in your prompts, and VibeAgent will automatically resolve them from your `.env` file.
 - **Save & Load**: Use `save_bundle(save_dir)` to export the generated flow spec and a graph image visualization for future use.
 - **Edit Mode**: Call `vf.edit(spec_path, "add a translation step")` to modify an existing flow using natural language.
 
 ### Auto-Saving Outputs
 
-VibeFlow can automatically save generated images and audio to a specific directory:
+VibeAgent can automatically save generated images and audio to a specific directory:
 
 ```python
 flow = await vf.build("Generate an image of a cyber cat and save it to ./outputs")
@@ -80,10 +87,10 @@ await flow.start()
 
 ### Preferred Models
 
-You can specify preferred model details as strings when initializing `VibeFlow`. This guides the planner to use specific versions of AI models for text, image, speech, or recognition tasks.
+You can specify preferred model details as strings when initializing `VibeAgent`. This guides the planner to use specific versions of AI models for text, image, speech, or recognition tasks.
 
 ```python
-vf = VibeFlow(
+vf = VibeAgent(
     planner_provider="gemini",
     planner_api_key=os.getenv("GEMINI_API_KEY"),
     # Specify specific model versions as descriptive strings
