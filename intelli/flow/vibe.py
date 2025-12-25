@@ -798,3 +798,10 @@ class VibeFlow:
             return obj
 
         return _walk(spec)
+
+
+class VibeAgent(VibeFlow):
+    """
+    VibeAgent is an alias for VibeFlow to allow the user to call it by either name.
+    """
+    pass
