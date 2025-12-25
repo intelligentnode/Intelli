@@ -80,4 +80,4 @@ python -m unittest intelli.test.integration.test_azure_assistant_wrapper
 
 # vibe
 python -m unittest intelli.test.integration.test_vibeflow_simple
-python -m unittest intelli.test.integration.test_vibeflow_blog_poste
+python -m unittest intelli.test.integration.test_vibeagent_blog_poste

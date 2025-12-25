@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from dotenv import load_dotenv
 
-from intelli.flow.vibe import VibeFlow
+from intelli.flow.vibe import VibeAgent
 from intelli.flow.utils.flow_helper import FlowHelper
 from intelli.flow.types import AgentTypes
 
@@ -23,9 +23,9 @@ class TestBlogPostVibe(unittest.TestCase):
         # Ensure directory exists
         FlowHelper.ensure_directory(self.OUTPUT_DIR)
         
-        # Initialize VibeFlow with GPT-5.2 as the planner
+        # Initialize VibeAgent with GPT-5.2 as the planner
         # Using Gemini for images as requested
-        self.vf = VibeFlow(
+        self.vf = VibeAgent(
             planner_provider="openai",
             planner_api_key=self.openai_key,
             planner_model="gpt-5.2",
