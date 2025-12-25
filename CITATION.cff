@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "Intelli"
+type: software
+
+authors:
+  - given-names: Ahmad
+    family-names: Albarqawi
+    affiliation: "IntelliNode"
+
+repository-code: "https://github.com/intelligentnode/Intelli"
+url: "https://github.com/intelligentnode/Intelli"
+license: "Apache-2.0"
+
+keywords:
+  - python
+  - llm
+  - ai-agents
+  - agent-graphs
+  - orchestration
+  - vibe-agents
+  - chatbot
+
+abstract: >
+  Intelli is a unified Python framework for chatbots and agent workflows, including
+  Vibe Agents for generating a graph of agents from intent.
+
+preferred-citation:
+  type: software
+  authors:
+    - given-names: Ahmad
+      family-names: Albarqawi
+  title: "Intelli"
+  url: "https://github.com/intelligentnode/Intelli"
+  license: "Apache-2.0"
+
