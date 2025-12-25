@@ -95,7 +95,7 @@ final_result = flow.start()
 Or build the entire flow using natural language with **Vibe Flow**.
 Refer to [the documentation](https://docs.intellinode.ai/docs/python/vibe-agents) for more details.
 
-## Graph-Based AI Flows
+## Graph-Based Agents
 
 <img src="assets/flow_graph_example.jpg" width="600em">
 
@@ -172,3 +172,5 @@ python3 -m unittest intelli.test.integration.test_flow_sequence
 - **The controller layer** offers a unified input to any AI model by handling the differences.
 - **The function layer** provides abstract functionality that extends based on the app's use cases. 
 - **Flows**: create a flow of ai agents working toward user tasks.
+- **Vibe Agents**: generate a **graph of agents** from an intent.
+
