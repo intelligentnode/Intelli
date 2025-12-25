@@ -57,6 +57,7 @@ class TaskSpec:
     model_params: Dict[str, Any] = field(default_factory=dict)  # overrides per task
     input_type: str = InputTypes.TEXT.value  # text|image|audio... (v1 uses text/image)
     img: Optional[str] = None  # base64 string for image tasks
+    post_process: Optional[str] = None  # name of the processor from the registry
 
 
 @dataclass
@@ -124,6 +125,7 @@ class VibeFlow:
         image_model: Optional[str] = None,
         speech_model: Optional[str] = None,
         recognition_model: Optional[str] = None,
+        processors: Optional[Dict[str, Callable]] = None,
     ):
         planner_provider = (planner_provider or "").lower()
         if planner_provider not in ALLOWED_PLANNER_PROVIDERS:
@@ -138,6 +140,7 @@ class VibeFlow:
         self.context_files = context_files or self.default_context_files()
         self.max_context_chars = max_context_chars
         self._planner_fn = planner_fn  # for tests / offline usage
+        self.processors = processors or {}
 
         # Preferences
         self.preferences = {
@@ -280,13 +283,24 @@ class VibeFlow:
         chatbot = Chatbot(self.planner_api_key, self.planner_provider, options=self.planner_options)
         chat_input = ChatModelInput(system=system_prompt, model=self.planner_model)
         chat_input.add_user_message(user_prompt)
-        raw = chatbot.chat(chat_input)[0]
-
-        # Chatbot returns a string for normal responses; may return dict for tool calls.
-        if isinstance(raw, dict):
-            raise ValueError(f"Planner returned non-text response: {raw}")
-
-        return self._extract_json_object(raw)
+        
+        try:
+            raw = chatbot.chat(chat_input)[0]
+            # Chatbot returns a string for normal responses; may return dict for tool calls.
+            if isinstance(raw, dict):
+                raise ValueError(f"Planner returned non-text response: {raw}")
+            return self._extract_json_object(raw)
+        except Exception as e:
+            # Single retry for self-correction if JSON extraction fails
+            chat_input.add_assistant_message(str(raw) if 'raw' in locals() else "Error")
+            chat_input.add_user_message(
+                f"Your previous response was not a valid JSON object. Error: {str(e)}. "
+                "Please provide the corrected FlowSpec JSON now. Output only the JSON object."
+            )
+            raw_retry = chatbot.chat(chat_input)[0]
+            if isinstance(raw_retry, dict):
+                raise ValueError(f"Planner retry returned non-text response: {raw_retry}")
+            return self._extract_json_object(raw_retry)
 
     def _build_system_prompt(self) -> str:
         context = self._load_context_text()
@@ -313,6 +327,16 @@ class VibeFlow:
         else:
             pref_instr += "- Use 'whisper-1' for OpenAI recognition tasks.\n"
 
+        # Multi-modal chaining instructions
+        proc_list = ", ".join(self.processors.keys()) if self.processors else "None"
+        chain_instr = (
+            "\nMulti-Modal Chaining Rules:\n"
+            "- To transcribe and process audio: Task A (recognition) -> Task B (text).\n"
+            "- To process text and speak it: Task A (text) -> Task B (speech).\n"
+            "- To describe an image and translate: Task A (vision) -> Task B (text).\n"
+            f"- Available custom processors to use in 'post_process' field: {proc_list}.\n"
+        )
+
         return (
             "You are VibeFlow Planner for the Intelli Python library.\n"
             "Your job is to generate a valid FlowSpec JSON for building an Intelli Flow.\n\n"
@@ -322,6 +346,7 @@ class VibeFlow:
             "- Do not include API keys in plaintext. Use placeholders like '${ENV:OPENAI_API_KEY}'.\n"
             "- For web search, use 'google' as provider and include 'google_api_key': '${ENV:GOOGLE_API_KEY}' and 'google_cse_id': '${ENV:GOOGLE_CSE_ID}' in model_params. Avoid 'intellicloud' search. Search agents MUST use 'google' as provider.\n"
             + pref_instr +
+            chain_instr +
             "- When generating speech, only provide the raw text to be spoken in the task description. Do not include meta-instructions like 'Generate audio for...'.\n"
             "- Set 'stream': false for speech generation tasks if the output is used as input for a subsequent task.\n"
             "- Only use standard model parameters (e.g., 'model', 'key', 'temperature', 'max_tokens'). Avoid inventing new parameter names like 'target_language'.\n"
@@ -336,6 +361,7 @@ class VibeFlow:
             '      "desc": "what this task does",\n'
             '      "exclude": false,\n'
             '      "memory_key": null,\n'
+            '      "post_process": "optional_processor_name",\n'
             '      "model_params": {},\n'
             '      "input_type": "text",\n'
             '      "agent": {\n'
@@ -507,6 +533,7 @@ class VibeFlow:
                     model_params=t.get("model_params", {}) or {},
                     input_type=t.get("input_type", InputTypes.TEXT.value) or InputTypes.TEXT.value,
                     img=t.get("img"),
+                    post_process=t.get("post_process"),
                 )
             )
 
@@ -575,12 +602,18 @@ class VibeFlow:
             else:
                 task_input = TextTaskInput(t.desc)
 
+            # Map post_process function if specified
+            post_process_fn = None
+            if t.post_process and t.post_process in self.processors:
+                post_process_fn = self.processors[t.post_process]
+
             tasks[t.name] = Task(
                 task_input=task_input,
                 agent=agent_obj,
                 exclude=t.exclude,
                 model_params=t.model_params,
                 memory_key=t.memory_key,
+                post_process=post_process_fn,
                 log=spec.log,
             )
 
