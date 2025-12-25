@@ -5,7 +5,7 @@ type: software
 
 authors:
   - given-names: Ahmad
-    family-names: Barqawi
+    family-names: Albarqawi
     affiliation: "IntelliNode"
 
 repository-code: "https://github.com/intelligentnode/Intelli"
@@ -29,7 +29,7 @@ preferred-citation:
   type: software
   authors:
     - given-names: Ahmad
-      family-names: Barqawi
+      family-names: Albarqawi
   title: "Intelli"
   url: "https://github.com/intelligentnode/Intelli"
   license: "Apache-2.0"
