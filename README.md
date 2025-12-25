@@ -92,14 +92,15 @@ flow = SequenceFlow([task1, task2, task3], log=True)
 final_result = flow.start()
 ```
 
-Or build the entire flow using natural language with **Vibe Flow**.
-Refer to [the documentation](https://docs.intellinode.ai/docs/python/vibe-agents) for more details.
-
 ## Graph-Based Agents
 
 <img src="assets/flow_graph_example.jpg" width="600em">
 
 To build async flows with multiple paths, refer to the [flow tutorial](https://doc.intellinode.ai/docs/python/flows/async-flow).
+
+
+Or build the entire flow using natural language with **Vibe Agents**.
+Refer to [the documentation](https://docs.intellinode.ai/docs/python/vibe-agents) for more details.
 
 ## Generate Images
 Use the image controller to generate arts from multiple models with minimum code change:
@@ -174,3 +175,5 @@ python3 -m unittest intelli.test.integration.test_flow_sequence
 - **Flows**: create a flow of ai agents working toward user tasks.
 - **Vibe Agents**: generate a **graph of agents** from an intent.
 
+
+> If you reference **Vibe Agents**, please cite this repository (see `CITATION.cff`).
