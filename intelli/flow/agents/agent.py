@@ -126,7 +126,12 @@ class Agent(BasicAgent):
 
         chat_input = ChatModelInput(self.mission, **f_params)
 
-        chatbot = Chatbot(custom_params["key"], self.provider, self.options)
+        api_key = custom_params.get("key")
+        provider_lower = (self.provider or "").lower()
+        if not api_key and provider_lower not in {"vllm", "llamacpp", "keras"}:
+            raise ValueError(f"API key is required for {self.provider} text generation")
+
+        chatbot = Chatbot(api_key, self.provider, self.options)
         chat_input.add_user_message(agent_input.desc)
         result = chatbot.chat(chat_input)[0]
         return result

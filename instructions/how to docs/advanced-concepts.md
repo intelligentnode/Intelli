@@ -12,8 +12,8 @@ The `VibeAgent` accepts the following configuration parameters:
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
-| `planner_provider` | `str` | LLM provider for the planner (`openai`, `anthropic`, `gemini`). |
-| `planner_api_key` | `str` | API key for the planner provider. |
+| `planner_provider` | `str` | LLM provider for the planner (`openai`, `anthropic`, `gemini`, `vllm`, `llamacpp`). |
+| `planner_api_key` | `str` | API key for cloud planner providers. Optional for `vllm` or `llamacpp`. |
 | `planner_model` | `str` | Specific model version (e.g., `gpt-4o`, `gemini-2.0-flash`). |
 | `text_model` | `str` | (Optional) Preferred model string for text tasks. |
 | `image_model` | `str` | (Optional) Preferred model string for image tasks. |
@@ -28,10 +28,10 @@ The `VibeAgent` accepts the following configuration parameters:
 from intelli.flow import VibeAgent
 
 # 1. Initialize the architect
-vf = VibeAgent(planner_provider="openai", planner_api_key="your_key")
+va = VibeAgent(planner_provider="openai", planner_api_key="your_key")
 
 # 2. Build the graph from a vibe
-flow = await vf.build("Research AI trends and generate a summary report")
+flow = await va.build("Research AI trends and generate a summary report")
 
 # 3. Execute the flow
 results = await flow.start()
@@ -60,21 +60,21 @@ Each task in the blueprint follows this schema:
 Use `save_bundle` to export the generated blueprint for production use without re-running the planner.
 ```python
 # Exports flow_spec.json and vibeflow_graph.png
-vf.save_bundle(save_dir="./prod_flow", spec=vf.last_spec, flow=flow)
+va.save_bundle(save_dir="./prod_flow", spec=va.last_spec, flow=flow)
 ```
 
 ### Direct Blueprint Execution
 Reconstruct a flow directly from a saved blueprint to save latency and costs.
 ```python
-spec = vf.load_spec("./prod_flow/flow_spec.json")
-flow = vf.build_from_spec(spec)
+spec = va.load_spec("./prod_flow/flow_spec.json")
+flow = va.build_from_spec(spec)
 ```
 
 ### Blueprint Modification
 Modify existing architectures using natural language instructions.
 ```python
-# existing_spec is loaded from a path or vf.last_spec
-updated_flow = await vf.edit(spec_path="./path/to/spec.json", instruction="Add a validation step")
+# existing_spec is loaded from a path or va.last_spec
+updated_flow = await va.edit(spec_path="./path/to/spec.json", instruction="Add a validation step")
 ```
 
 ## Runtime Features
@@ -86,3 +86,37 @@ Vibe Agent supports secret resolution at runtime using the `${ENV:VAR_NAME}` syn
 Configure the execution engine to handle file persistence automatically:
 - `flow.auto_save_outputs = True`: Automatically writes images and audio files to disk.
 - `flow.output_dir = "./path"`: Sets the target directory for all generated assets.
+
+## Offline / Local Models (vLLM + llama.cpp)
+
+VibeAgent supports local inference for the Architect (planner) or individual tasks when you provide the connection details.
+
+- **vLLM**: provide `baseUrl` (e.g. `${ENV:VLLM_BASE_URL}`) and a model name.
+- **llama.cpp**: provide `model_path` (e.g. `${ENV:LLAMACPP_MODEL_PATH}`).
+
+```python
+import os
+from intelli.flow import VibeAgent
+
+va = VibeAgent(
+    planner_provider="vllm",
+    planner_model="deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+    planner_options={"baseUrl": os.getenv("VLLM_BASE_URL")},
+)
+```
+
+### Example prompt to generate offline agent
+
+This prompt tells the Architect (planner) to **design the execution graph** and generate with **offline text agent**.  
+When you call `await va.build(vibe)`, VibeAgent uses the planner to produce the full spec (tasks, providers, routing) and then builds a runnable `Flow`.
+
+```python
+vibe = (
+    "Create a 2-step flow. "
+    "Step 1 (research): Use OpenAI to extract 8 key facts about solid-state batteries. "
+    "Step 2 (offline_summary): Use vLLM at ${ENV:VLLM_BASE_URL} with model "
+    "'deepseek-ai/DeepSeek-R1-Distill-Llama-8B' to summarize the facts into 5 bullets."
+)
+
+flow = await va.build(vibe)
+```
