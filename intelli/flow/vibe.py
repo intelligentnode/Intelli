@@ -26,7 +26,11 @@ from intelli.function.chatbot import Chatbot
 from intelli.model.input.chatbot_input import ChatModelInput
 
 
-ALLOWED_PLANNER_PROVIDERS = {"openai", "anthropic", "gemini"}
+# Planner (Architect) providers supported by Chatbot.
+# - openai/anthropic/gemini: require planner_api_key
+# - vllm: requires planner_options.baseUrl (or vllmBaseUrl); api key optional
+# - llamacpp: requires planner_options.model_path; api key not used
+ALLOWED_PLANNER_PROVIDERS = {"openai", "anthropic", "gemini", "vllm", "llamacpp"}
 SUPPORTED_CONNECTOR_KINDS = {
     "length",
     "content",
@@ -277,8 +281,19 @@ class VibeFlow:
         if self._planner_fn is not None:
             return self._planner_fn(system_prompt, user_prompt)
 
-        if not self.planner_api_key:
+        # Only OpenAI/Gemini/Anthropic require an API key.
+        if self.planner_provider in {"openai", "anthropic", "gemini"} and not self.planner_api_key:
             raise ValueError("planner_api_key is required when planner_fn is not provided")
+
+        # Local planner providers require connection details in planner_options.
+        if self.planner_provider == "vllm":
+            base_url = self.planner_options.get("vllmBaseUrl") or self.planner_options.get("baseUrl")
+            if not base_url:
+                raise ValueError("vllm planner_provider requires planner_options.baseUrl (or vllmBaseUrl)")
+        if self.planner_provider == "llamacpp":
+            model_path = self.planner_options.get("model_path")
+            if not model_path:
+                raise ValueError("llamacpp planner_provider requires planner_options.model_path")
 
         chatbot = Chatbot(self.planner_api_key, self.planner_provider, options=self.planner_options)
         chat_input = ChatModelInput(system=system_prompt, model=self.planner_model)
@@ -337,6 +352,14 @@ class VibeFlow:
             f"- Available custom processors to use in 'post_process' field: {proc_list}.\n"
         )
 
+        local_instr = (
+            "\nLocal / Offline Rules (opt-in only):\n"
+            "- Only use provider 'vllm' or 'llamacpp' for a text agent when the user explicitly asks for local/offline inference AND provides the required connection details.\n"
+            "- For vLLM: set agent.provider='vllm' and agent.options.baseUrl to a user-provided URL or env var (e.g. '${ENV:VLLM_BASE_URL}' or '${ENV:DEEPSEEK_VLLM_URL}'). Include agent.model_params.model (e.g. 'deepseek-ai/DeepSeek-R1-Distill-Llama-8B'). API key is optional.\n"
+            "- For llama.cpp: set agent.provider='llamacpp' and agent.options.model_path to a user-provided local file path or env var (e.g. '${ENV:LLAMACPP_MODEL_PATH}'). Optionally include agent.options.model_params (e.g. {'n_ctx': 2048}). API key is not required.\n"
+            "- If the user does not provide the required URL/path, do not select local providers—use OpenAI/Gemini/Anthropic instead.\n"
+        )
+
         return (
             "You are VibeFlow Planner for the Intelli Python library.\n"
             "Your job is to generate a valid FlowSpec JSON for building an Intelli Flow.\n\n"
@@ -347,6 +370,7 @@ class VibeFlow:
             "- For web search, use 'google' as provider and include 'google_api_key': '${ENV:GOOGLE_API_KEY}' and 'google_cse_id': '${ENV:GOOGLE_CSE_ID}' in model_params. Avoid 'intellicloud' search. Search agents MUST use 'google' as provider.\n"
             + pref_instr +
             chain_instr +
+            local_instr +
             "- When generating speech, only provide the raw text to be spoken in the task description. Do not include meta-instructions like 'Generate audio for...'.\n"
             "- Set 'stream': false for speech generation tasks if the output is used as input for a subsequent task.\n"
             "- Only use standard model parameters (e.g., 'model', 'key', 'temperature', 'max_tokens'). Avoid inventing new parameter names like 'target_language'.\n"
@@ -448,10 +472,30 @@ class VibeFlow:
             agent = (t or {}).get("agent") or {}
             if agent.get("agent_type") == AgentTypes.TEXT.value:
                 p = (agent.get("provider") or "").lower()
-                if p and p not in ALLOWED_PLANNER_PROVIDERS and p != "local":
+                if p and p not in ALLOWED_PLANNER_PROVIDERS and p not in {"local", "vllm", "llamacpp"}:
                     raise ValueError(
                         f"Unsupported text agent provider '{p}'. Allowed: {sorted(ALLOWED_PLANNER_PROVIDERS)}"
                     )
+
+                if p == "vllm":
+                    opts = agent.get("options") or {}
+                    if not isinstance(opts, dict):
+                        raise ValueError("vllm text agent requires agent.options to be an object")
+                    base_url = opts.get("baseUrl") or opts.get("vllmBaseUrl")
+                    if not base_url or not isinstance(base_url, str):
+                        raise ValueError("vllm text agent requires agent.options.baseUrl")
+                    if not (base_url.startswith("${ENV:") or base_url.startswith("http://") or base_url.startswith("https://")):
+                        raise ValueError("vllm baseUrl must be an http(s) URL or an ${ENV:...} placeholder")
+
+                if p == "llamacpp":
+                    opts = agent.get("options") or {}
+                    if not isinstance(opts, dict):
+                        raise ValueError("llamacpp text agent requires agent.options to be an object")
+                    model_path = opts.get("model_path") or opts.get("modelPath")
+                    if not model_path or not isinstance(model_path, str):
+                        raise ValueError("llamacpp text agent requires agent.options.model_path")
+                    if not (model_path.startswith("${ENV:") or model_path.strip()):
+                        raise ValueError("llamacpp model_path must be a non-empty path or an ${ENV:...} placeholder")
             
             # Sanity check for OpenAI image generation
             if agent.get("agent_type") == AgentTypes.IMAGE.value and agent.get("provider") == "openai":
@@ -592,6 +636,8 @@ class VibeFlow:
         for t in spec.tasks:
             # Resolve placeholders in agent model_params
             t.agent.model_params = self._resolve_placeholders(t.agent.model_params)
+            # Resolve placeholders in agent options (e.g. vLLM baseUrl, llama.cpp model_path)
+            t.agent.options = self._resolve_placeholders(t.agent.options)
             # Resolve placeholders in task model_params
             t.model_params = self._resolve_placeholders(t.model_params)
 
