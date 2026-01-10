@@ -4,6 +4,10 @@
 
 <p align="center">
 
+<a href="https://pepy.tech/projects/intelli" alt="PyPI Downloads">
+    <img src="https://static.pepy.tech/personalized-badge/intelli?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads" />
+</a>
+
 <a href="https://pypi.org/project/intelli/" alt="PyPI version">
     <img src="https://img.shields.io/pypi/v/intelli?style=flat-square&color=007ec6" />
 </a>
