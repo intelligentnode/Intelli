@@ -76,10 +76,26 @@ class TestAzureAgentWrapper(unittest.TestCase):
         self.created_agent_ids.append(agent_id)
         return agent, agent_id
 
+    def _definition_to_dict(self, definition):
+        if definition is None:
+            return None
+        if isinstance(definition, dict):
+            return definition
+        for attr_name in ("as_dict", "to_dict", "model_dump", "dict"):
+            converter = getattr(definition, attr_name, None)
+            if callable(converter):
+                converted = converter()
+                if isinstance(converted, dict):
+                    return converted
+        if hasattr(definition, "__dict__") and isinstance(definition.__dict__, dict):
+            return definition.__dict__
+        return None
+
     def tearDown(self):
         """
         Runs after each test to clean up any agents we created.
         """
+        cleanup_errors = []
         for agent_id in self.created_agent_ids:
             try:
                 self.wrapper.delete_agent(agent_id)
@@ -90,7 +106,9 @@ class TestAzureAgentWrapper(unittest.TestCase):
                     print(f"Warning: Agent already deleted: {agent_id}")
                     continue
                 print(f"Error: Failed to cleanup agent {agent_id}: {e}")
-                raise
+                cleanup_errors.append(e)
+        if cleanup_errors:
+            raise cleanup_errors[0]
 
     def test_agent_crud_and_run(self):
         print("\n---- Test: Azure Agent CRUD + Run ----")
@@ -146,7 +164,9 @@ class TestAzureAgentWrapper(unittest.TestCase):
         self.assertNotEqual(updated.version, agent.version)
         updated_id = f"{updated.name}:{updated.version}"
         self.created_agent_ids.append(updated_id)
-        self._log(f"Updated agent: name={updated.name}, version={updated.version}, id={updated.id}")
+        self._log(
+            f"Updated agent: name={updated.name}, version={updated.version}, id={updated_id}"
+        )
         self.summary["updated_agent_id"] = updated_id
         if hasattr(updated, "definition") and updated.definition:
             updated_def = updated.definition
@@ -154,9 +174,10 @@ class TestAzureAgentWrapper(unittest.TestCase):
             updated_def = updated.get("definition")
         else:
             updated_def = None
-        if updated_def:
-            self.assertEqual(updated_def.get("instructions"), updated_instructions)
-            self._log(f"Updated instructions: {updated_def.get('instructions')}")
+        updated_def_dict = self._definition_to_dict(updated_def)
+        if updated_def_dict:
+            self.assertEqual(updated_def_dict.get("instructions"), updated_instructions)
+            self._log(f"Updated instructions: {updated_def_dict.get('instructions')}")
 
         self._log("Creating conversation...")
         conversation = self.wrapper.create_conversation(
@@ -286,6 +307,95 @@ class TestAzureAgentWrapper(unittest.TestCase):
                     input_text=None,
                     input_items=None,
                 )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-bad-meta",
+                    instructions="bad",
+                    metadata="not-a-dict",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-bad-temp",
+                    instructions="bad",
+                    temperature="hot",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-bad-top",
+                    instructions="bad",
+                    top_p="high",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-bad-format",
+                    instructions="bad",
+                    response_format="xml",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-bad-format-dict",
+                    instructions="bad",
+                    response_format={"type": "xml"},
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-bad-tools",
+                    instructions="bad",
+                    tool_resources="not-a-dict",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-tools-not-list",
+                    instructions="bad",
+                    tools="not-a-list",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-tools-not-dict",
+                    instructions="bad",
+                    tools=["not-a-dict"],
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_response(
+                    conversation_id="conv",
+                    agent="agent:1",
+                    input_items="not-a-list",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_response(
+                    conversation_id="conv",
+                    agent="agent:1",
+                    input_items=["not-a-dict"],
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_response(
+                    conversation_id="conv",
+                    agent="agent:1",
+                    input_items=[{"role": "user"}],
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.update_conversation_metadata(
+                    conversation_id="conv",
+                    metadata="not-a-dict",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.submit_tool_outputs(
+                    response_id="resp",
+                    tool_outputs="not-a-list",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.submit_tool_outputs(
+                    response_id="resp",
+                    tool_outputs=["not-a-dict"],
+                )
 
     def test_create_conversation_and_response_with_metadata(self):
         print("\n---- Test: Conversation metadata + input normalization ----")
@@ -323,6 +433,74 @@ class TestAzureAgentWrapper(unittest.TestCase):
         if response_status is None and hasattr(response, "get"):
             response_status = response.get("status")
         self.assertEqual(response_status, "completed")
+
+        updated = self.wrapper.update_conversation_metadata(
+            conversation_id=conversation.id,
+            metadata={"run_id": self.run_id, "purpose": "metadata-update"},
+        )
+        updated_meta = getattr(updated, "metadata", None)
+        if updated_meta is None and hasattr(updated, "get"):
+            updated_meta = updated.get("metadata")
+        if isinstance(updated_meta, dict):
+            self.assertEqual(updated_meta.get("purpose"), "metadata-update")
+
+        self.wrapper.delete_conversation(conversation.id)
+
+    def test_create_update_with_generation_settings(self):
+        print("\n---- Test: Create/update with metadata + sampling settings ----")
+        agent, agent_id = self._create_agent(
+            name=f"{self.agent_name}-settings",
+            instructions="Settings test instructions.",
+            description="Settings test",
+            tools=[{"type": "code_interpreter"}],
+        )
+        self._log(f"Created agent: {agent_id}")
+
+        updated = self.wrapper.update_agent(
+            agent_id=agent_id,
+            instructions="Settings test instructions v2.",
+            metadata={"run_id": self.run_id, "purpose": "settings-update"},
+            temperature=0.2,
+            top_p=0.9,
+            response_format="text",
+        )
+        updated_id = f"{updated.name}:{updated.version}"
+        self.created_agent_ids.append(updated_id)
+        self._log(f"Updated agent: {updated_id}")
+
+        updated_def = None
+        if hasattr(updated, "definition") and updated.definition:
+            updated_def = updated.definition
+        elif hasattr(updated, "get"):
+            updated_def = updated.get("definition")
+        updated_def_dict = self._definition_to_dict(updated_def)
+        if updated_def_dict:
+            self.assertEqual(updated_def_dict.get("instructions"), "Settings test instructions v2.")
+            self.assertEqual(updated_def_dict.get("temperature"), 0.2)
+            self.assertEqual(updated_def_dict.get("top_p"), 0.9)
+            self.assertEqual(updated_def_dict.get("response_format"), {"type": "text"})
+
+    def test_resolve_agent_reference_accepts_zero_version(self):
+        print("\n---- Test: Resolve agent reference accepts version 0 ----")
+        resolved = self.wrapper._resolve_agent_reference(
+            {"name": f"{self.agent_name}-zero-version", "version": 0}
+        )
+        self.assertEqual(resolved, {"name": f"{self.agent_name}-zero-version", "version": "0"})
+
+    def test_create_agent_with_empty_tools_list(self):
+        print("\n---- Test: Create agent with empty tools list ----")
+        agent, agent_id = self._create_agent(
+            name=f"{self.agent_name}-empty-tools",
+            instructions="Empty tools list test.",
+            tools=[],
+        )
+        self._log(f"Created agent: {agent_id}")
+        agent_def = getattr(agent, "definition", None)
+        if agent_def is None and hasattr(agent, "get"):
+            agent_def = agent.get("definition")
+        agent_def_dict = self._definition_to_dict(agent_def)
+        if agent_def_dict is not None and "tools" in agent_def_dict:
+            self.assertEqual(agent_def_dict.get("tools"), [])
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+import inspect
 import logging
 import os
 import random
@@ -25,6 +26,18 @@ class AzureAgentWrapper:
     Provides methods to create, update, delete, and run agents.
     """
 
+    @staticmethod
+    def _extract_endpoint(conn_str: str) -> Optional[str]:
+        if not conn_str:
+            return None
+        if conn_str.startswith("https://"):
+            return conn_str
+        parts = [part.strip() for part in conn_str.split(";") if part.strip()]
+        for part in parts:
+            if part.lower().startswith("endpoint="):
+                return part.split("=", 1)[1].strip()
+        return None
+
     def __init__(
         self,
         connection_string: Optional[str] = None,
@@ -51,8 +64,14 @@ class AzureAgentWrapper:
                 conn_str=conn_str,
             )
         else:
+            endpoint = self._extract_endpoint(conn_str)
+            if not endpoint:
+                raise ValueError(
+                    "AZURE_PROJECT_CONNECTION_STRING must include an endpoint or be an endpoint URL "
+                    "when the SDK lacks from_connection_string support."
+                )
             self.client = AIProjectClient(
-                endpoint=conn_str,
+                endpoint=endpoint,
                 credential=credential,
             )
         self._openai_client = None
@@ -73,10 +92,22 @@ class AzureAgentWrapper:
             self._openai_client = self.client.get_openai_client()
         return self._openai_client
 
+    def _coerce_agent_version(self, version: Any) -> Optional[int]:
+        if version is None:
+            return None
+        if isinstance(version, int):
+            return version
+        if isinstance(version, str):
+            stripped = version.strip()
+            if stripped.isdigit():
+                return int(stripped)
+            raise ValueError("agent version must be an integer.")
+        raise ValueError("agent version must be an integer.")
+
     def _parse_agent_id(self, agent_id: str):
         if ":" in agent_id:
             name, version = agent_id.rsplit(":", 1)
-            return name, version
+            return name, self._coerce_agent_version(version)
         return agent_id, None
 
     def _resolve_agent_reference(self, agent: Any) -> Dict[str, str]:
@@ -89,18 +120,40 @@ class AzureAgentWrapper:
             name = getattr(agent, "name", None)
             version = getattr(agent, "version", None)
 
-        if not name or not version:
+        if name is None or version is None:
             raise ValueError(
                 "agent reference must include name and version. "
                 "Provide a '<name>:<version>' string or an object with name/version."
             )
-        return {"name": name, "version": version}
+        coerced_version = self._coerce_agent_version(version)
+        return {"name": name, "version": str(coerced_version)}
 
     def _call_agents_method(self, method, *args, **kwargs):
-        try:
-            return method(**kwargs)
-        except TypeError:
+        if not kwargs:
             return method(*args)
+        try:
+            signature = inspect.signature(method)
+        except (TypeError, ValueError):
+            try:
+                return method(*args, **kwargs)
+            except TypeError:
+                return method(*args)
+
+        params = signature.parameters
+        supports_kwargs = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD for param in params.values()
+        )
+        if supports_kwargs:
+            return method(*args, **kwargs)
+
+        filtered_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if key in params and params[key].kind != inspect.Parameter.POSITIONAL_ONLY
+        }
+        if filtered_kwargs:
+            return method(*args, **filtered_kwargs)
+        return method(*args)
 
     def _with_retry(self, label: str, func):
         last_error = None
@@ -108,6 +161,8 @@ class AzureAgentWrapper:
             try:
                 return func()
             except ValueError:
+                raise
+            except TypeError:
                 raise
             except Exception as exc:
                 last_error = exc
@@ -122,6 +177,45 @@ class AzureAgentWrapper:
             return kwargs
         return {**kwargs, "timeout": self._timeout}
 
+    def _normalize_response_format(self, response_format: Any) -> Optional[Dict[str, str]]:
+        if response_format is None:
+            return None
+        if isinstance(response_format, dict):
+            value = response_format.get("type")
+            if not isinstance(value, str):
+                raise ValueError("response_format dict must include a string 'type'.")
+            if value not in ("text", "json_object"):
+                raise ValueError("response_format must be 'text' or 'json_object'.")
+            return response_format
+        if isinstance(response_format, str):
+            if response_format not in ("text", "json_object"):
+                raise ValueError("response_format must be 'text' or 'json_object'.")
+            return {"type": response_format}
+        raise ValueError("response_format must be a string or dict with a 'type' key.")
+
+    def _extract_response_id(self, response: Any) -> Optional[str]:
+        if response is None:
+            return None
+        response_id = getattr(response, "id", None)
+        if response_id is None and hasattr(response, "get"):
+            response_id = response.get("id")
+        return response_id
+
+    def _extract_response_status(self, response: Any) -> Optional[str]:
+        if response is None:
+            return None
+        status = getattr(response, "status", None)
+        if status is None and hasattr(response, "get"):
+            status = response.get("status")
+        return status
+
+    def _require_conversations_client(self):
+        client = self._get_openai_client()
+        conversations = getattr(client, "conversations", None)
+        if conversations is None:
+            raise RuntimeError("OpenAI client does not expose conversations API.")
+        return conversations
+
     def create_agent(
         self,
         model: str,
@@ -129,6 +223,11 @@ class AzureAgentWrapper:
         instructions: str,
         description: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
+        tool_resources: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, str]] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        response_format: Optional[Any] = None,
     ) -> Any:
         """
         Create an agent.
@@ -141,13 +240,42 @@ class AzureAgentWrapper:
             }
             if description is not None:
                 definition["description"] = description
-            if tools:
+            if temperature is not None:
+                if not isinstance(temperature, (int, float)):
+                    raise ValueError("temperature must be a number.")
+                definition["temperature"] = temperature
+            if top_p is not None:
+                if not isinstance(top_p, (int, float)):
+                    raise ValueError("top_p must be a number.")
+                definition["top_p"] = top_p
+            normalized_response_format = self._normalize_response_format(response_format)
+            if normalized_response_format is not None:
+                definition["response_format"] = normalized_response_format
+            if tools is not None:
+                if not isinstance(tools, list):
+                    raise ValueError("tools must be a list of dicts.")
+                if any(not isinstance(tool, dict) for tool in tools):
+                    raise ValueError("tools must be a list of dicts.")
                 definition["tools"] = tools
-            agent = self._call_agents_method(
-                self.client.agents.create_version,
-                agent_name=name,
-                definition=definition,
+            if tool_resources is not None:
+                if not isinstance(tool_resources, dict):
+                    raise ValueError("tool_resources must be a dict.")
+                definition["tool_resources"] = tool_resources
+            if metadata is not None and not isinstance(metadata, dict):
+                raise ValueError("metadata must be a dict of string keys/values.")
+            agent_kwargs = {
+                "agent_name": name,
+                "definition": definition,
                 **self._with_timeout({}),
+            }
+            if metadata is not None:
+                agent_kwargs["metadata"] = metadata
+            agent = self._with_retry(
+                "create_agent",
+                lambda: self._call_agents_method(
+                    self.client.agents.create_version,
+                    **agent_kwargs,
+                ),
             )
             logger.info(f"Successfully created agent version: {agent.name}:{agent.version}")
             return agent
@@ -163,16 +291,14 @@ class AzureAgentWrapper:
             if not hasattr(self.client.agents, "get_version"):
                 raise RuntimeError("SDK does not support agents.get_version.")
             name, version = self._parse_agent_id(agent_id)
-            if not version:
+            if version is None:
                 raise ValueError("agent_id must include version as '<name>:<version>'.")
             return self._with_retry(
                 "get_agent",
                 lambda: self._call_agents_method(
                     self.client.agents.get_version,
-                    name,
-                    version,
                     agent_name=name,
-                    version=version,
+                    agent_version=version,
                     **self._with_timeout({}),
                 ),
             )
@@ -187,35 +313,66 @@ class AzureAgentWrapper:
         instructions: Optional[str] = None,
         description: Optional[str] = None,
         tools: Optional[List[Dict[str, Any]]] = None,
+        tool_resources: Optional[Dict[str, Any]] = None,
+        metadata: Optional[Dict[str, str]] = None,
+        temperature: Optional[float] = None,
+        top_p: Optional[float] = None,
+        response_format: Optional[Any] = None,
     ) -> Any:
         """
         Update an agent.
         """
         try:
-            has_updates = any(
-                value is not None for value in (model, instructions, description, tools)
-            )
-            if not has_updates:
-                raise ValueError("No definition fields provided for new agent version update.")
             if not hasattr(self.client.agents, "get_version"):
                 raise RuntimeError("SDK does not support agents.get_version.")
             agent_name, version = self._parse_agent_id(agent_id)
-            if not version:
+            if version is None:
                 raise ValueError("agent_id must include version as '<name>:<version>'.")
+            has_updates = any(
+                value is not None
+                for value in (
+                    model,
+                    instructions,
+                    description,
+                    tools,
+                    tool_resources,
+                    metadata,
+                    temperature,
+                    top_p,
+                    response_format,
+                )
+            )
+            if not has_updates:
+                raise ValueError("No definition fields provided for new agent version update.")
             definition: Dict[str, Any] = {}
 
-            current = self._call_agents_method(
-                self.client.agents.get_version,
-                agent_name,
-                version,
-                agent_name=agent_name,
-                version=version,
+            current = self._with_retry(
+                "get_agent",
+                lambda: self._call_agents_method(
+                    self.client.agents.get_version,
+                    agent_name=agent_name,
+                    agent_version=version,
+                    **self._with_timeout({}),
+                ),
             )
             current_def = getattr(current, "definition", None)
             if current_def is None and hasattr(current, "get"):
                 current_def = current.get("definition")
             if current_def:
-                definition.update(current_def)
+                if isinstance(current_def, dict):
+                    definition.update(current_def)
+                else:
+                    converted_def = None
+                    for attr_name in ("as_dict", "to_dict", "model_dump", "dict"):
+                        converter = getattr(current_def, attr_name, None)
+                        if callable(converter):
+                            converted_def = converter()
+                            break
+                    if converted_def is None and hasattr(current_def, "__dict__"):
+                        converted_def = current_def.__dict__
+                    if not isinstance(converted_def, dict):
+                        raise ValueError("agent definition must be a dict or convertible to dict.")
+                    definition.update(converted_def)
 
             if model is not None:
                 definition["model"] = model
@@ -224,15 +381,44 @@ class AzureAgentWrapper:
             if description is not None:
                 definition["description"] = description
             if tools is not None:
+                if not isinstance(tools, list):
+                    raise ValueError("tools must be a list of dicts.")
+                if any(not isinstance(tool, dict) for tool in tools):
+                    raise ValueError("tools must be a list of dicts.")
                 definition["tools"] = tools
+            if tool_resources is not None:
+                if not isinstance(tool_resources, dict):
+                    raise ValueError("tool_resources must be a dict.")
+                definition["tool_resources"] = tool_resources
+            if temperature is not None:
+                if not isinstance(temperature, (int, float)):
+                    raise ValueError("temperature must be a number.")
+                definition["temperature"] = temperature
+            if top_p is not None:
+                if not isinstance(top_p, (int, float)):
+                    raise ValueError("top_p must be a number.")
+                definition["top_p"] = top_p
+            normalized_response_format = self._normalize_response_format(response_format)
+            if normalized_response_format is not None:
+                definition["response_format"] = normalized_response_format
             if "kind" not in definition:
                 definition["kind"] = "prompt"
+            if metadata is not None and not isinstance(metadata, dict):
+                raise ValueError("metadata must be a dict of string keys/values.")
 
-            agent = self._call_agents_method(
-                self.client.agents.create_version,
-                agent_name=agent_name,
-                definition=definition,
+            agent_kwargs = {
+                "agent_name": agent_name,
+                "definition": definition,
                 **self._with_timeout({}),
+            }
+            if metadata is not None:
+                agent_kwargs["metadata"] = metadata
+            agent = self._with_retry(
+                "update_agent",
+                lambda: self._call_agents_method(
+                    self.client.agents.create_version,
+                    **agent_kwargs,
+                ),
             )
             logger.info(f"Successfully created new agent version: {agent.name}:{agent.version}")
             return agent
@@ -248,16 +434,14 @@ class AzureAgentWrapper:
             if not hasattr(self.client.agents, "delete_version"):
                 raise RuntimeError("SDK does not support agents.delete_version.")
             name, version = self._parse_agent_id(agent_id)
-            if not version:
+            if version is None:
                 raise ValueError("agent_id must include version as '<name>:<version>'.")
             deletion_status = self._with_retry(
                 "delete_agent",
                 lambda: self._call_agents_method(
                     self.client.agents.delete_version,
-                    name,
-                    version,
                     agent_name=name,
-                    version=version,
+                    agent_version=version,
                     **self._with_timeout({}),
                 ),
             )
@@ -278,7 +462,6 @@ class AzureAgentWrapper:
                 "list_agents",
                 lambda: self._call_agents_method(
                     self.client.agents.list_versions,
-                    agent_name,
                     agent_name=agent_name,
                     **self._with_timeout({}),
                 ),
@@ -297,16 +480,63 @@ class AzureAgentWrapper:
         Create a conversation (new Agents API).
         """
         try:
-            client = self._get_openai_client()
+            conversations = self._require_conversations_client()
             params: Dict[str, Any] = {"items": items}
             if metadata:
                 params["metadata"] = metadata
             return self._with_retry(
                 "create_conversation",
-                lambda: client.conversations.create(**self._with_timeout(params)),
+                lambda: conversations.create(**self._with_timeout(params)),
             )
         except Exception:
             logger.exception("Failed to create conversation in Azure.")
+            raise
+
+    def update_conversation_metadata(
+        self,
+        conversation_id: str,
+        metadata: Dict[str, str],
+    ) -> Any:
+        """
+        Update conversation metadata (new Agents API).
+        """
+        try:
+            if not isinstance(metadata, dict):
+                raise ValueError("metadata must be a dict of string keys/values.")
+            conversations = self._require_conversations_client()
+            if not hasattr(conversations, "update"):
+                raise RuntimeError("SDK does not support conversations.update.")
+            return self._with_retry(
+                "update_conversation_metadata",
+                lambda: self._call_agents_method(
+                    conversations.update,
+                    conversation_id=conversation_id,
+                    metadata=metadata,
+                    **self._with_timeout({}),
+                ),
+            )
+        except Exception:
+            logger.exception("Failed to update conversation metadata in Azure.")
+            raise
+
+    def delete_conversation(self, conversation_id: str) -> Any:
+        """
+        Delete a conversation (new Agents API).
+        """
+        try:
+            conversations = self._require_conversations_client()
+            if not hasattr(conversations, "delete"):
+                raise RuntimeError("SDK does not support conversations.delete.")
+            return self._with_retry(
+                "delete_conversation",
+                lambda: self._call_agents_method(
+                    conversations.delete,
+                    conversation_id,
+                    **self._with_timeout({}),
+                ),
+            )
+        except Exception:
+            logger.exception("Failed to delete conversation in Azure.")
             raise
 
     def create_response(
@@ -315,21 +545,33 @@ class AzureAgentWrapper:
         agent: Any,
         input_text: Optional[str] = None,
         input_items: Optional[List[Dict[str, Any]]] = None,
+        wait_for_completion: bool = True,
+        poll_interval_seconds: float = 0.5,
+        timeout_seconds: Optional[float] = None,
+        return_on_requires_action: bool = True,
     ) -> Any:
         """
         Create a response for a conversation (new Agents API).
         """
         try:
-            client = self._get_openai_client()
             if input_items is None:
                 if input_text is None:
-                    raise ValueError("Either input_text or input_items must be provided.")
+                    raise ValueError(
+                        "Either input_text or input_items must be provided. "
+                        "If both are supplied, input_items takes precedence."
+                    )
                 input_items = [{"type": "message", "role": "user", "content": input_text}]
             else:
+                if not isinstance(input_items, list):
+                    raise ValueError("input_items must be a list of message dicts.")
                 normalized_items: List[Dict[str, Any]] = []
                 for item in input_items:
+                    if not isinstance(item, dict):
+                        raise ValueError("input_items must be a list of message dicts.")
                     if isinstance(item, dict) and "type" not in item and "role" in item and "content" in item:
                         normalized_items.append({"type": "message", **item})
+                    elif isinstance(item, dict) and "type" not in item:
+                        raise ValueError("input_items dicts must include 'type' or message fields.")
                     else:
                         normalized_items.append(item)
                 input_items = normalized_items
@@ -340,10 +582,109 @@ class AzureAgentWrapper:
                 "input": input_items,
                 "extra_body": extra_body,
             }
-            return self._with_retry(
+            client = self._get_openai_client()
+            response = self._with_retry(
                 "create_response",
                 lambda: client.responses.create(**self._with_timeout(payload)),
+            )
+            if not wait_for_completion:
+                return response
+            response_id = self._extract_response_id(response)
+            if not response_id:
+                return response
+            return self.wait_for_response(
+                response_id=response_id,
+                poll_interval_seconds=poll_interval_seconds,
+                timeout_seconds=timeout_seconds,
+                return_on_requires_action=return_on_requires_action,
             )
         except Exception:
             logger.exception("Failed to create response in Azure.")
             raise
+
+    def submit_tool_outputs(
+        self,
+        response_id: str,
+        tool_outputs: List[Dict[str, Any]],
+        wait_for_completion: bool = True,
+        poll_interval_seconds: float = 0.5,
+        timeout_seconds: Optional[float] = None,
+        return_on_requires_action: bool = True,
+    ) -> Any:
+        """
+        Submit tool outputs for a response in requires_action state.
+        """
+        try:
+            if not response_id:
+                raise ValueError("response_id is required.")
+            if not isinstance(tool_outputs, list):
+                raise ValueError("tool_outputs must be a list of dicts.")
+            if any(not isinstance(item, dict) for item in tool_outputs):
+                raise ValueError("tool_outputs must be a list of dicts.")
+            client = self._get_openai_client()
+            responses = getattr(client, "responses", None)
+            if responses is None or not hasattr(responses, "submit_tool_outputs"):
+                raise RuntimeError("SDK does not support responses.submit_tool_outputs.")
+            response = self._with_retry(
+                "submit_tool_outputs",
+                lambda: self._call_agents_method(
+                    responses.submit_tool_outputs,
+                    response_id=response_id,
+                    tool_outputs=tool_outputs,
+                    **self._with_timeout({}),
+                ),
+            )
+            if not wait_for_completion:
+                return response
+            response_id = self._extract_response_id(response) or response_id
+            return self.wait_for_response(
+                response_id=response_id,
+                poll_interval_seconds=poll_interval_seconds,
+                timeout_seconds=timeout_seconds,
+                return_on_requires_action=return_on_requires_action,
+            )
+        except Exception:
+            logger.exception("Failed to submit tool outputs in Azure.")
+            raise
+
+    def get_response(self, response_id: str) -> Any:
+        """
+        Retrieve a response by ID (new Agents API).
+        """
+        try:
+            client = self._get_openai_client()
+            return self._with_retry(
+                "get_response",
+                lambda: self._call_agents_method(
+                    client.responses.retrieve,
+                    response_id,
+                    **self._with_timeout({}),
+                ),
+            )
+        except Exception:
+            logger.exception("Failed to retrieve response from Azure.")
+            raise
+
+    def wait_for_response(
+        self,
+        response_id: str,
+        poll_interval_seconds: float = 0.5,
+        timeout_seconds: Optional[float] = None,
+        return_on_requires_action: bool = True,
+    ) -> Any:
+        """
+        Poll a response until completion or terminal status.
+        """
+        start = time.time()
+        while True:
+            response = self.get_response(response_id)
+            status = self._extract_response_status(response)
+            if status in ("completed", "failed", "cancelled"):
+                return response
+            if status == "requires_action" and return_on_requires_action:
+                return response
+            if timeout_seconds is not None and (time.time() - start) >= timeout_seconds:
+                raise TimeoutError(
+                    f"Timed out waiting for response {response_id} after {timeout_seconds} seconds."
+                )
+            time.sleep(max(0.05, poll_interval_seconds))

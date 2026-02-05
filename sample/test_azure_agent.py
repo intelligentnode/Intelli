@@ -66,7 +66,7 @@ def main():
                 print(f"{item.get('role', 'assistant')}: {item.get('content')}")
 
     # Cleanup (Optional)
-    # wrapper.delete_agent(agent.id)
+    # wrapper.delete_agent(f"{agent.name}:{agent.version}")
 
 
 if __name__ == "__main__":
