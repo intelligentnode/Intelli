@@ -38,6 +38,7 @@ setup(
             "openai>=2.5.0",
         ],
         "azure-assistant": ["openai>=2.5.0"],
+        "azure-agent": ["azure-ai-projects", "azure-identity"],
         "all": [
             "matplotlib>=3.6.0",
             "numpy>=1.26.0,<2.2.0",
@@ -58,6 +59,8 @@ setup(
             "soundfile",
             "numpy",
             "openai>=2.0.0",
+            "azure-ai-projects",
+            "azure-identity",
         ],
         "dev": ["pytest>=7.0.0"],
     },
