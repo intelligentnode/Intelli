@@ -193,6 +193,62 @@ class AzureAgentWrapper:
             return {"type": response_format}
         raise ValueError("response_format must be a string or dict with a 'type' key.")
 
+    def _extract_vector_store_ids(self, tool_resources: Any) -> Optional[List[str]]:
+        if tool_resources is None:
+            return None
+        if not isinstance(tool_resources, dict):
+            raise ValueError("tool_resources must be a dict.")
+        file_search = tool_resources.get("file_search")
+        if file_search is None:
+            return None
+        if not isinstance(file_search, dict):
+            raise ValueError("tool_resources['file_search'] must be a dict.")
+        vector_store_ids = file_search.get("vector_store_ids")
+        if vector_store_ids is None:
+            return None
+        if isinstance(vector_store_ids, str):
+            return [vector_store_ids]
+        if isinstance(vector_store_ids, list):
+            return [str(vs_id) for vs_id in vector_store_ids]
+        raise ValueError("tool_resources['file_search']['vector_store_ids'] must be a list or string.")
+
+    def _normalize_tools(
+        self,
+        tools: Optional[List[Dict[str, Any]]],
+        tool_resources: Optional[Dict[str, Any]],
+    ) -> Optional[List[Dict[str, Any]]]:
+        if tools is None:
+            tools = []
+        if not isinstance(tools, list):
+            raise ValueError("tools must be a list of dicts.")
+        if any(not isinstance(tool, dict) for tool in tools):
+            raise ValueError("tools must be a list of dicts.")
+
+        vector_store_ids = self._extract_vector_store_ids(tool_resources)
+        normalized_tools: List[Dict[str, Any]] = []
+        file_search_present = False
+
+        for tool in tools:
+            if tool.get("type") == "file_search":
+                file_search_present = True
+                if "vector_store_ids" not in tool and vector_store_ids:
+                    tool = {**tool, "vector_store_ids": vector_store_ids}
+                else:
+                    existing_ids = tool.get("vector_store_ids")
+                    if isinstance(existing_ids, str):
+                        tool = {**tool, "vector_store_ids": [existing_ids]}
+                    elif isinstance(existing_ids, list):
+                        tool = {
+                            **tool,
+                            "vector_store_ids": [str(vs_id) for vs_id in existing_ids],
+                        }
+            normalized_tools.append(tool)
+
+        if vector_store_ids and not file_search_present:
+            normalized_tools.append({"type": "file_search", "vector_store_ids": vector_store_ids})
+
+        return normalized_tools or None
+
     def _extract_response_id(self, response: Any) -> Optional[str]:
         if response is None:
             return None
@@ -251,16 +307,9 @@ class AzureAgentWrapper:
             normalized_response_format = self._normalize_response_format(response_format)
             if normalized_response_format is not None:
                 definition["response_format"] = normalized_response_format
-            if tools is not None:
-                if not isinstance(tools, list):
-                    raise ValueError("tools must be a list of dicts.")
-                if any(not isinstance(tool, dict) for tool in tools):
-                    raise ValueError("tools must be a list of dicts.")
-                definition["tools"] = tools
-            if tool_resources is not None:
-                if not isinstance(tool_resources, dict):
-                    raise ValueError("tool_resources must be a dict.")
-                definition["tool_resources"] = tool_resources
+            normalized_tools = self._normalize_tools(tools, tool_resources)
+            if normalized_tools is not None:
+                definition["tools"] = normalized_tools
             if metadata is not None and not isinstance(metadata, dict):
                 raise ValueError("metadata must be a dict of string keys/values.")
             agent_kwargs = {
@@ -380,16 +429,9 @@ class AzureAgentWrapper:
                 definition["instructions"] = instructions
             if description is not None:
                 definition["description"] = description
-            if tools is not None:
-                if not isinstance(tools, list):
-                    raise ValueError("tools must be a list of dicts.")
-                if any(not isinstance(tool, dict) for tool in tools):
-                    raise ValueError("tools must be a list of dicts.")
-                definition["tools"] = tools
-            if tool_resources is not None:
-                if not isinstance(tool_resources, dict):
-                    raise ValueError("tool_resources must be a dict.")
-                definition["tool_resources"] = tool_resources
+            normalized_tools = self._normalize_tools(tools, tool_resources)
+            if normalized_tools is not None:
+                definition["tools"] = normalized_tools
             if temperature is not None:
                 if not isinstance(temperature, (int, float)):
                     raise ValueError("temperature must be a number.")
