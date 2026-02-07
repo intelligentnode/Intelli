@@ -77,6 +77,7 @@ python -m unittest intelli.test.integration.test_chatbot_gpt5
 python -m unittest intelli.test.integration.test_azure_openai_wrapper 
 python -m unittest intelli.test.integration.test_azure_whisper_wrapper
 python -m unittest intelli.test.integration.test_azure_assistant_wrapper
+python -m unittest intelli.test.integration.test_azure_agent_wrapper
 
 # vibe
 python -m unittest intelli.test.integration.test_vibeflow_simple
