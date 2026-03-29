@@ -618,7 +618,7 @@ class AzureAgentWrapper:
                         normalized_items.append(item)
                 input_items = normalized_items
             agent_ref = self._resolve_agent_reference(agent)
-            extra_body = {"agent": {"type": "agent_reference", **agent_ref}}
+            extra_body = {"agent_reference": {"type": "agent_reference", **agent_ref}}
             payload = {
                 "conversation": conversation_id,
                 "input": input_items,
