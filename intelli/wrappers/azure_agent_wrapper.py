@@ -591,9 +591,24 @@ class AzureAgentWrapper:
         poll_interval_seconds: float = 0.5,
         timeout_seconds: Optional[float] = None,
         return_on_requires_action: bool = True,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        tool_resources: Optional[Dict[str, Any]] = None,
+        stream: bool = False,
     ) -> Any:
         """
         Create a response for a conversation (new Agents API).
+
+        Per-call overrides:
+            tools: optional per-conversation tool list. Mirrors the shape
+                accepted by ``create_agent`` / ``update_agent``. Useful for
+                attaching ephemeral file_search vector stores to a single
+                response without mutating the agent definition.
+            tool_resources: optional ``{"file_search": {"vector_store_ids": [...]}}``
+                convenience shape; merged with ``tools`` via the existing
+                ``_normalize_tools`` helper.
+            stream: when True, forward ``stream=True`` to
+                ``client.responses.create`` and return the stream object
+                without polling.
         """
         try:
             if input_items is None:
@@ -624,12 +639,21 @@ class AzureAgentWrapper:
                 "input": input_items,
                 "extra_body": extra_body,
             }
+            # Per-call tool override. Reuses the same normalization used by
+            # create_agent/update_agent so callers can pass tool_resources or
+            # tools (or both) and get the right file_search shape.
+            normalized_tools = self._normalize_tools(tools, tool_resources)
+            if normalized_tools is not None:
+                payload["tools"] = normalized_tools
+            if stream:
+                payload["stream"] = True
             client = self._get_openai_client()
             response = self._with_retry(
                 "create_response",
                 lambda: client.responses.create(**self._with_timeout(payload)),
             )
-            if not wait_for_completion:
+            # Streaming responses are caller-iterated; do not poll.
+            if stream or not wait_for_completion:
                 return response
             response_id = self._extract_response_id(response)
             if not response_id:

@@ -502,6 +502,200 @@ class TestAzureAgentWrapper(unittest.TestCase):
         if agent_def_dict is not None and "tools" in agent_def_dict:
             self.assertEqual(agent_def_dict.get("tools"), [])
 
+    def _response_status(self, response):
+        status = getattr(response, "status", None)
+        if status is None and hasattr(response, "get"):
+            status = response.get("status")
+        return status
+
+    def test_create_response_with_per_call_tools(self):
+        """
+        Per-call tools= override: agent is created without tools, then
+        create_response attaches code_interpreter for a single response
+        without mutating the agent definition.
+        """
+        print("\n---- Test: create_response with per-call tools ----")
+        agent, agent_id = self._create_agent(
+            name=f"{self.agent_name}-percall-tools",
+            instructions="Per-call tools override test.",
+        )
+        self._log(f"Created agent: {agent_id}")
+
+        conversation = self.wrapper.create_conversation(
+            items=[
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": "Compute 2+2 and explain briefly.",
+                }
+            ]
+        )
+        self._log(f"Conversation created: id={conversation.id}")
+
+        response = self.wrapper.create_response(
+            conversation_id=conversation.id,
+            agent=agent,
+            input_items=[
+                {
+                    "role": "user",
+                    "content": "Use the tool if helpful, then answer.",
+                }
+            ],
+            tools=[{"type": "code_interpreter"}],
+        )
+        self.assertEqual(self._response_status(response), "completed")
+
+        agent_def_dict = self._definition_to_dict(getattr(agent, "definition", None))
+        if agent_def_dict is not None:
+            self.assertNotIn("tools", agent_def_dict)
+
+        self.wrapper.delete_conversation(conversation.id)
+
+    def test_create_response_with_per_call_tool_resources(self):
+        """
+        Per-call tool_resources={'file_search': {'vector_store_ids': [...]}} —
+        attaches an ephemeral file_search vector store to a single response
+        without rebaking the agent. Skips when no test vector store id is
+        configured.
+        """
+        print("\n---- Test: create_response with per-call tool_resources ----")
+        vector_store_id = os.getenv("AZURE_AGENT_TEST_VECTOR_STORE_ID")
+        if not vector_store_id:
+            self.skipTest(
+                "AZURE_AGENT_TEST_VECTOR_STORE_ID not set — skipping per-call "
+                "file_search override test."
+            )
+
+        agent, agent_id = self._create_agent(
+            name=f"{self.agent_name}-percall-tres",
+            instructions="Per-call tool_resources override test.",
+        )
+        self._log(f"Created agent: {agent_id}")
+
+        conversation = self.wrapper.create_conversation(
+            items=[
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": "Use the attached files to answer.",
+                }
+            ]
+        )
+        self._log(f"Conversation created: id={conversation.id}")
+
+        response = self.wrapper.create_response(
+            conversation_id=conversation.id,
+            agent=agent,
+            input_items=[
+                {
+                    "role": "user",
+                    "content": "Search the attached store and summarize.",
+                }
+            ],
+            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
+        )
+        self.assertEqual(self._response_status(response), "completed")
+
+        self.wrapper.delete_conversation(conversation.id)
+
+    def test_create_response_with_tools_and_tool_resources_merged(self):
+        """
+        Per-call tools=[{'type':'file_search'}] + tool_resources merge via
+        _normalize_tools — the vector store id from tool_resources is
+        injected into the existing file_search tool. Skips without a
+        configured vector store.
+        """
+        print("\n---- Test: create_response merges tools + tool_resources ----")
+        vector_store_id = os.getenv("AZURE_AGENT_TEST_VECTOR_STORE_ID")
+        if not vector_store_id:
+            self.skipTest(
+                "AZURE_AGENT_TEST_VECTOR_STORE_ID not set — skipping merged "
+                "tools + tool_resources test."
+            )
+
+        agent, agent_id = self._create_agent(
+            name=f"{self.agent_name}-percall-merge",
+            instructions="Merged tools + tool_resources test.",
+        )
+        self._log(f"Created agent: {agent_id}")
+
+        conversation = self.wrapper.create_conversation(
+            items=[
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": "Search and summarize.",
+                }
+            ]
+        )
+        self._log(f"Conversation created: id={conversation.id}")
+
+        response = self.wrapper.create_response(
+            conversation_id=conversation.id,
+            agent=agent,
+            input_items=[
+                {
+                    "role": "user",
+                    "content": "Use file_search on the attached store.",
+                }
+            ],
+            tools=[{"type": "file_search"}],
+            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
+        )
+        self.assertEqual(self._response_status(response), "completed")
+
+        self.wrapper.delete_conversation(conversation.id)
+
+    def test_create_response_stream_returns_iterable(self):
+        """
+        stream=True forwards stream=True to the Responses API and returns
+        the raw stream object so the caller can iterate events. The wrapper
+        must skip its polling loop in this case.
+        """
+        print("\n---- Test: create_response stream=True ----")
+        agent, agent_id = self._create_agent(
+            name=f"{self.agent_name}-stream",
+            instructions="Streaming test.",
+        )
+        self._log(f"Created agent: {agent_id}")
+
+        conversation = self.wrapper.create_conversation(
+            items=[
+                {
+                    "type": "message",
+                    "role": "user",
+                    "content": "Stream a one-sentence reply.",
+                }
+            ]
+        )
+        self._log(f"Conversation created: id={conversation.id}")
+
+        stream = self.wrapper.create_response(
+            conversation_id=conversation.id,
+            agent=agent,
+            input_items=[
+                {
+                    "role": "user",
+                    "content": "Reply briefly.",
+                }
+            ],
+            stream=True,
+        )
+
+        self.assertTrue(
+            hasattr(stream, "__iter__") or hasattr(stream, "__next__"),
+            f"stream=True must return an iterable, got {type(stream)!r}",
+        )
+        event_count = 0
+        for _ in stream:
+            event_count += 1
+            if event_count >= 200:
+                break
+        self.assertGreater(event_count, 0, "expected at least one streamed event")
+        self._log(f"Consumed {event_count} streamed event(s).")
+
+        self.wrapper.delete_conversation(conversation.id)
+
 
 if __name__ == "__main__":
     unittest.main()
