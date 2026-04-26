@@ -284,6 +284,7 @@ class AzureAgentWrapper:
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         response_format: Optional[Any] = None,
+        structured_inputs: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """
         Create an agent.
@@ -310,6 +311,10 @@ class AzureAgentWrapper:
             normalized_tools = self._normalize_tools(tools, tool_resources)
             if normalized_tools is not None:
                 definition["tools"] = normalized_tools
+            if structured_inputs is not None:
+                if not isinstance(structured_inputs, dict):
+                    raise ValueError("structured_inputs must be a dict.")
+                definition["structured_inputs"] = structured_inputs
             if metadata is not None and not isinstance(metadata, dict):
                 raise ValueError("metadata must be a dict of string keys/values.")
             agent_kwargs = {
@@ -367,6 +372,7 @@ class AzureAgentWrapper:
         temperature: Optional[float] = None,
         top_p: Optional[float] = None,
         response_format: Optional[Any] = None,
+        structured_inputs: Optional[Dict[str, Any]] = None,
     ) -> Any:
         """
         Update an agent.
@@ -389,6 +395,7 @@ class AzureAgentWrapper:
                     temperature,
                     top_p,
                     response_format,
+                    structured_inputs,
                 )
             )
             if not has_updates:
@@ -443,6 +450,10 @@ class AzureAgentWrapper:
             normalized_response_format = self._normalize_response_format(response_format)
             if normalized_response_format is not None:
                 definition["response_format"] = normalized_response_format
+            if structured_inputs is not None:
+                if not isinstance(structured_inputs, dict):
+                    raise ValueError("structured_inputs must be a dict.")
+                definition["structured_inputs"] = structured_inputs
             if "kind" not in definition:
                 definition["kind"] = "prompt"
             if metadata is not None and not isinstance(metadata, dict):
@@ -593,19 +604,31 @@ class AzureAgentWrapper:
         return_on_requires_action: bool = True,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_resources: Optional[Dict[str, Any]] = None,
+        structured_inputs: Optional[Dict[str, Any]] = None,
         stream: bool = False,
     ) -> Any:
         """
         Create a response for a conversation (new Agents API).
 
         Per-call overrides:
-            tools: optional per-conversation tool list. Mirrors the shape
-                accepted by ``create_agent`` / ``update_agent``. Useful for
-                attaching ephemeral file_search vector stores to a single
-                response without mutating the agent definition.
+            tools: optional per-conversation tool list. Foundry's Responses
+                API rejects ``tools`` on the request body when the response
+                is invoked through ``agent_reference`` (the only path this
+                method uses today), so the value is validated and then
+                dropped with a warning. Tools must live in the agent
+                definition; use ``structured_inputs`` to override per-call
+                placeholder fields like vector store ids.
             tool_resources: optional ``{"file_search": {"vector_store_ids": [...]}}``
                 convenience shape; merged with ``tools`` via the existing
-                ``_normalize_tools`` helper.
+                ``_normalize_tools`` helper. Same agent_reference caveat
+                applies.
+            structured_inputs: optional dict of per-call values for
+                placeholders declared in the agent's ``structured_inputs``
+                schema (e.g. ``{"vector_store_id": "vs_abc"}``). Forwarded
+                inside ``extra_body`` next to ``agent_reference`` because
+                the OpenAI Python SDK only accepts known kwargs at the top
+                level; Foundry extension fields must travel through the
+                pass-through envelope.
             stream: when True, forward ``stream=True`` to
                 ``client.responses.create`` and return the stream object
                 without polling.
@@ -644,7 +667,24 @@ class AzureAgentWrapper:
             # tools (or both) and get the right file_search shape.
             normalized_tools = self._normalize_tools(tools, tool_resources)
             if normalized_tools is not None:
-                payload["tools"] = normalized_tools
+                if "agent_reference" in extra_body:
+                    # Foundry Responses API does not allow per-call `tools` when
+                    # invoking an agent via agent_reference. Tools must live in
+                    # the agent definition. Use `structured_inputs` to override
+                    # placeholders like vector_store_ids.
+                    logger.warning(
+                        "Ignoring per-call tools because agent_reference is set; "
+                        "use structured_inputs to override agent tool fields."
+                    )
+                else:
+                    payload["tools"] = normalized_tools
+            if structured_inputs is not None:
+                if not isinstance(structured_inputs, dict):
+                    raise ValueError("structured_inputs must be a dict.")
+                # Foundry extension field: must ride inside extra_body alongside
+                # agent_reference, otherwise the OpenAI SDK rejects it as an
+                # unknown kwarg on Responses.create.
+                extra_body["structured_inputs"] = structured_inputs
             if stream:
                 payload["stream"] = True
             client = self._get_openai_client()
