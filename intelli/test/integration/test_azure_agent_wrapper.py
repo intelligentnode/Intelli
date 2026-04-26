@@ -4,6 +4,7 @@ import time
 import uuid
 import logging
 from contextlib import contextmanager
+from unittest.mock import MagicMock
 from dotenv import load_dotenv
 from intelli.wrappers.azure_agent_wrapper import AzureAgentWrapper
 
@@ -396,6 +397,25 @@ class TestAzureAgentWrapper(unittest.TestCase):
                     response_id="resp",
                     tool_outputs=["not-a-dict"],
                 )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_agent(
+                    model=self.model,
+                    name=f"{self.agent_name}-bad-si-create",
+                    instructions="bad",
+                    structured_inputs="not-a-dict",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.update_agent(
+                    agent_id="agent:1",
+                    structured_inputs="not-a-dict",
+                )
+            with self.assertRaises(ValueError):
+                self.wrapper.create_response(
+                    conversation_id="conv",
+                    agent="agent:1",
+                    input_text="Hello",
+                    structured_inputs="not-a-dict",
+                )
 
     def test_create_conversation_and_response_with_metadata(self):
         print("\n---- Test: Conversation metadata + input normalization ----")
@@ -508,143 +528,69 @@ class TestAzureAgentWrapper(unittest.TestCase):
             status = response.get("status")
         return status
 
-    def test_create_response_with_per_call_tools(self):
+    def test_create_agent_with_structured_inputs(self):
         """
-        Per-call tools= override: agent is created without tools, then
-        create_response attaches code_interpreter for a single response
-        without mutating the agent definition.
+        create_agent stores structured_inputs in the agent definition so
+        Foundry can wire placeholders (e.g. vector_store_id) into the
+        agent's tools at response time.
         """
-        print("\n---- Test: create_response with per-call tools ----")
-        agent, agent_id = self._create_agent(
-            name=f"{self.agent_name}-percall-tools",
-            instructions="Per-call tools override test.",
+        print("\n---- Test: create_agent with structured_inputs ----")
+        structured_inputs = {
+            "vector_store_id": {
+                "type": "string",
+                "description": "Vector store id for file_search.",
+            }
+        }
+        agent = self.wrapper.create_agent(
+            model=self.model,
+            name=f"{self.agent_name}-si-create",
+            instructions="Structured inputs creation test.",
+            structured_inputs=structured_inputs,
         )
+        agent_id = f"{agent.name}:{agent.version}"
+        self.created_agent_ids.append(agent_id)
         self._log(f"Created agent: {agent_id}")
-
-        conversation = self.wrapper.create_conversation(
-            items=[
-                {
-                    "type": "message",
-                    "role": "user",
-                    "content": "Compute 2+2 and explain briefly.",
-                }
-            ]
-        )
-        self._log(f"Conversation created: id={conversation.id}")
-
-        response = self.wrapper.create_response(
-            conversation_id=conversation.id,
-            agent=agent,
-            input_items=[
-                {
-                    "role": "user",
-                    "content": "Use the tool if helpful, then answer.",
-                }
-            ],
-            tools=[{"type": "code_interpreter"}],
-        )
-        self.assertEqual(self._response_status(response), "completed")
 
         agent_def_dict = self._definition_to_dict(getattr(agent, "definition", None))
-        if agent_def_dict is not None:
-            self.assertNotIn("tools", agent_def_dict)
+        self.assertIsNotNone(agent_def_dict)
+        self.assertEqual(
+            agent_def_dict.get("structured_inputs"),
+            structured_inputs,
+        )
 
-        self.wrapper.delete_conversation(conversation.id)
-
-    def test_create_response_with_per_call_tool_resources(self):
+    def test_update_agent_with_structured_inputs(self):
         """
-        Per-call tool_resources={'file_search': {'vector_store_ids': [...]}} —
-        attaches an ephemeral file_search vector store to a single response
-        without rebaking the agent. Skips when no test vector store id is
-        configured.
+        update_agent forwards structured_inputs into the new agent version's
+        definition, and structured_inputs alone is enough to satisfy the
+        has_updates guard.
         """
-        print("\n---- Test: create_response with per-call tool_resources ----")
-        vector_store_id = os.getenv("AZURE_AGENT_TEST_VECTOR_STORE_ID")
-        if not vector_store_id:
-            self.skipTest(
-                "AZURE_AGENT_TEST_VECTOR_STORE_ID not set — skipping per-call "
-                "file_search override test."
-            )
-
+        print("\n---- Test: update_agent with structured_inputs ----")
         agent, agent_id = self._create_agent(
-            name=f"{self.agent_name}-percall-tres",
-            instructions="Per-call tool_resources override test.",
+            name=f"{self.agent_name}-si-update",
+            instructions="Structured inputs update test.",
         )
         self._log(f"Created agent: {agent_id}")
 
-        conversation = self.wrapper.create_conversation(
-            items=[
-                {
-                    "type": "message",
-                    "role": "user",
-                    "content": "Use the attached files to answer.",
-                }
-            ]
+        structured_inputs = {
+            "vector_store_id": {
+                "type": "string",
+                "description": "Vector store id for file_search.",
+            }
+        }
+        updated = self.wrapper.update_agent(
+            agent_id=agent_id,
+            structured_inputs=structured_inputs,
         )
-        self._log(f"Conversation created: id={conversation.id}")
+        updated_id = f"{updated.name}:{updated.version}"
+        self.created_agent_ids.append(updated_id)
+        self._log(f"Updated agent: {updated_id}")
 
-        response = self.wrapper.create_response(
-            conversation_id=conversation.id,
-            agent=agent,
-            input_items=[
-                {
-                    "role": "user",
-                    "content": "Search the attached store and summarize.",
-                }
-            ],
-            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
+        updated_def_dict = self._definition_to_dict(getattr(updated, "definition", None))
+        self.assertIsNotNone(updated_def_dict)
+        self.assertEqual(
+            updated_def_dict.get("structured_inputs"),
+            structured_inputs,
         )
-        self.assertEqual(self._response_status(response), "completed")
-
-        self.wrapper.delete_conversation(conversation.id)
-
-    def test_create_response_with_tools_and_tool_resources_merged(self):
-        """
-        Per-call tools=[{'type':'file_search'}] + tool_resources merge via
-        _normalize_tools — the vector store id from tool_resources is
-        injected into the existing file_search tool. Skips without a
-        configured vector store.
-        """
-        print("\n---- Test: create_response merges tools + tool_resources ----")
-        vector_store_id = os.getenv("AZURE_AGENT_TEST_VECTOR_STORE_ID")
-        if not vector_store_id:
-            self.skipTest(
-                "AZURE_AGENT_TEST_VECTOR_STORE_ID not set — skipping merged "
-                "tools + tool_resources test."
-            )
-
-        agent, agent_id = self._create_agent(
-            name=f"{self.agent_name}-percall-merge",
-            instructions="Merged tools + tool_resources test.",
-        )
-        self._log(f"Created agent: {agent_id}")
-
-        conversation = self.wrapper.create_conversation(
-            items=[
-                {
-                    "type": "message",
-                    "role": "user",
-                    "content": "Search and summarize.",
-                }
-            ]
-        )
-        self._log(f"Conversation created: id={conversation.id}")
-
-        response = self.wrapper.create_response(
-            conversation_id=conversation.id,
-            agent=agent,
-            input_items=[
-                {
-                    "role": "user",
-                    "content": "Use file_search on the attached store.",
-                }
-            ],
-            tools=[{"type": "file_search"}],
-            tool_resources={"file_search": {"vector_store_ids": [vector_store_id]}},
-        )
-        self.assertEqual(self._response_status(response), "completed")
-
-        self.wrapper.delete_conversation(conversation.id)
 
     def test_create_response_stream_returns_iterable(self):
         """
@@ -695,6 +641,147 @@ class TestAzureAgentWrapper(unittest.TestCase):
         self._log(f"Consumed {event_count} streamed event(s).")
 
         self.wrapper.delete_conversation(conversation.id)
+
+
+class TestAzureAgentWrapperPayloadContract(unittest.TestCase):
+    """
+    Payload-level contract tests for create_response. These assertions
+    require inspecting what the wrapper hands to client.responses.create,
+    which the live Foundry path does not expose, so we mock the OpenAI
+    client. No Azure credentials are required, which is intentional: the
+    agent_reference + tools 400 error this guards against is a wrapper
+    contract regression, not an Azure outage.
+    """
+
+    def setUp(self):
+        self.wrapper = AzureAgentWrapper.__new__(AzureAgentWrapper)
+        self.wrapper._retry_attempts = 1
+        self.wrapper._retry_delay_seconds = 0
+        self.wrapper._timeout = None
+        self.wrapper.client = MagicMock()
+
+        self.fake_client = MagicMock()
+        mock_response = MagicMock()
+        mock_response.id = "resp_test_123"
+        mock_response.status = "completed"
+        self.fake_client.responses.create.return_value = mock_response
+        self.wrapper._openai_client = self.fake_client
+
+        self.wrapper.wait_for_response = MagicMock(return_value=mock_response)
+
+        self.agent_ref = {"name": "agent-x", "version": "1"}
+        self.conversation_id = "conv_abc"
+
+    def _create_kwargs(self):
+        self.assertTrue(self.fake_client.responses.create.called)
+        _, call_kwargs = self.fake_client.responses.create.call_args
+        return call_kwargs
+
+    def test_create_response_drops_per_call_tools_with_agent_reference(self):
+        """
+        With agent_reference set (the only path create_response uses today),
+        per-call `tools` must NOT make it into the outbound payload, and a
+        warning must be logged so callers can see why their override was
+        ignored.
+        """
+        with self.assertLogs(
+            "intelli.wrappers.azure_agent_wrapper", level="WARNING"
+        ) as captured:
+            self.wrapper.create_response(
+                conversation_id=self.conversation_id,
+                agent=self.agent_ref,
+                input_text="hello",
+                wait_for_completion=False,
+                tools=[{"type": "code_interpreter"}],
+            )
+
+        call_kwargs = self._create_kwargs()
+        self.assertNotIn("tools", call_kwargs)
+        self.assertIn("agent_reference", call_kwargs["extra_body"])
+        self.assertTrue(
+            any("Ignoring per-call tools" in msg for msg in captured.output),
+            f"expected an 'Ignoring per-call tools' warning, got {captured.output}",
+        )
+
+    def test_create_response_drops_tool_resources_with_agent_reference(self):
+        """
+        Same drop-with-warning behavior when the override comes in via
+        tool_resources={'file_search': {...}} rather than tools=[...].
+        """
+        with self.assertLogs(
+            "intelli.wrappers.azure_agent_wrapper", level="WARNING"
+        ):
+            self.wrapper.create_response(
+                conversation_id=self.conversation_id,
+                agent=self.agent_ref,
+                input_text="hello",
+                wait_for_completion=False,
+                tool_resources={"file_search": {"vector_store_ids": ["vs_1"]}},
+            )
+
+        call_kwargs = self._create_kwargs()
+        self.assertNotIn("tools", call_kwargs)
+
+    def test_create_response_includes_structured_inputs_in_extra_body(self):
+        """
+        structured_inputs is forwarded inside extra_body alongside
+        agent_reference (NOT as a top-level kwarg) so the OpenAI Python
+        SDK doesn't reject it as an unknown parameter. Pins the contract
+        that broke against live Foundry with a TypeError.
+        """
+        structured_inputs = {"vector_store_id": "vs_per_call_xyz"}
+        self.wrapper.create_response(
+            conversation_id=self.conversation_id,
+            agent=self.agent_ref,
+            input_text="hello",
+            wait_for_completion=False,
+            structured_inputs=structured_inputs,
+        )
+
+        call_kwargs = self._create_kwargs()
+        self.assertNotIn("structured_inputs", call_kwargs)
+        self.assertEqual(
+            call_kwargs["extra_body"]["structured_inputs"],
+            structured_inputs,
+        )
+        self.assertIn("agent_reference", call_kwargs["extra_body"])
+        self.assertNotIn("tools", call_kwargs)
+
+    def test_create_response_default_payload_unchanged(self):
+        """
+        Backward-compat guard: when none of the new kwargs are supplied,
+        the outbound payload contains exactly the legacy keys.
+        """
+        self.wrapper.create_response(
+            conversation_id=self.conversation_id,
+            agent=self.agent_ref,
+            input_text="hello",
+        )
+
+        call_kwargs = self._create_kwargs()
+        self.assertEqual(
+            set(call_kwargs.keys()),
+            {"conversation", "input", "extra_body"},
+        )
+
+    def test_create_response_rejects_non_dict_structured_inputs(self):
+        """structured_inputs must be a dict — caller error surfaces as ValueError."""
+        wrapper_logger = logging.getLogger("intelli.wrappers.azure_agent_wrapper")
+        previous_level = wrapper_logger.level
+        previous_propagate = wrapper_logger.propagate
+        wrapper_logger.setLevel(logging.CRITICAL + 1)
+        wrapper_logger.propagate = False
+        try:
+            with self.assertRaises(ValueError):
+                self.wrapper.create_response(
+                    conversation_id=self.conversation_id,
+                    agent=self.agent_ref,
+                    input_text="hello",
+                    structured_inputs="not-a-dict",
+                )
+        finally:
+            wrapper_logger.setLevel(previous_level)
+            wrapper_logger.propagate = previous_propagate
 
 
 if __name__ == "__main__":
