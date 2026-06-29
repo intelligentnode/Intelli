@@ -1,10 +1,19 @@
 import unittest
 import os
 from intelli.wrappers.azure_openai_wrapper import AzureOpenAIWrapper
+from intelli.utils.model_helper import api_version_for_model
+
 from dotenv import load_dotenv
 
 load_dotenv()
 
+
+class TestApiVersionEnvIntegration(unittest.TestCase):
+    def test_uses_real_env_value_when_present(self):
+        configured = os.getenv("AZURE_GPT_5_5_API_VERSION")
+        if not configured:
+            self.skipTest("AZURE_GPT_5_5_API_VERSION not set")
+        self.assertEqual(api_version_for_model("gpt-5.5"), configured.strip())
 
 class TestAzureOpenAIWrapper(unittest.TestCase):
     """Comprehensive test suite for Azure OpenAI wrapper."""
