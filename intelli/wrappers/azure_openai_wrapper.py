@@ -1,4 +1,5 @@
 import logging
+import re
 from typing import Optional, Iterator
 
 logger = logging.getLogger(__name__)
@@ -7,6 +8,19 @@ try:
     from openai import AzureOpenAI
 except ImportError:
     AzureOpenAI = None
+
+
+def _is_reasoning_deployment(model: str) -> bool:
+    """
+    Best-effort detection of Azure deployments that reject 'temperature'/'max_tokens'
+    and use 'max_completion_tokens' instead — the GPT-5 family and the OpenAI o-series
+    reasoning models (o1/o3/o4...). Azure deployment names are user-defined, so this is
+    heuristic; callers can always pass 'max_completion_tokens' explicitly.
+    """
+    m = (model or '').lower()
+    if 'gpt-5' in m or 'gpt5' in m:
+        return True
+    return bool(re.match(r'^o[1-9]', m))
 
 
 class AzureOpenAIWrapper:
@@ -85,7 +99,7 @@ class AzureOpenAIWrapper:
             if not messages:
                 raise ValueError("Messages parameter is required and cannot be empty")
             
-            is_gpt5 = model.startswith('gpt-5') or 'gpt5' in model.lower()
+            is_gpt5 = _is_reasoning_deployment(model)
             
             if is_gpt5:
                 if 'temperature' in params and params.get('temperature') is not None:
@@ -121,15 +135,24 @@ class AzureOpenAIWrapper:
                     kwargs['max_tokens'] = max_tokens
             
             response = self.client.chat.completions.create(**kwargs)
-            
+
+            if not response.choices:
+                # Can happen with content filtering or a refusal; surface clearly.
+                raise Exception(
+                    "Azure OpenAI returned no choices "
+                    "(the request may have been content-filtered or refused)."
+                )
+
+            choice0 = response.choices[0]
+            message0 = getattr(choice0, "message", None)
             result = {
                 "choices": [
                     {
                         "message": {
-                            "content": response.choices[0].message.content,
-                            "role": response.choices[0].message.role
+                            "content": getattr(message0, "content", None) if message0 else None,
+                            "role": getattr(message0, "role", "assistant") if message0 else "assistant"
                         },
-                        "finish_reason": response.choices[0].finish_reason
+                        "finish_reason": getattr(choice0, "finish_reason", None)
                     }
                 ],
                 "usage": {
@@ -226,7 +249,7 @@ class AzureOpenAIWrapper:
             if not messages:
                 raise ValueError("Messages parameter is required and cannot be empty")
             
-            is_gpt5 = model.startswith('gpt-5') or 'gpt5' in model.lower()
+            is_gpt5 = _is_reasoning_deployment(model)
             
             if is_gpt5:
                 if 'temperature' in params and params.get('temperature') is not None:

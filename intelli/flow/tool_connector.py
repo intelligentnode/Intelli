@@ -84,18 +84,20 @@ class ToolDynamicConnector(DynamicConnector):
             
         # Handle new format (tool_calls)
         if output.get("type") == "tool_response" and output.get("tool_calls"):
-            first_tool = output["tool_calls"][0]
+            first_tool = output["tool_calls"][0] or {}
+            function = first_tool.get("function", {}) or {}
             return {
-                "name": first_tool["function"]["name"],
-                "arguments": first_tool["function"].get("arguments", "{}"),
+                "name": function.get("name"),
+                "arguments": function.get("arguments", "{}"),
                 "id": first_tool.get("id")
             }
         # Handle legacy format (function_call)
         elif output.get("type") == "function_response" and output.get("function_call"):
+            function_call = output.get("function_call", {}) or {}
             return {
-                "name": output["function_call"]["name"],
-                "arguments": output["function_call"].get("arguments", "{}"),
+                "name": function_call.get("name"),
+                "arguments": function_call.get("arguments", "{}"),
                 "id": None
             }
-        
+
         return None 

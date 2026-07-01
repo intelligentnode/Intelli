@@ -1,9 +1,13 @@
 import asyncio
+import datetime
 import json
+import logging
 import threading
 import functools
 import urllib.parse
 import contextlib
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Optional MCP SDK imports
@@ -18,30 +22,43 @@ except ImportError as _core_e:  # pragma: no cover
     _MCP_CORE_IMPORT_ERROR = _core_e  # Preserve for error messages
 
 # ----------------------------------------------------
-# Optional transport-specific clients.  These live in
-# separate extras (e.g.  `mcp[ws]`, `mcp[cli]`).
-# If they fail to import we merely disable remote
-# capability but still allow stdio usage.
+# Optional transport-specific clients. Each transport is imported
+# independently and guarded so that a missing optional dependency disables
+# only that transport instead of all remote capability. The legacy
+# `mcp.client.http` module was removed from the SDK; streamable-http is the
+# modern HTTP client and SSE is provided separately.
 # ----------------------------------------------------
 
-REMOTE_AVAILABLE = False
+stdio_client = None
+websocket_client = None
+streamablehttp_client = None
+sse_client = None
+_MCP_TRANSPORT_IMPORT_ERROR = None
+
 if MCP_AVAILABLE:
     try:
         from mcp.client.stdio import stdio_client  # type: ignore
+    except ImportError as _e:  # pragma: no cover
+        _MCP_TRANSPORT_IMPORT_ERROR = _e
+    try:
+        from mcp.client.streamable_http import streamablehttp_client  # type: ignore
+    except ImportError as _e:  # pragma: no cover
+        _MCP_TRANSPORT_IMPORT_ERROR = _e
+    try:
+        from mcp.client.sse import sse_client  # type: ignore
+    except ImportError as _e:  # pragma: no cover
+        _MCP_TRANSPORT_IMPORT_ERROR = _e
+    try:
         from mcp.client.websocket import websocket_client  # type: ignore
-        # Try importing the streamable HTTP client first, as it's preferred
-        try:
-            from mcp.client.streamable_http import streamablehttp_client as mcp_http_client # Alias
-            print("Intelli MCPWrapper: Using streamablehttp_client for HTTP.")
-        except ImportError:
-            # Fallback to the older http_client if streamable_http is not found
-            from mcp.client.http import http_client as mcp_http_client # Alias
-            print("Intelli MCPWrapper: Using legacy http_client for HTTP (fallback).")
-        REMOTE_AVAILABLE = True
-    except ImportError as _transport_e:  # pragma: no cover
-        # Remote transports require additional deps (websockets, httpx-sse …)
-        _MCP_TRANSPORT_IMPORT_ERROR = _transport_e
-        print(f"Intelli MCPWrapper: Failed to import remote transport clients. Error: {_MCP_TRANSPORT_IMPORT_ERROR}")
+    except ImportError as _e:  # pragma: no cover
+        # WebSocket transport needs the `websockets` extra.
+        _MCP_TRANSPORT_IMPORT_ERROR = _e
+
+# Backward-compatible alias for the older internal name + remote capability flag.
+mcp_http_client = streamablehttp_client
+REMOTE_AVAILABLE = any(
+    client is not None for client in (streamablehttp_client, sse_client, websocket_client)
+)
 
 # Dummy fallbacks to satisfy type checkers when MCP isn't installed
 if not MCP_AVAILABLE:
@@ -61,16 +78,20 @@ class MCPWrapper:
     This wrapper provides methods to interact with MCP servers using the MCP SDK.
     """
     
-    def __init__(self, server_config=None):
+    def __init__(self, server_config=None, timeout=None):
         """
         Initialize the MCP wrapper.
-        
+
         Args:
             server_config: Either:
-                - A string URL for remote MCP server (ws:// or http://)
+                - A string URL for remote MCP server (ws:// / http:// / https://)
                 - A dict with {'command': cmd, 'args': [], 'env': {}} for local subprocess
-                - A dict with {'url': 'ws://...'} for websocket
-                - A dict with {'url': 'http://...'} for HTTP
+                - A dict with {'url': '...'} for a remote server. Optional dict keys:
+                    'headers': {..} auth/custom headers for http/sse transports
+                    'transport': 'http' | 'streamable_http' | 'sse' | 'websocket'
+                    'timeout': per-operation read timeout in seconds
+            timeout: optional per-operation read timeout (seconds); overridden by a
+                'timeout' key inside a dict server_config when both are given.
         """
         if not MCP_AVAILABLE:
             raise ImportError(
@@ -81,45 +102,49 @@ class MCPWrapper:
         self.server_params = None
         self.connection_type = None
         self.remote_url = None
+        # Optional auth/custom headers for HTTP (streamable) and SSE transports.
+        self.headers = None
+        # Optional per-operation read timeout (seconds).
+        self.timeout = timeout
         # Optional persistent connection (session, session_ctx, client_ctx)
         self._persistent = None
-        
+
         # Configure based on input type
         if server_config is None:
             raise ValueError("Server configuration is required")
-        
-        # String URL - assume websocket if available
+
+        # String URL - infer transport from the scheme/path.
         if isinstance(server_config, str):
-            if not REMOTE_AVAILABLE:
-                raise ImportError(
-                    "Remote MCP connection requires additional dependencies. "
-                    "Install the MCP SDK with WebSocket/HTTP extras: 'pip install mcp[ws]' "
-                    f"Original error: {_MCP_TRANSPORT_IMPORT_ERROR}"
-                )
-                
             self.remote_url = server_config
-            if server_config.startswith('http'):
-                self.connection_type = 'http'
-            else:
-                self.connection_type = 'websocket'
-        
+            self.connection_type = self._resolve_connection_type(server_config)
+            self._require_transport(self.connection_type)
+
         # Dict configuration
         elif isinstance(server_config, dict):
+            # Optional headers (auth tokens etc.) for remote HTTP/SSE transports.
+            self.headers = server_config.get('headers')
+            # Optional per-operation timeout override.
+            if server_config.get('timeout') is not None:
+                self.timeout = server_config.get('timeout')
+
             if 'url' in server_config:
-                if not REMOTE_AVAILABLE:
-                    raise ImportError(
-                        "Remote MCP connection requires additional dependencies. "
-                        "Install the MCP SDK with WebSocket/HTTP extras: 'pip install mcp[ws]' "
-                        f"Original error: {_MCP_TRANSPORT_IMPORT_ERROR}"
-                    )
-                    
                 self.remote_url = server_config['url']
-                if self.remote_url.startswith('http'):
-                    self.connection_type = 'http'
-                else:
-                    self.connection_type = 'websocket'
-            
+                self.connection_type = self._resolve_connection_type(
+                    self.remote_url, server_config.get('transport')
+                )
+                self._require_transport(self.connection_type)
+                if self.headers and self.connection_type == 'websocket':
+                    logger.warning(
+                        "MCP websocket transport does not support custom headers in this "
+                        "SDK version; ignoring the provided 'headers'."
+                    )
+
             elif 'command' in server_config:
+                if stdio_client is None:
+                    raise ImportError(
+                        "MCP stdio transport is unavailable. Install the MCP SDK: "
+                        f"'pip install intelli[mcp]'. Original error: {_MCP_TRANSPORT_IMPORT_ERROR}"
+                    )
                 self.connection_type = 'stdio'
                 self.server_params = StdioServerParameters(
                     command=server_config['command'],
@@ -130,20 +155,82 @@ class MCPWrapper:
                 raise ValueError("Invalid server configuration. Provide 'url' or 'command'")
         else:
             raise ValueError("Server configuration must be a URL string or dictionary")
-    
+
     # --------------------------------------------------------------
     # Private helpers
     # --------------------------------------------------------------
+    @staticmethod
+    def _resolve_connection_type(url, explicit_transport=None):
+        """
+        Determine the transport from an explicit override or the URL.
+        Accepted transport overrides: http/streamable_http, sse, websocket/ws.
+        """
+        if explicit_transport:
+            mapping = {
+                'http': 'http',
+                'streamable_http': 'http',
+                'streamable-http': 'http',
+                'streamablehttp': 'http',
+                'sse': 'sse',
+                'websocket': 'websocket',
+                'ws': 'websocket',
+            }
+            key = str(explicit_transport).lower()
+            if key not in mapping:
+                raise ValueError(
+                    f"Unsupported MCP transport '{explicit_transport}'. "
+                    "Use one of: http, streamable_http, sse, websocket."
+                )
+            return mapping[key]
+
+        if url.startswith('ws://') or url.startswith('wss://'):
+            return 'websocket'
+        # Servers commonly expose SSE on a '/sse' path; default http(s) to streamable-http.
+        if url.rstrip('/').endswith('/sse'):
+            return 'sse'
+        return 'http'
+
+    @staticmethod
+    def _require_transport(connection_type):
+        """Raise a clear ImportError if the chosen transport's client is unavailable."""
+        clients = {
+            'http': streamablehttp_client,
+            'sse': sse_client,
+            'websocket': websocket_client,
+            'stdio': stdio_client,
+        }
+        if clients.get(connection_type) is None:
+            hint = "'pip install mcp[ws]'" if connection_type == 'websocket' else "'pip install intelli[mcp]'"
+            raise ImportError(
+                f"MCP {connection_type} transport is unavailable. Install the required "
+                f"dependencies ({hint}). Original error: {_MCP_TRANSPORT_IMPORT_ERROR}"
+            )
     def _get_http_base_url(self, url):
         """
         Extract the base URL for HTTP connections.
         Full URL with path works best for this client.
         """
-        parsed = urllib.parse.urlparse(url)
-        
         # For streamable_http client, use the full URL including path
-        print(f"Intelli MCPWrapper: Using full URL: {url} for HTTP connection")
+        logger.debug("Intelli MCPWrapper: using full URL %s for HTTP connection", url)
         return url
+
+    def _build_remote_client(self, client_fn, url=None):
+        """Instantiate an HTTP/SSE transport client, passing auth headers when set."""
+        target = url or self.remote_url
+        if self.headers:
+            return client_fn(target, headers=self.headers)
+        return client_fn(target)
+
+    @staticmethod
+    def _unpack_streams(aenter_result, label):
+        """Return (read, write) from a transport client's __aenter__ result.
+
+        streamable-http yields (read, write, get_session_id) while SSE/websocket
+        yield (read, write); take the first two either way.
+        """
+        if isinstance(aenter_result, tuple) and len(aenter_result) >= 2:
+            return aenter_result[0], aenter_result[1]
+        raise ValueError(f"Unexpected result from {label} MCP client: {aenter_result!r}")
 
     async def _open(self):
         """
@@ -166,27 +253,39 @@ class MCPWrapper:
                     raise ValueError(f"Unexpected result type from stdio_client.__aenter__(): {type(aenter_result)}")
             
             elif self.connection_type == 'websocket':
+                # websocket_client does not accept custom headers in the SDK.
                 client_ctx = websocket_client(self.remote_url)
                 read, write = await client_ctx.__aenter__()
-                
-            elif self.connection_type == 'http':
-                # Normalize HTTP URL for the SDK
-                normalized_url = self._get_http_base_url(self.remote_url)
-                
-                print(f"Intelli MCPWrapper: Connecting to HTTP MCP server at {normalized_url}")
-                
-                # Use the aliased mcp_http_client
-                client_ctx = mcp_http_client(normalized_url)
+
+            elif self.connection_type == 'sse':
+                logger.debug("Intelli MCPWrapper: connecting to SSE MCP server at %s", self.remote_url)
+                client_ctx = self._build_remote_client(sse_client)
                 aenter_result = await client_ctx.__aenter__()
-                # streamablehttp_client returns 3 items, older http_client might return 2
-                if isinstance(aenter_result, tuple) and len(aenter_result) == 3:
-                    read, write, _ = aenter_result 
-                elif isinstance(aenter_result, tuple) and len(aenter_result) == 2:
-                    read, write = aenter_result 
-                else:
-                    raise ValueError(f"Unexpected result type or length from HTTP client context manager: {aenter_result}")
-            
-            session_ctx = ClientSession(read, write)
+                read, write = self._unpack_streams(aenter_result, 'SSE')
+
+            elif self.connection_type == 'http':
+                # Normalize HTTP URL for the SDK (streamable-http uses the full URL).
+                normalized_url = self._get_http_base_url(self.remote_url)
+                logger.debug("Intelli MCPWrapper: connecting to HTTP MCP server at %s", normalized_url)
+                client_ctx = self._build_remote_client(streamablehttp_client, url=normalized_url)
+                aenter_result = await client_ctx.__aenter__()
+                # streamable_http returns (read, write, get_session_id); SSE returns (read, write)
+                read, write = self._unpack_streams(aenter_result, 'HTTP')
+
+            else:
+                raise ValueError(f"Unsupported MCP connection type: {self.connection_type}")
+
+            # Apply an optional per-operation read timeout when supported by the SDK.
+            if self.timeout is not None:
+                try:
+                    session_ctx = ClientSession(
+                        read, write,
+                        read_timeout_seconds=datetime.timedelta(seconds=self.timeout),
+                    )
+                except TypeError:
+                    session_ctx = ClientSession(read, write)
+            else:
+                session_ctx = ClientSession(read, write)
             session = await session_ctx.__aenter__()
             await session.initialize()
             return session, session_ctx, client_ctx
@@ -249,6 +348,30 @@ class MCPWrapper:
         try:
             result = await session.read_resource(resource_uri)
             return result
+        finally:
+            await self._release(session_ctx, client_ctx, should_close)
+
+    async def _list_resources_async(self):
+        """List resources exposed by the MCP server."""
+        session, session_ctx, client_ctx, should_close = await self._acquire()
+        try:
+            return await session.list_resources()
+        finally:
+            await self._release(session_ctx, client_ctx, should_close)
+
+    async def _list_prompts_async(self):
+        """List prompts exposed by the MCP server."""
+        session, session_ctx, client_ctx, should_close = await self._acquire()
+        try:
+            return await session.list_prompts()
+        finally:
+            await self._release(session_ctx, client_ctx, should_close)
+
+    async def _get_prompt_async(self, name, arguments=None):
+        """Fetch a prompt (with optional arguments) from the MCP server."""
+        session, session_ctx, client_ctx, should_close = await self._acquire()
+        try:
+            return await session.get_prompt(name, arguments or {})
         finally:
             await self._release(session_ctx, client_ctx, should_close)
 
@@ -326,6 +449,18 @@ class MCPWrapper:
         """Async: Read a resource from the MCP server."""
         return await self._read_resource_async(resource_uri)
 
+    async def list_resources_async(self):
+        """Async: List resources exposed by the MCP server."""
+        return await self._list_resources_async()
+
+    async def get_prompts_async(self):
+        """Async: List prompts exposed by the MCP server."""
+        return await self._list_prompts_async()
+
+    async def get_prompt_async(self, name, arguments=None):
+        """Async: Fetch a prompt (with optional arguments) from the MCP server."""
+        return await self._get_prompt_async(name, arguments)
+
     # --------------------------------------------------------------
     # Coroutine runner for sync facade (safe inside running loops)
     # --------------------------------------------------------------
@@ -374,54 +509,110 @@ class MCPWrapper:
             The result of the tool call.
         """
         try:
-            print(f"Executing MCP tool '{name}' with arguments: {arguments}")
-            
-            # Remove None values and 'input' parameter 
-            filtered_args = {k: v for k, v in arguments.items() if v is not None and k != 'input'}
-            
+            logger.debug("Executing MCP tool '%s'", name)
+
+            # Remove None values and the literal 'input' parameter (guard None args).
+            filtered_args = {k: v for k, v in (arguments or {}).items() if v is not None and k != 'input'}
+
             # Process parameters based on naming convention
             # Can handle both normal and arg_* prefixed parameters
             converted_args = {}
-            
+
             for k, v in filtered_args.items():
                 if k.startswith('arg_'):
                     # Remove the arg_ prefix
                     param_name = k[4:]
                     converted_args[param_name] = v
-                    print(f"Converting parameter '{k}' to '{param_name}', value: {v}")
                 else:
                     # Use parameter as is
                     converted_args[k] = v
 
-            print(f"Filtered arguments for tool call: {converted_args}")
-            
+            logger.debug("Filtered arguments for tool '%s': %s", name, converted_args)
+
             result = self._run_coro_sync(self._call_tool_async(name, converted_args))
-                
-            print(f"MCP tool execution result: {result}")
+
+            logger.debug("MCP tool '%s' execution complete", name)
             return result
         except Exception as e:
-            print(f"Error executing tool {name}: {e}")
+            logger.error("Error executing tool %s: %s", name, e)
             return f"Error executing tool {name}: {str(e)}"
     
     def get_resource(self, resource_uri):
         """
         Synchronous wrapper for reading a resource.
         Runs in the caller's event loop if one exists.
-        
+
         Args:
             resource_uri (str): The URI of the resource to read.
-            
+
         Returns:
-            tuple: (content, mime_type) of the resource.
+            The MCP read_resource result (ReadResourceResult with .contents).
         """
         return self._run_coro_sync(self._read_resource_async(resource_uri))
+
+    # --------------------------------------------------------------
+    # Result normalization (additive) — turn a CallToolResult into a
+    # plain dict so callers can detect tool errors and structured output.
+    # --------------------------------------------------------------
+    @staticmethod
+    def _convert_args(arguments):
+        """Drop None values and the literal 'input' key; strip the 'arg_' prefix."""
+        converted = {}
+        for k, v in (arguments or {}).items():
+            if v is None or k == 'input':
+                continue
+            converted[k[4:] if k.startswith('arg_') else k] = v
+        return converted
+
+    @staticmethod
+    def normalize_tool_result(result):
+        """
+        Normalize an MCP CallToolResult into:
+            {'is_error': bool, 'text': str, 'structured': Any, 'content': list}
+        Gracefully handles non-result values (e.g. an error string from execute_tool).
+        """
+        if isinstance(result, str):
+            return {'is_error': True, 'text': result, 'structured': None, 'content': []}
+        is_error = bool(getattr(result, 'isError', False))
+        structured = getattr(result, 'structuredContent', None)
+        content = getattr(result, 'content', None) or []
+        texts = [getattr(item, 'text') for item in content if getattr(item, 'text', None) is not None]
+        if texts:
+            text = "\n".join(texts)
+        elif structured is not None:
+            text = json.dumps(structured)
+        else:
+            text = ""
+        return {'is_error': is_error, 'text': text, 'structured': structured, 'content': content}
+
+    def execute_tool_normalized(self, name, arguments=None):
+        """Sync: call a tool and return a normalized {is_error,text,structured,content} dict."""
+        result = self._run_coro_sync(self._call_tool_async(name, self._convert_args(arguments)))
+        return self.normalize_tool_result(result)
+
+    async def execute_tool_normalized_async(self, name, arguments=None):
+        """Async: call a tool and return a normalized {is_error,text,structured,content} dict."""
+        result = await self._call_tool_async(name, self._convert_args(arguments))
+        return self.normalize_tool_result(result)
     
     def get_tools(self):
         """
         Synchronous wrapper for listing tools.
         Runs in the caller's event loop if one exists.
-        
+
         Returns:
             List of available tools.
         """
         return self._run_coro_sync(self._list_tools_async())
+
+    def list_resources(self):
+        """Synchronous wrapper for listing resources exposed by the MCP server."""
+        return self._run_coro_sync(self._list_resources_async())
+
+    def get_prompts(self):
+        """Synchronous wrapper for listing prompts exposed by the MCP server."""
+        return self._run_coro_sync(self._list_prompts_async())
+
+    def get_prompt(self, name, arguments=None):
+        """Synchronous wrapper for fetching a prompt (with optional arguments)."""
+        return self._run_coro_sync(self._get_prompt_async(name, arguments))

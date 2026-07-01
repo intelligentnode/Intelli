@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 
 from intelli.controller.remote_embed_model import RemoteEmbedModel

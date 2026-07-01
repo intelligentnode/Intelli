@@ -533,8 +533,15 @@ class GeminiAIWrapper:
 
     def get_embeddings(self, params):
         """Get embeddings for text"""
-        model = self.models['embedding']
-        url = f"{self.API_BASE_URL}/{model}:embedContent"
+        params = dict(params) if isinstance(params, dict) else params
+        # Honor a per-call model (accept 'gemini-embedding-001' or 'models/...');
+        # fall back to the configured default when not provided.
+        requested = params.get('model') if isinstance(params, dict) else None
+        model_id = (requested or self.models['embedding']).split('/')[-1]
+        # embedContent expects the body 'model' in 'models/<id>' form.
+        if isinstance(params, dict):
+            params['model'] = f"models/{model_id}"
+        url = f"{self.API_BASE_URL}/{model_id}:embedContent"
 
         try:
             response = self.session.post(url, json=self._camelize(params), params={'key': self.API_KEY}, timeout=self.timeout)

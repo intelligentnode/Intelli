@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
@@ -8,13 +9,25 @@ logger = logging.getLogger(__name__)
 def _check_openai_import():
     try:
         import openai
-        from openai.types.beta.assistant import Assistant
-        return openai, Assistant
+        return openai
     except ImportError:
         raise ImportError(
             "openai package is required for Azure Assistant support. "
             "Install it with: pip install openai"
         )
+
+
+def _is_reasoning_model(model: str) -> bool:
+    """GPT-5 family and OpenAI o-series reasoning models accept reasoning_effort."""
+    m = (model or '').lower().strip()
+    if 'gpt-5' in m or 'gpt5' in m:
+        return True
+    return bool(re.match(r'^o[1-9]', m))
+
+
+def _is_gpt4_family(model: str) -> bool:
+    """GPT-4 family deployments accept temperature."""
+    return (model or '').lower().strip().startswith('gpt-4')
 
 
 class AzureAssistantWrapper:
@@ -51,7 +64,7 @@ class AzureAssistantWrapper:
         self.api_version = api_version or os.getenv("AZURE_OPENAI_API_VERSION", "2024-05-01-preview")
 
         # Initialize Azure OpenAI client
-        openai, _ = _check_openai_import()
+        openai = _check_openai_import()
         self.client = openai.AzureOpenAI(
             api_key=self.api_key,
             api_version=self.api_version,
@@ -105,15 +118,17 @@ class AzureAssistantWrapper:
         if metadata:
             assistant_params["metadata"] = metadata
 
-        # Set model-specific parameters
-        if model_name_clean.startswith("gpt-4") and not model_name_clean.startswith("gpt-5"):
-            # GPT-4 models use temperature
+        # Set model-specific parameters: reasoning models take reasoning_effort,
+        # gpt-4 family takes temperature, anything else gets neither (let the
+        # service apply defaults) to avoid 400s on unsupported parameters.
+        if _is_reasoning_model(model_name_clean):
+            assistant_params["reasoning_effort"] = reasoning_effort if reasoning_effort else "low"
+            logger.info(f"Using reasoning_effort={assistant_params['reasoning_effort']} for model: {model}")
+        elif _is_gpt4_family(model_name_clean):
             assistant_params["temperature"] = temperature if temperature is not None else 0.4
             logger.info(f"Using temperature={assistant_params['temperature']} for model: {model}")
         else:
-            # GPT-5 and other models use reasoning_effort
-            assistant_params["reasoning_effort"] = reasoning_effort if reasoning_effort else "low"
-            logger.info(f"Using reasoning_effort={assistant_params['reasoning_effort']} for model: {model}")
+            logger.info(f"No temperature/reasoning_effort applied for model: {model}")
 
         try:
             assistant = self.client.beta.assistants.create(**assistant_params)
@@ -173,21 +188,22 @@ class AzureAssistantWrapper:
         if metadata:
             update_params["metadata"] = metadata
 
-        # Set model-specific parameters
+        # Set model-specific parameters (see create_assistant for the routing rationale).
         if model:
-            model_name_clean = model.lower().strip()
-            if model_name_clean.startswith("gpt-4") and not model_name_clean.startswith("gpt-5"):
+            if _is_reasoning_model(model):
+                if reasoning_effort:
+                    update_params["reasoning_effort"] = reasoning_effort
+                elif "reasoning_effort" not in update_params:
+                    update_params["reasoning_effort"] = "low"
+                logger.info(f"Using reasoning_effort={update_params['reasoning_effort']} for model: {model}")
+            elif _is_gpt4_family(model):
                 if temperature is not None:
                     update_params["temperature"] = temperature
                 elif "temperature" not in update_params:
                     update_params["temperature"] = 0.4
                 logger.info(f"Using temperature={update_params['temperature']} for model: {model}")
             else:
-                if reasoning_effort:
-                    update_params["reasoning_effort"] = reasoning_effort
-                elif "reasoning_effort" not in update_params:
-                    update_params["reasoning_effort"] = "low"
-                logger.info(f"Using reasoning_effort={update_params['reasoning_effort']} for model: {model}")
+                logger.info(f"No temperature/reasoning_effort applied for model: {model}")
 
         try:
             assistant = self.client.beta.assistants.update(**update_params)

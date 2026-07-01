@@ -1,5 +1,6 @@
 import json
 
+from intelli.config import config
 from intelli.model.input.chatbot_input import ChatModelInput
 from intelli.utils.system_helper import SystemHelper
 from intelli.utils.model_helper import is_reasoning_model
@@ -108,9 +109,9 @@ class Chatbot:
         if self.extended_search:
             references = self._augment_with_semantic_search(chat_input)
 
-        # Set default model to gpt-5.2 for OpenAI provider if not specified
+        # Set the default OpenAI model (centralized in config) when not specified.
         if self.provider == ChatProvider.OPENAI.value and not chat_input.model:
-            chat_input.model = 'gpt-5.2'
+            chat_input.model = config['url']['openai']['models']['chat']
 
         get_input_method = f"get_{self.provider}_input"
         chat_method = getattr(self, f"_chat_{self.provider}", None)
@@ -183,7 +184,11 @@ class Chatbot:
         return [choice["message"]["content"] for choice in response.get("choices", [])]
 
     def _chat_gemini(self, params):
-        response = self.wrapper.generate_content(params)
+        # The Gemini wrapper takes the model from the URL via model_override, not
+        # from the request body. Pop the model the input builder emitted and thread
+        # it through so the caller's per-call model is respected (None -> config default).
+        model_override = params.pop("model", None)
+        response = self.wrapper.generate_content(params, model_override=model_override)
         output = []
         for candidate in response.get("candidates", []):
             if "content" in candidate:
@@ -194,31 +199,39 @@ class Chatbot:
 
     def _chat_anthropic(self, params):
         response = self.wrapper.generate_text(params)
-        
-        # Check if this is a tool use response
-        if 'stop_reason' in response and response['stop_reason'] == 'tool_use':
-            # Return tool use information in a standardized format
-            tool_uses = []
-            for content in response.get('content', []):
-                if content.get('type') == 'tool_use':
-                    tool_uses.append({
-                        'type': 'tool_response',
-                        'tool_calls': [{
-                            'id': content.get('id'),
-                            'type': 'function',
-                            'function': {
-                                'name': content.get('name'),
-                                'arguments': json.dumps(content.get('input', {}))
-                            }
-                        }]
+
+        content_blocks = response.get('content', []) if isinstance(response, dict) else []
+
+        # Tool-use response: collect ALL tool_use blocks (supports parallel tool calls)
+        # into a single standardized tool_response so the tool connector sees every call.
+        if isinstance(response, dict) and response.get('stop_reason') == 'tool_use':
+            tool_calls = []
+            for block in content_blocks:
+                if isinstance(block, dict) and block.get('type') == 'tool_use':
+                    tool_calls.append({
+                        'id': block.get('id'),
+                        'type': 'function',
+                        'function': {
+                            'name': block.get('name'),
+                            'arguments': json.dumps(block.get('input', {}))
+                        }
                     })
-            
-            # If we have tool uses, return the first one (can be extended for multiple)
-            if tool_uses:
-                return [tool_uses[0]]
-        
-        # Normal text response
-        return [message["text"] for message in response["content"]]
+            if tool_calls:
+                return [{
+                    'type': 'tool_response',
+                    'tool_calls': tool_calls,
+                }]
+
+        # Normal text response: only collect text blocks so that mixed content
+        # (thinking / tool_use blocks, e.g. with adaptive thinking enabled) does
+        # not raise a KeyError on blocks that have no 'text' field.
+        texts = [block['text'] for block in content_blocks
+                 if isinstance(block, dict) and block.get('type') == 'text' and 'text' in block]
+        if not texts:
+            # Fallback for blocks that carry 'text' without an explicit type.
+            texts = [block['text'] for block in content_blocks
+                     if isinstance(block, dict) and 'text' in block]
+        return texts
 
     def _chat_nvidia(self, params):
         result = self.wrapper.generate_text(params)
@@ -240,9 +253,9 @@ class Chatbot:
         if self.extended_search:
             _ = self._augment_with_semantic_search(chat_input)
 
-        # Set default model to gpt-5.2 for OpenAI provider if not specified
+        # Set the default OpenAI model (centralized in config) when not specified.
         if self.provider == ChatProvider.OPENAI.value and not chat_input.model:
-            chat_input.model = 'gpt-5.2'
+            chat_input.model = config['url']['openai']['models']['chat']
 
         params = getattr(chat_input, f"get_{self.provider}_input")()
 
@@ -362,11 +375,13 @@ class Chatbot:
         }
         """
         responses = []
-        
+
         if 'output' in results and isinstance(results['output'], list):
-            # Extract text from message content
+            # Collect tool/function calls so GPT-5 tool-use works in flows/routing.
+            tool_calls = []
             for item in results['output']:
-                if item.get('type') == 'message' and 'content' in item:
+                itype = item.get('type')
+                if itype == 'message' and 'content' in item:
                     content = item['content']
                     if isinstance(content, list):
                         # Content is an array of parts
@@ -381,7 +396,22 @@ class Chatbot:
                         responses.append(content)
                     else:
                         responses.append(str(content))
-        
+                elif itype in ('function_call', 'custom_tool_call', 'tool_call'):
+                    arguments = item.get('arguments', '{}')
+                    if not isinstance(arguments, str):
+                        arguments = json.dumps(arguments)
+                    tool_calls.append({
+                        'id': item.get('call_id') or item.get('id'),
+                        'type': 'function',
+                        'function': {
+                            'name': item.get('name'),
+                            'arguments': arguments,
+                        }
+                    })
+            # Tool calls take precedence so downstream connectors can route on them.
+            if tool_calls:
+                return [{'type': 'tool_response', 'tool_calls': tool_calls}]
+
         # Fallback to choices format if available
         elif 'choices' in results and len(results['choices']) > 0:
             for choice in results['choices']:

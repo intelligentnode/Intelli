@@ -15,7 +15,10 @@ config = {
             "audiospeech": "/v1/audio/speech",
             "files": "/v1/files",
             "finetuning": "/v1/fine_tuning/jobs",
-            "organization": None
+            "organization": None,
+            "models": {
+                "chat": "gpt-5.5"
+            }
         },
         "azure_openai": {
             "base": "https://{resource-name}.openai.azure.com/openai",
@@ -93,15 +96,15 @@ config = {
             "files_base": "https://generativelanguage.googleapis.com/v1beta/files",
             "vertex_base": "https://us-central1-aiplatform.googleapis.com/v1/projects",
             "models": {
-                "text": "gemini-2.0-flash", 
-                "vision": "gemini-2.0-flash",
-                "embedding": "text-embedding-004",
-                "image_generation": "gemini-2.0-flash-preview-image-generation",
+                "text": "gemini-2.5-flash",
+                "vision": "gemini-2.5-flash",
+                "embedding": "gemini-embedding-001",
+                "image_generation": "gemini-2.5-flash-image",
                 "video_generation": "veo-2.0-generate-001",
                 "tts": "gemini-2.5-flash-preview-tts",
                 "tts_pro": "gemini-2.5-pro-preview-tts",
-                "legacy_text": "gemini-1.5-pro",
-                "legacy_vision": "gemini-1.5-pro"
+                "legacy_text": "gemini-2.0-flash",
+                "legacy_vision": "gemini-2.0-flash"
             },
             "endpoints": {
                 "generateContent": ":generateContent",
@@ -115,7 +118,13 @@ config = {
         "anthropic": {
             "base": "https://api.anthropic.com",
             "messages": "/v1/messages",
-            "version": "2023-06-01"
+            "version": "2023-06-01",
+            "models": {
+                "chat": "claude-sonnet-4-6",
+                "sonnet": "claude-sonnet-4-6",
+                "opus": "claude-opus-4-8",
+                "haiku": "claude-haiku-4-5"
+            }
         },
         "nvidia": {
             "base": "https://integrate.api.nvidia.com",

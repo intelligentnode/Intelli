@@ -8,12 +8,13 @@ class TestChatModelInput(unittest.TestCase):
 
     def test_add_and_delete_messages(self):
         chat_model_input = ChatModelInput(system=self.system_message, model="test-model")
+        # The constructor auto-adds the system message, so this starts at 1.
         chat_model_input.add_user_message("Hello, World!")
         chat_model_input.add_assistant_message("Hi, Universe!")
-        self.assertEqual(len(chat_model_input.messages), 2)
+        self.assertEqual(len(chat_model_input.messages), 3)  # system + user + assistant
 
         chat_model_input.delete_last_message(chat_model_input.messages[0])
-        self.assertEqual(len(chat_model_input.messages), 1)
+        self.assertEqual(len(chat_model_input.messages), 2)
 
         chat_model_input.clean_messages()
         self.assertEqual(len(chat_model_input.messages), 0)

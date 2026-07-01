@@ -27,26 +27,54 @@ def local_server_config(script_path, python_executable=None, env=None):
 def websocket_server_config(url):
     """
     Create configuration for a WebSocket MCP server.
-    
+
     Args:
         url: WebSocket URL (ws:// or wss://)
-        
+
     Returns:
         Dict with MCP agent configuration
     """
-    return {"url": url}
+    return {"url": url, "transport": "websocket"}
 
-def http_server_config(url):
+def http_server_config(url, headers=None, timeout=None):
     """
-    Create configuration for an HTTP MCP server.
-    
+    Create configuration for an HTTP (streamable) MCP server.
+
     Args:
         url: HTTP URL (http:// or https://)
-        
+        headers: Optional dict of auth/custom headers (e.g. {"Authorization": "Bearer ..."})
+                 required by most third-party MCP servers.
+        timeout: Optional per-operation read timeout in seconds.
+
     Returns:
         Dict with MCP agent configuration
     """
-    return {"url": url}
+    cfg = {"url": url, "transport": "streamable_http"}
+    if headers:
+        cfg["headers"] = headers
+    if timeout is not None:
+        cfg["timeout"] = timeout
+    return cfg
+
+def sse_server_config(url, headers=None, timeout=None):
+    """
+    Create configuration for an HTTP+SSE MCP server (legacy SSE transport that
+    many third-party servers still expose).
+
+    Args:
+        url: SSE endpoint URL (commonly ends with /sse)
+        headers: Optional dict of auth/custom headers.
+        timeout: Optional per-operation read timeout in seconds.
+
+    Returns:
+        Dict with MCP agent configuration
+    """
+    cfg = {"url": url, "transport": "sse"}
+    if headers:
+        cfg["headers"] = headers
+    if timeout is not None:
+        cfg["timeout"] = timeout
+    return cfg
 
 def create_mcp_agent(server_config, tool_name, **tool_args):
     """

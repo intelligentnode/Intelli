@@ -119,7 +119,7 @@ class VibeFlow:
         *,
         planner_provider: str = "openai",
         planner_api_key: Optional[str] = None,
-        planner_model: Optional[str] = "gpt-5.2",
+        planner_model: Optional[str] = "gpt-5.5",
         planner_options: Optional[Dict[str, Any]] = None,
         context_files: Optional[List[str]] = None,
         max_context_chars: int = 120_000,
@@ -392,7 +392,7 @@ class VibeFlow:
             '        "agent_type": "text",\n'
             '        "provider": "openai|anthropic|gemini",\n'
             '        "mission": "system mission",\n'
-            '        "model_params": {"key": "${ENV:OPENAI_API_KEY}", "model": "gpt-5.2"},\n'
+            '        "model_params": {"key": "${ENV:OPENAI_API_KEY}", "model": "gpt-5.5"},\n'
             '        "options": {}\n'
             "      }\n"
             "    }\n"

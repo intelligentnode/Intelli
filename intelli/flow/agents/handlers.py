@@ -334,25 +334,32 @@ class MCPAgentHandler(AgentHandler):
             # Debug info
             print(f"MCP Agent executing tool '{tool_name}' with arguments: {arguments}")
             
-            # Execute the tool
+            # Execute the tool and normalize the result (captures isError + structured content)
             result = wrapper.execute_tool(tool_name, arguments)
-            
-            # Handle result conversion
-            if hasattr(result, "content") and isinstance(result.content, list):
-                text_content = next((item.text for item in result.content if hasattr(item, 'text')), None)
-                if text_content:
-                    return text_content
-            
+            normalized = wrapper.normalize_tool_result(result)
+
+            if normalized.get("is_error"):
+                return f"Error from MCP tool '{tool_name}': {normalized.get('text') or result}"
+            if normalized.get("text"):
+                return normalized["text"]
+            if normalized.get("structured") is not None:
+                return normalized["structured"]
+
             return str(result)
         except Exception as e:
             return f"Error executing MCP agent: {str(e)}"
-            
+
     def _create_server_config(self, params):
         """Create server configuration from parameters"""
-        # Check for URL-based configuration
+        # Check for URL-based configuration (remote http/sse/websocket).
         if "url" in params:
-            return {"url": params["url"]}
-            
+            cfg = {"url": params["url"]}
+            # Forward optional remote options (auth headers, transport, timeout).
+            for key in ("headers", "transport", "timeout"):
+                if params.get(key) is not None:
+                    cfg[key] = params[key]
+            return cfg
+
         # Check for subprocess-based configuration
         if "command" in params:
             return {
@@ -360,7 +367,7 @@ class MCPAgentHandler(AgentHandler):
                 "args": params.get("args", []),
                 "env": params.get("env")
             }
-            
+
         raise ValueError("MCPAgent requires either 'url' or 'command' in model_params")
     
     def _prepare_tool_arguments(self, agent_input, params):
