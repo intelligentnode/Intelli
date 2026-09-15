@@ -119,7 +119,7 @@ class TestMultiModalFlow(unittest.TestCase):
                 mission="Create a detailed image prompt for the travel destination",
                 model_params={
                     "key": self.api_keys["anthropic"],
-                    "model": "claude-3-7-sonnet-20250219"
+                    "model": "claude-sonnet-5"
                 },
             )
         else:
@@ -307,7 +307,7 @@ class TestMultiModalFlow(unittest.TestCase):
             agent_type=AgentTypes.TEXT.value,
             provider="mistral",
             mission="Create an enhanced travel package combining all insights",
-            model_params={"key": self.api_keys["mistral"], "model": "mistral-medium"},
+            model_params={"key": self.api_keys["mistral"], "model": "mistral-medium-latest"},
         )
 
         final_task = Task(

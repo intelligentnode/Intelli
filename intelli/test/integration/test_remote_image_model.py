@@ -32,13 +32,16 @@ class TestRemoteImageModel(unittest.TestCase):
     
         for img_indx, prompt in enumerate(self.prompts, start=1):
 
+            # gpt-image models always return base64 (response_format is not accepted);
+            # the dall-e era value is still passed to prove the input layer drops it.
             image_input = ImageModelInput(
             prompt=prompt,
             number_images=1,
             width=1024,
             height=1024,
             response_format= "b64_json",
-            model="dall-e-3")
+            quality="low",
+            model="gpt-image-2")
 
             results = wrapper.generate_images(image_input)
             self.assertGreater(len(results), 0, "No images were returned from OpenAI")
@@ -47,57 +50,60 @@ class TestRemoteImageModel(unittest.TestCase):
             output_dir = Path("temp")
             output_dir.mkdir(parents=True, exist_ok=True)
             for i, base64_image in enumerate(results, start=1):
-                self.save_image_from_base64(base64_image, output_dir / f"dale_image_{img_indx}_{i}.png")
+                self.save_image_from_base64(base64_image, output_dir / f"gpt_image_2_{img_indx}_{i}.png")
 
-    def test_openai_gpt_image_1_generation(self):
-        """Test the latest gpt-image-1 model with new parameters"""
+    def test_openai_gpt_image_generation_with_new_parameters(self):
+        """Test the latest gpt-image model with the gpt-image specific parameters"""
         provider = "openai"
         wrapper = RemoteImageModel(self.openai_api_key, provider)
-        
-        # Test with the first prompt using gpt-image-1 and new parameters
+
+        # Test with the first prompt using gpt-image-2 and new parameters
         prompt = self.prompts[0]
-        
+
+        # output_compression is only valid for jpeg/webp; a transparent background
+        # needs png or webp, so webp is the format that exercises both.
         image_input = ImageModelInput(
             prompt=prompt,
             number_images=1,
-            model="gpt-image-1",  # Latest model
+            model="gpt-image-2",  # Latest model
             background="transparent",  # New parameter
             quality="high",  # New parameter
-            output_format="png",  # New parameter
+            output_format="webp",  # New parameter
             output_compression=90,  # New parameter
             moderation="auto",  # New parameter
             user="test_user_123"  # New parameter
         )
 
         results = wrapper.generate_images(image_input)
-        self.assertGreater(len(results), 0, "No images were returned from OpenAI gpt-image-1")
+        self.assertGreater(len(results), 0, "No images were returned from OpenAI gpt-image-2")
 
         # save the image
         output_dir = Path("temp")
         output_dir.mkdir(parents=True, exist_ok=True)
         for i, base64_image in enumerate(results, start=1):
-            self.save_image_from_base64(base64_image, output_dir / f"gpt_image_1_test_{i}.png")
+            self.save_image_from_base64(base64_image, output_dir / f"gpt_image_2_test_{i}.webp")
 
-    def test_openai_default_model_is_gpt_image_1(self):
-        """Test that the default model is now gpt-image-1"""
+    def test_openai_default_model_is_gpt_image_2(self):
+        """Test that the default model is now gpt-image-2"""
         provider = "openai"
         wrapper = RemoteImageModel(self.openai_api_key, provider)
-        
+
         # Create image input without specifying model
         image_input = ImageModelInput(
             prompt="A simple test image",
-            number_images=1
+            number_images=1,
+            quality="low"
         )
-        
+
         # Set default values
         image_input.set_default_values(provider)
-        
-        # Check that default model is gpt-image-1
-        self.assertEqual(image_input.model, "gpt-image-1", "Default model should be gpt-image-1")
-        
+
+        # Check that default model is gpt-image-2
+        self.assertEqual(image_input.model, "gpt-image-2", "Default model should be gpt-image-2")
+
         # Test generation with default model
         results = wrapper.generate_images(image_input)
-        self.assertGreater(len(results), 0, "No images were returned with default gpt-image-1 model")
+        self.assertGreater(len(results), 0, "No images were returned with default gpt-image-2 model")
 
     def test_stability_image_generation(self):
         provider = "stability"

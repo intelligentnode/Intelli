@@ -156,7 +156,7 @@ class TestChatbotTools(unittest.TestCase):
         # Create chat input with tools
         chat_input = ChatModelInput(
             system="You are a helpful assistant that can check stock prices.",
-            model="claude-3-7-sonnet-20250219",
+            model="claude-sonnet-5",
             tools=tools
         )
         chat_input.add_user_message("What's the current price of Apple stock?")
@@ -195,7 +195,7 @@ class TestChatbotTools(unittest.TestCase):
         self.assertIn("Python", result)
         
         # Test Anthropic
-        chat_input.model = "claude-3-7-sonnet-20250219"
+        chat_input.model = "claude-sonnet-5"
         result = self.anthropic_bot.chat(chat_input)[0]
         print(f"Anthropic direct response: {result[:100]}...")
         self.assertIsInstance(result, str)

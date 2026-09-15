@@ -40,8 +40,11 @@ class EmbedInput:
         if provider == "openai":
             self.model = self.model or "text-embedding-3-small"
         elif provider == "gemini":
-            self.model = self.model or "models/embedding-001"
+            self.model = self.model or "gemini-embedding-001"
         elif provider == "mistral":
             self.model = self.model or "mistral-embed"
         else:
-            raise ValueError(f"No default value for provider: {provider}")
+            # No built-in default for this provider (e.g. nvidia/vllm where the
+            # model is deployment-specific). Leave any caller-supplied model as-is
+            # instead of raising, so generic embed paths do not crash.
+            self.model = self.model

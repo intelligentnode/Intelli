@@ -15,7 +15,7 @@ class TestMistralAIWrapperIntegration(unittest.TestCase):
         """Integration test for generate_text method."""
         
         params = {
-            "model": "mistral-tiny",
+            "model": "mistral-small-latest",
             "messages": [{"role": "user", "content": "Who is the most renowned French painter?"}]
         }
 

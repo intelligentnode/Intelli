@@ -53,6 +53,15 @@ class ImageModelInput:
             "user": self.user
         }
 
+        # gpt-image-* models always return base64 and only know the
+        # low/medium/high/auto quality levels; 'response_format' and 'style' are
+        # dall-e era parameters the API now rejects as unknown. Translate them so
+        # callers migrating from the retired dall-e-3 keep working.
+        if self.model and str(self.model).startswith('gpt-image'):
+            inputs['response_format'] = None
+            inputs['style'] = None
+            inputs['quality'] = {'standard': 'medium', 'hd': 'high'}.get(self.quality, self.quality)
+
         return {key: value for key, value in inputs.items() if value is not None}
 
     def get_stability_inputs(self):
@@ -96,7 +105,7 @@ class ImageModelInput:
         if provider == "openai":
             self.number_images = 1
             self.imageSize = '1024x1024'
-            self.model = self.model or 'gpt-image-1'  # Set latest model as default
+            self.model = self.model or 'gpt-image-2'  # Set latest model as default
         elif provider == "stability":
             self.number_images = 1
             self.height = 1024

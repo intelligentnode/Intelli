@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 
 from intelli.controller.remote_embed_model import RemoteEmbedModel
@@ -111,6 +112,13 @@ class Agent(BasicAgent):
             return self._execute_search_agent(agent_input, custom_params)
         elif self.type == AgentTypes.MCP.value:
             return self._execute_mcp_agent(agent_input, custom_params)
+        elif self.type in (AgentTypes.CODER.value, AgentTypes.COMPUTER.value):
+            # These types are handler-backed only; delegate to the handler module.
+            from intelli.flow.agents.handlers import get_agent_handler
+            handler = get_agent_handler(
+                self.type, self.provider, self.mission, self.model_params, self.options
+            )
+            return handler.execute(agent_input, custom_params)
         else:
             raise ValueError(f"Unsupported agent type: {self.type}.")
 

@@ -23,7 +23,7 @@ class TestChatbot(unittest.TestCase):
 
     def test_openai_chat(self):
         print('---- start openai ----')
-        input = ChatModelInput("You are a helpful assistant.", "gpt-3.5-turbo")
+        input = ChatModelInput("You are a helpful assistant.", "gpt-4o")
         input.add_user_message("What is the capital of France?")
 
         response = self.openai_bot.chat(input)
@@ -34,7 +34,7 @@ class TestChatbot(unittest.TestCase):
 
     def test_gemini_chat(self):
         print('---- start gemini ----')
-        input = ChatModelInput("You are a helpful assistant.", "gemini-model")
+        input = ChatModelInput("You are a helpful assistant.", "gemini-2.5-flash")
         input.add_user_message("Describe a starry night.")
 
         response = self.gemini_bot.chat(input)
@@ -45,7 +45,7 @@ class TestChatbot(unittest.TestCase):
 
     def test_mistral_chat(self):
         print('---- start mistral ----')
-        input = ChatModelInput("You are a helpful assistant.", "mistral-tiny")
+        input = ChatModelInput("You are a helpful assistant.", "mistral-large-latest")
         input.add_user_message("Who is Leonardo da Vinci?")
 
         response = self.mistral_bot.chat(input)
@@ -56,7 +56,7 @@ class TestChatbot(unittest.TestCase):
     
     def test_anthropic_chat(self):
         print('---- start anthropic ----')
-        input = ChatModelInput("You are a helpful assistant.", "claude-3-7-sonnet-20250219")
+        input = ChatModelInput("You are a helpful assistant.", "claude-sonnet-5")
         input.add_user_message("What is the capital of France?")
 
         response = self.anthropic_bot.chat(input)
@@ -88,7 +88,7 @@ class TestChatbot(unittest.TestCase):
 
     def test_anthropic_stream(self):
         print('---- start anthropic stream ----')
-        input = ChatModelInput("You are a helpful assistant.", "claude-3-7-sonnet-20250219")
+        input = ChatModelInput("You are a helpful assistant.", "claude-sonnet-5")
         input.add_user_message("Give me a detailed explanation of quantum computing.")
 
         # use asyncio.run() to get the result of the coroutine

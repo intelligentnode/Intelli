@@ -1,4 +1,9 @@
-from intelli.utils.model_helper import is_reasoning_model
+from intelli.config import config
+from intelli.utils.model_helper import (
+    is_reasoning_model,
+    claude_rejects_sampling_params,
+    strip_route_override,
+)
 
 
 class ChatMessage:
@@ -13,6 +18,7 @@ class ChatModelInput:
                  max_tokens=None, numberOfOutputs=1, attach_reference=False,
                  filter_options={}, tools=None, functions=None, function_call=None,
                  reasoning_effort=None, verbosity=None,
+                 tool_choice=None,
                  **options):
         self.system = system
         self.model = model
@@ -30,6 +36,7 @@ class ChatModelInput:
         self.tools = tools
         self.functions = functions
         self.function_call = function_call
+        self.tool_choice = tool_choice
         # GPT-5+ parameters
         self.reasoning_effort = reasoning_effort
         self.verbosity = verbosity
@@ -74,12 +81,16 @@ class ChatModelInput:
                 input_text += f"{msg.content}\n"
         
         params = {
-            'model': self.model,
+            'model': strip_route_override(self.model),
             'input': input_text.strip(),
         }
         
-        # Add reasoning configuration if specified (default to low for GPT-5)
-        reasoning_effort = self.reasoning_effort or 'low'
+        # Add reasoning configuration if specified. Default to 'low' for GPT-5,
+        # except the *-pro models which only accept medium/high/xhigh.
+        if self.reasoning_effort:
+            reasoning_effort = self.reasoning_effort
+        else:
+            reasoning_effort = 'medium' if '-pro' in (self.model or '').lower() else 'low'
         params['reasoning'] = {'effort': reasoning_effort}
         
         # Add verbosity if specified (GPT-5 uses text.verbosity as string: 'low', 'medium', 'high')
@@ -96,30 +107,41 @@ class ChatModelInput:
         # Allow tools to be passed to GPT-5+/Responses API when provided.
         if self.tools:
             params['tools'] = self.tools
-        
+
+        # First-class tool_choice for the Responses API (additive).
+        if self.tool_choice is not None:
+            params['tool_choice'] = self.tool_choice
+
+        # The Responses API uses 'max_output_tokens' (not 'max_tokens').
+        # Map the caller's max_tokens through so it is no longer silently dropped.
+        if self.max_tokens is not None:
+            params['max_output_tokens'] = self.max_tokens
+
         # GPT-5+ doesn't accept temperature or max_tokens
-        # Add any additional options that are compatible
+        # Add any additional options that are compatible (options win on conflict).
         for key, value in self.options.items():
             if key not in ['temperature', 'max_tokens']:
                 params[key] = value
-        
+
         return params
 
     def get_openai_input(self):
-        # Check if this is a reasoning model (GPT-5+)
+        # Check if this is a reasoning model (GPT-5+) on the RAW model name, so the
+        # ':chat'/'#chat'/'|chat' override still routes to chat-completions.
         if self.is_reasoning_model():
             return self.get_openai_gpt5_input()
-        
-        # Standard OpenAI format for other models
+
+        # Standard OpenAI format for other models. Strip any route-override suffix
+        # so the API receives a clean model id (e.g. 'gpt-5.5:chat' -> 'gpt-5.5').
         messages = [{'role': msg.role, 'content': msg.content} for msg in self.messages]
         params = {
-            'model': self.model,
+            'model': strip_route_override(self.model),
             'messages': messages,
             **({'temperature': self.temperature} if self.temperature is not None else {}),
             **({'max_tokens': self.max_tokens} if self.max_tokens is not None else {}),
             **self.options
         }
-        
+
         # Add tools/functions if provided
         if self.tools:
             params['tools'] = self.tools
@@ -127,16 +149,26 @@ class ChatModelInput:
             params['functions'] = self.functions
         if self.function_call is not None:
             params['function_call'] = self.function_call
-        
+        # Forward tool_choice (supported by /v1/chat/completions) when set,
+        # mirroring the GPT-5 and Anthropic builders.
+        if self.tool_choice is not None and 'tool_choice' not in params:
+            params['tool_choice'] = self.tool_choice
+
         return params
 
     def get_mistral_input(self):
         messages = [{'role': msg.role, 'content': msg.content} for msg in self.messages]
         params = {
-            'model': self.model,
+            # Fall back to the configured default so Mistral works without a model id.
+            'model': self.model or config['url']['mistral']['models']['chat'],
             'messages': messages,
+            **({'temperature': self.temperature} if self.temperature is not None else {}),
+            **({'max_tokens': self.max_tokens} if self.max_tokens is not None else {}),
             **self.options
         }
+        # Forward tools for function calling when provided (options win on conflict).
+        if self.tools and 'tools' not in params:
+            params['tools'] = self.tools
         return params
 
     def get_gemini_input(self):
@@ -151,6 +183,11 @@ class ChatModelInput:
                 role = 'model' if msg.role == 'assistant' else msg.role
                 contents.append({'role': role, 'parts': [{'text': system+msg.content}]})
         params = {
+            # Emit the per-call model as a sibling key so the function layer can
+            # thread it to the wrapper as model_override (the Gemini wrapper takes
+            # the model from the URL, not the request body). _chat_gemini pops it
+            # before the body is sent. None means "use the configured default".
+            'model': self.model,
             'contents': contents,
             'generationConfig': {
                 **({'temperature': self.temperature} if self.temperature is not None else {}),
@@ -174,19 +211,34 @@ class ChatModelInput:
             else:
                 contents.append({'role': msg.role, 'content': msg.content})
 
+        # Resolve a default Anthropic model (centralized in config) when none given,
+        # so Anthropic chat works out of the box instead of sending model=None.
+        model = self.model or config['url']['anthropic']['models']['chat']
+
         # construct params dictionary
         params = {
-            'model': self.model,
+            'model': model,
             'system': system.strip(),  # Use a system prompt
             'messages': contents,
             'max_tokens': self.max_tokens or 2048,
-            **({'temperature': self.temperature} if self.temperature is not None else {}),
             **self.options,
         }
-        
+
+        # Sampling-parameter policy: Opus 4.7+ and the Fable/Mythos family removed
+        # temperature/top_p/top_k (sending them returns HTTP 400). Strip those keys
+        # for such models; otherwise emit temperature exactly as before.
+        if claude_rejects_sampling_params(model):
+            for sampling_key in ('temperature', 'top_p', 'top_k'):
+                params.pop(sampling_key, None)
+        elif self.temperature is not None:
+            params.setdefault('temperature', self.temperature)
+
         # Add tools if provided for Anthropic
         if self.tools:
             params['tools'] = self.tools
+        # First-class tool_choice passthrough (additive).
+        if self.tool_choice is not None:
+            params.setdefault('tool_choice', self.tool_choice)
 
         return params
 

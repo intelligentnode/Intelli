@@ -53,7 +53,7 @@ class TestDynamicFlow(unittest.TestCase):
                 mission="Generate text of varying length",
                 model_params={
                     "key": self.api_keys["anthropic"],
-                    "model": "claude-3-7-sonnet-20250219",
+                    "model": "claude-sonnet-5",
                 },
             ),
             log=True,
@@ -349,7 +349,7 @@ class TestDynamicFlow(unittest.TestCase):
                 mission="Handle positive content",
                 model_params={
                     "key": self.api_keys["anthropic"],
-                    "model": "claude-3-7-sonnet-20250219",
+                    "model": "claude-sonnet-5",
                 },
             ),
             log=True,
@@ -461,7 +461,7 @@ class TestDynamicFlow(unittest.TestCase):
                 mission="Generate initial content",
                 model_params={
                     "key": self.api_keys["anthropic"],
-                    "model": "claude-3-7-sonnet-20250219",
+                    "model": "claude-sonnet-5",
                 },
             ),
             log=True,

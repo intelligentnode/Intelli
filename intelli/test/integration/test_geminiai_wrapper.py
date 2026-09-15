@@ -125,7 +125,7 @@ class TestGeminiAIWrapper(unittest.TestCase):
             print("Note: TTS may require special model access")
 
     def test_get_embeddings(self):
-        """Test embeddings with latest model (text-embedding-004)"""
+        """Test embeddings with the configured default model (gemini-embedding-001)"""
         text = "Write a story about a magic backpack."
         params = {
             "content": {
@@ -139,13 +139,12 @@ class TestGeminiAIWrapper(unittest.TestCase):
         print('embedding sample result: ', result.get('embedding', {}).get('values', [])[:5])
         self.assertTrue('embedding' in result)
         
-        # Check if using latest embedding model (should have 768 dimensions)
+        # Check if using latest embedding model (gemini-embedding-001 returns 3072 dimensions)
         if 'embedding' in result and 'values' in result['embedding']:
             embedding_values = result['embedding']['values']
             print(f'Embedding dimensions: {len(embedding_values)}')
-            # text-embedding-004 should have 768 dimensions
-            if len(embedding_values) == 768:
-                print('✅ Using latest text-embedding-004 model')
+            if len(embedding_values) == 3072:
+                print('✅ Using latest gemini-embedding-001 model')
 
     def test_get_batch_embeddings(self):
         """Test batch embeddings with latest model"""
@@ -154,7 +153,7 @@ class TestGeminiAIWrapper(unittest.TestCase):
         # Format according to the documentation
         requests = [
             {
-                "model": f"models/text-embedding-004",  # Use explicit model name to match docs
+                "model": "models/gemini-embedding-001",  # Use explicit model name to match docs
                 "content": {
                     "parts": [{"text": text}]
                 }

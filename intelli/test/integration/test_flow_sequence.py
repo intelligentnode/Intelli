@@ -34,7 +34,7 @@ class TestFlows(unittest.TestCase):
             agent_type=AgentTypes.TEXT.value,
             provider="gemini",
             mission="generate description only",
-            model_params={"key": self.gemini_key, "model": "gemini"},
+            model_params={"key": self.gemini_key, "model": "gemini-2.5-flash"},
         )
         image_agent = Agent(
             agent_type=AgentTypes.IMAGE.value,

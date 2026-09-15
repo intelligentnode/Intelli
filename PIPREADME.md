@@ -18,15 +18,21 @@ A framework for creating chatbots and AI agent workflows. It enables seamless in
 - Async flow-based agent orchestration.
 - Multi-modal support (text, images, speech).
 - Model Context Protocol (MCP) integration for standardized model interactions.
+- Coding agent and computer-use / browser agent (`agent_type="coder"` / `"computer"`).
 
 ```bash
 pip install intelli[mcp]
+
+# computer-use / browser agent (Playwright)
+pip install intelli[computer]
+python -m playwright install chromium
 ```
 
 # Latest changes
 
+- Add the coding agent and the computer-use / browser agent (`agent_type="coder"` / `"computer"`).
+- Update the default models: GPT-5.5, Claude Sonnet 5 / Opus 5, gpt-image-2, Mistral Large, Gemini 2.5.
 - Update the speech recognition (speechmatics, Whisper, and more) [doc](https://docs.intellinode.ai/docs/python/controllers/recognition).
-- Update OpenAI + Anthropic models (GPT-5 by default, latest Claude).
 - Support MCP capabilities [doc](https://docs.intellinode.ai/docs/python/mcp/get-started).
 - Support llama.cpp & GGUF models for fast inference [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).
 - Add web search via [Search agent](https://docs.intellinode.ai/docs/python/flows/search-agent).
@@ -53,14 +59,17 @@ def call_chatbot(provider, model=None, api_key=None, options=None):
 
     return response
 
-# call chatGPT (GPT-5 is default when model not specified)
-call_chatbot(ChatProvider.OPENAI)  # uses GPT-5 by default
+# call chatGPT (GPT-5.5 is default when model not specified)
+call_chatbot(ChatProvider.OPENAI)
 
-# call claude3
-call_chatbot(ChatProvider.ANTHROPIC, "claude-3-7-sonnet-20250219")
+# call claude (Sonnet 5 is default, use "claude-opus-5" for Opus)
+call_chatbot(ChatProvider.ANTHROPIC, "claude-sonnet-5")
 
 # call google gemini
 call_chatbot(ChatProvider.GEMINI)
+
+# call mistral (Mistral Large is default)
+call_chatbot(ChatProvider.MISTRAL, "mistral-large-latest")
 
 # Call NVIDIA Deepseek
 call_chatbot(ChatProvider.NVIDIA, "deepseek-ai/deepseek-r1")
@@ -90,7 +99,7 @@ from intelli.model.input.image_input import ImageModelInput
 
 # model details - change only two words to switch
 provider = "openai"
-model_name = "dall-e-3"
+model_name = "gpt-image-2"
 
 # prepare the input details
 prompts = "cartoonishly-styled solitary snake logo, looping elegantly to form both the body of the python and an abstract play on data nodes."
@@ -115,8 +124,8 @@ from intelli.flow.input.task_input import TextTaskInput
 from intelli.flow.processors.basic_processor import TextProcessor
 
 # define agents
-blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-4'})
-copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
+blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-5.5'})
+copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini-2.5-flash'})
 artist_agent = Agent(agent_type='image', provider='stability', mission='generate image', model_params={'key': YOUR_STABILITY_API_KEY})
 
 # define tasks

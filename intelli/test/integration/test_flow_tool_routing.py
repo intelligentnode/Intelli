@@ -192,7 +192,7 @@ class TestFlowToolRouting(unittest.TestCase):
             mission="You are a helpful assistant. Use the analyze_data tool when users ask to analyze CSV files or data.",
             model_params={
                 "key": self.anthropic_key,
-                "model": "claude-3-7-sonnet-20250219",
+                "model": "claude-sonnet-5",
                 "tools": tools
             }
         )
@@ -204,7 +204,7 @@ class TestFlowToolRouting(unittest.TestCase):
             mission="[Data Processor] Simulate data analysis results",
             model_params={
                 "key": self.anthropic_key,
-                "model": "claude-3-haiku-20240307"
+                "model": "claude-haiku-4-5"
             }
         )
         
@@ -215,7 +215,7 @@ class TestFlowToolRouting(unittest.TestCase):
             mission="Provide a simple formatted response",
             model_params={
                 "key": self.anthropic_key,
-                "model": "claude-3-haiku-20240307"
+                "model": "claude-haiku-4-5"
             }
         )
         

@@ -36,7 +36,7 @@ class TestAsyncFlow(unittest.TestCase):
         task2 = self.create_agent_and_task("build task list for the technical team about the requirements", 
                                            "text", "gemini", 
                                            "create task list", 
-                                           self.gemini_key, "gemini")
+                                           self.gemini_key, "gemini-2.5-flash")
 
         task3 = self.create_agent_and_task("generate the website description and theme details from the requirements", 
                                            "text", "openai", 
@@ -113,7 +113,7 @@ class TestAsyncFlow(unittest.TestCase):
         title_task = self.create_agent_and_task("xxx", 
                                            "text", "gemini", 
                                            "yyyy", 
-                                           self.gemini_key, "gemini")
+                                           self.gemini_key, "gemini-2.5-flash")
 
         content_task = self.create_agent_and_task("xxx", 
                                            "text", "openai", 

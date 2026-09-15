@@ -16,7 +16,7 @@ class TestAnthropicWrapperIntegration(unittest.TestCase):
     def test_generate_text_integration(self):
         """Integration test for generate_text method."""
         params = {
-            "model": "claude-opus-4-6",
+            "model": "claude-opus-5",
             "messages": [
                 {
                     "role": "user",
@@ -28,15 +28,18 @@ class TestAnthropicWrapperIntegration(unittest.TestCase):
 
         # Call the model
         result = self.anthropic.generate_text(params)
-        print(f"generate text result: {result['content'][0]['text']}")
         self.assertTrue('content' in result and isinstance(result['content'], list) and len(result['content']) > 0,
                         "The API response should include 'content' and it should be a non-empty list.")
-        self.assertIn('text', result['content'][0], "The API response content should have a 'text' field.")
+        # Claude 5 models can return a thinking block before the answer, so pick
+        # the first text block instead of assuming content[0] is text.
+        text_blocks = [block for block in result['content'] if block.get('type') == 'text']
+        self.assertTrue(text_blocks, "The API response content should include a text block.")
+        print(f"generate text result: {text_blocks[0]['text']}")
 
     def test_stream_text_integration(self):
         """Integration test for stream_text method."""
         params = {
-            "model": "claude-sonnet-4-5",
+            "model": "claude-sonnet-5",
             "messages": [
                 {
                     "role": "user",

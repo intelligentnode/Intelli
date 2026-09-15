@@ -10,6 +10,8 @@ class AgentTypes(Enum):
     EMBED = 'embed'
     SEARCH = 'search'
     MCP = 'mcp'
+    CODER = 'coder'
+    COMPUTER = 'computer'
 
 
 class InputTypes(Enum):
@@ -37,7 +39,9 @@ class Matcher():
         'recognition': 'audio',
         'embed': 'text',
         'search': 'text',
-        'mcp': 'text'
+        'mcp': 'text',
+        'coder': 'text',
+        'computer': 'text'
     }
 
     # What each agent type produces as output
@@ -49,5 +53,7 @@ class Matcher():
         'recognition': 'text',
         'embed': 'embed',
         'search': 'text',
-        'mcp': 'text'
+        'mcp': 'text',
+        'coder': 'text',
+        'computer': 'text'
     }

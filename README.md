@@ -26,6 +26,10 @@ pip install intelli
 
 # With MCP support
 pip install "intelli[mcp]"
+
+# With the computer-use / browser agent (Playwright)
+pip install "intelli[computer]"
+python -m playwright install chromium
 ```
 
 For detailed usage instructions, refer to the [documentation](https://doc.intellinode.ai/docs/python).
@@ -50,17 +54,20 @@ def call_chatbot(provider, model=None, api_key=None, options=None):
 
     return response
 
-# call chatGPT (GPT-5 is default)
+# call chatGPT (GPT-5.5 is default)
 call_chatbot(ChatProvider.OPENAI) 
 
-# call GPT-4 explicitly
-call_chatbot(ChatProvider.OPENAI, "gpt-4o")
+# call a specific OpenAI model
+call_chatbot(ChatProvider.OPENAI, "gpt-4.1")
 
-# call claude3
-call_chatbot(ChatProvider.ANTHROPIC, "claude-3-7-sonnet-20250219")
+# call claude (Sonnet 5 is default, use "claude-opus-5" for Opus)
+call_chatbot(ChatProvider.ANTHROPIC, "claude-sonnet-5")
 
 # call google gemini
 call_chatbot(ChatProvider.GEMINI)
+
+# call mistral (Mistral Large is default)
+call_chatbot(ChatProvider.MISTRAL, "mistral-large-latest")
 
 # Call NVIDIA Deepseek
 call_chatbot(ChatProvider.NVIDIA, "deepseek-ai/deepseek-r1")
@@ -80,8 +87,8 @@ from intelli.flow import Agent, Task, SequenceFlow, TextTaskInput, TextProcessor
 
 
 # define agents
-blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-4'})
-copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
+blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-5.5'})
+copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini-2.5-flash'})
 artist_agent = Agent(agent_type='image', provider='stability', mission='generate image', model_params={'key': YOUR_STABILITY_API_KEY})
 
 # define tasks
@@ -104,6 +111,42 @@ To build async flows with multiple paths, refer to the [flow tutorial](https://d
 Or build the entire flow using natural language with **Vibe Agents**.
 Refer to [the documentation](https://docs.intellinode.ai/docs/python/vibe-agents) for more details.
 
+## Coding Agent
+Point intelli at a repository and give it a task. The coding agent gets a
+path-confined toolset (read/write/edit/glob/grep/bash) and loops edit → run
+tests → iterate until the tests pass, using any chat provider.
+```python
+from intelli.function.coding_agent import CodingAgent
+
+agent = CodingAgent(api_key=YOUR_KEY, provider="anthropic",
+                    model="claude-sonnet-5", workspace="./my_repo")
+result = agent.run("Fix the failing tests in calc.py",
+                   test_command="python -m pytest -q")
+print(result["success"], result["summary"])
+```
+Or run it inside a flow as `agent_type="coder"` with `model_params={"key": ..., "workspace": ..., "test_command": ...}`.
+
+## Computer Use / Browser Agent
+Drive a screen or browser with the native computer-use tools of Anthropic
+(`computer_20251124`) or OpenAI (GA `computer` tool): screenshot → the model
+proposes an action → execute → repeat. Install with `pip install intelli[computer]`.
+```python
+from intelli.function.computer_agent import ComputerAgent
+from intelli.function.browser_env import PlaywrightBrowserEnvironment
+
+env = PlaywrightBrowserEnvironment(start_url="https://example.com")
+agent = ComputerAgent(api_key=YOUR_KEY, provider="anthropic",
+                      model="claude-sonnet-5", environment=env,
+                      on_action=lambda a: True)  # human-in-the-loop hook
+try:
+    result = agent.run("Find the pricing page and report the cheapest plan")
+    print(result["output"])
+finally:
+    env.close()
+```
+Also available in flows as `agent_type="computer"`. Implement `ComputerEnvironment`
+for a custom desktop instead of the browser.
+
 ## Generate Images
 Use the image controller to generate arts from multiple models with minimum code change:
 ```python
@@ -112,7 +155,7 @@ from intelli.model.input.image_input import ImageModelInput
 
 # model details - change only two words to switch
 provider = "openai"
-model_name = "dall-e-3"
+model_name = "gpt-image-2"
 
 # prepare the input details
 prompts = "cartoonishly-styled solitary snake logo, looping elegantly to form both the body of the python and an abstract play on data nodes."

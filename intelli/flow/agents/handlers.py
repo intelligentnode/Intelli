@@ -334,25 +334,32 @@ class MCPAgentHandler(AgentHandler):
             # Debug info
             print(f"MCP Agent executing tool '{tool_name}' with arguments: {arguments}")
             
-            # Execute the tool
+            # Execute the tool and normalize the result (captures isError + structured content)
             result = wrapper.execute_tool(tool_name, arguments)
-            
-            # Handle result conversion
-            if hasattr(result, "content") and isinstance(result.content, list):
-                text_content = next((item.text for item in result.content if hasattr(item, 'text')), None)
-                if text_content:
-                    return text_content
-            
+            normalized = wrapper.normalize_tool_result(result)
+
+            if normalized.get("is_error"):
+                return f"Error from MCP tool '{tool_name}': {normalized.get('text') or result}"
+            if normalized.get("text"):
+                return normalized["text"]
+            if normalized.get("structured") is not None:
+                return normalized["structured"]
+
             return str(result)
         except Exception as e:
             return f"Error executing MCP agent: {str(e)}"
-            
+
     def _create_server_config(self, params):
         """Create server configuration from parameters"""
-        # Check for URL-based configuration
+        # Check for URL-based configuration (remote http/sse/websocket).
         if "url" in params:
-            return {"url": params["url"]}
-            
+            cfg = {"url": params["url"]}
+            # Forward optional remote options (auth headers, transport, timeout).
+            for key in ("headers", "transport", "timeout"):
+                if params.get(key) is not None:
+                    cfg[key] = params[key]
+            return cfg
+
         # Check for subprocess-based configuration
         if "command" in params:
             return {
@@ -360,7 +367,7 @@ class MCPAgentHandler(AgentHandler):
                 "args": params.get("args", []),
                 "env": params.get("env")
             }
-            
+
         raise ValueError("MCPAgent requires either 'url' or 'command' in model_params")
     
     def _prepare_tool_arguments(self, agent_input, params):
@@ -387,6 +394,88 @@ class MCPAgentHandler(AgentHandler):
         return tool_name, arguments
 
 
+class CoderAgentHandler(AgentHandler):
+    """Handler for autonomous coding agents (agent_type='coder').
+
+    model_params: key, model, workspace (required), test_command, max_iterations,
+    allow_bash, bash_timeout. The task input text is the coding task.
+    """
+
+    def execute(self, agent_input, custom_params):
+        from intelli.function.coding_agent import CodingAgent
+
+        workspace = custom_params.get("workspace")
+        if not workspace:
+            raise ValueError("CoderAgent requires 'workspace' in model_params")
+
+        task = agent_input.desc
+        if self.mission and self.mission not in task:
+            task = f"{self.mission}: {task}"
+
+        agent = CodingAgent(
+            api_key=custom_params.get("key"),
+            provider=self.provider,
+            model=custom_params.get("model"),
+            workspace=workspace,
+            options=self.options,
+            allow_bash=custom_params.get("allow_bash", True),
+            bash_timeout=custom_params.get("bash_timeout", 120),
+            max_iterations=custom_params.get("max_iterations", 20),
+            log=custom_params.get("log", False),
+        )
+        result = agent.run(task, test_command=custom_params.get("test_command"))
+
+        # Return a text summary so downstream flow tasks can consume it.
+        status = "succeeded" if result.get("success") else "did not fully succeed"
+        return f"Coding task {status} after {result.get('iterations')} iteration(s). {result.get('summary', '')}"
+
+
+class ComputerAgentHandler(AgentHandler):
+    """Handler for computer-use agents (agent_type='computer').
+
+    model_params: key, model, max_iterations, start_url (browser env) or an
+    'environment' instance passed via options. The task input text is the goal.
+    """
+
+    def execute(self, agent_input, custom_params):
+        from intelli.function.computer_agent import ComputerAgent
+
+        task = agent_input.desc
+        if self.mission and self.mission not in task:
+            task = f"{self.mission}: {task}"
+
+        # Environment: explicit instance wins; otherwise a Playwright browser.
+        environment = (self.options or {}).get("environment") or custom_params.get("environment")
+        owns_environment = False
+        if environment is None:
+            from intelli.function.browser_env import PlaywrightBrowserEnvironment
+            environment = PlaywrightBrowserEnvironment(
+                start_url=custom_params.get("start_url", "about:blank"),
+                headless=custom_params.get("headless", True),
+            )
+            owns_environment = True
+
+        opts = self.options or {}
+        agent = ComputerAgent(
+            api_key=custom_params.get("key"),
+            provider=self.provider,
+            model=custom_params.get("model"),
+            environment=environment,
+            max_iterations=custom_params.get("max_iterations", 25),
+            # Forward the human-in-the-loop hooks; defaults stay safe (no
+            # auto-acknowledgement of provider safety checks) when unset.
+            on_action=custom_params.get("on_action") or opts.get("on_action"),
+            on_safety_check=custom_params.get("on_safety_check") or opts.get("on_safety_check"),
+            log=custom_params.get("log", False),
+        )
+        try:
+            result = agent.run(task)
+        finally:
+            if owns_environment:
+                environment.close()
+        return result.get("output", "")
+
+
 # Factory to get the appropriate handler
 def get_agent_handler(agent_type, provider, mission, model_params, options):
     """Factory function to get the appropriate agent handler"""
@@ -399,6 +488,8 @@ def get_agent_handler(agent_type, provider, mission, model_params, options):
         AgentTypes.EMBED.value: EmbedAgentHandler,
         AgentTypes.SEARCH.value: SearchAgentHandler,
         AgentTypes.MCP.value: MCPAgentHandler,
+        AgentTypes.CODER.value: CoderAgentHandler,
+        AgentTypes.COMPUTER.value: ComputerAgentHandler,
     }
 
     if agent_type not in handlers:

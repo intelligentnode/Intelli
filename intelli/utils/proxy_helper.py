@@ -5,7 +5,11 @@ from intelli.config import config as default_config
 
 class ProxyHelper:
     _instance = None
-    API_VERSION = '2023-12-01-preview'
+    # Default Azure api-version for chat/embeddings/audio. Overridable per instance.
+    API_VERSION = '2024-10-01-preview'
+    # The Azure Responses API (GPT-5 family) only exists on newer previews; the
+    # 2023-era version 404s. Kept separate so chat/embeddings versions are unaffected.
+    RESPONSES_API_VERSION = '2025-04-01-preview'
 
     def __init__(self):
         self.set_default_openai()
@@ -103,10 +107,12 @@ class ProxyHelper:
 
     def get_openai_responses_url(self, model=''):
         """
-        Method to get the OpenAI responses URL (for GPT-5 and newer models)
+        Method to get the OpenAI responses URL (for GPT-5 and newer models).
+        Uses RESPONSES_API_VERSION on Azure since the Responses API requires a
+        newer api-version than chat/embeddings.
         """
         if self.openai_type == 'azure':
-            return self.openai_responses.replace('{deployment-id}', model).replace('{api-version}', ProxyHelper.API_VERSION)
+            return self.openai_responses.replace('{deployment-id}', model).replace('{api-version}', ProxyHelper.RESPONSES_API_VERSION)
         else:
             return self.openai_responses
 

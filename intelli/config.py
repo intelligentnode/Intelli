@@ -15,13 +15,18 @@ config = {
             "audiospeech": "/v1/audio/speech",
             "files": "/v1/files",
             "finetuning": "/v1/fine_tuning/jobs",
-            "organization": None
+            "organization": None,
+            "models": {
+                "chat": "gpt-5.5"
+            }
         },
         "azure_openai": {
             "base": "https://{resource-name}.openai.azure.com/openai",
             "completions": "/deployments/{deployment-id}/completions?api-version={api-version}",
             "chatgpt": "/deployments/{deployment-id}/chat/completions?api-version={api-version}",
-            "responses": "/deployments/{deployment-id}/responses?api-version={api-version}",
+            # Azure's Responses API is resource-level (deployment goes in the body's
+            # 'model'), not under /deployments/{name} like chat/completions.
+            "responses": "/responses?api-version={api-version}",
             "imagegenerate": "/images/generations:submit?api-version={api-version}",
             "embeddings": "/deployments/{deployment-id}/embeddings?api-version={api-version}",
             "audiotranscriptions": "/deployments/{deployment-id}/audio/transcriptions?api-version={api-version}",
@@ -85,7 +90,13 @@ config = {
         "mistral": {
             "base": "https://api.mistral.ai",
             "completions": "/v1/chat/completions",
-            "embed": "/v1/embeddings"
+            "embed": "/v1/embeddings",
+            # Used when the caller does not pass a model (previously the request
+            # was sent with model=None and rejected by the API).
+            "models": {
+                "chat": "mistral-large-latest",
+                "embed": "mistral-embed"
+            }
         },
         "gemini": {
             "base": "https://generativelanguage.googleapis.com/v1beta/models",
@@ -93,15 +104,15 @@ config = {
             "files_base": "https://generativelanguage.googleapis.com/v1beta/files",
             "vertex_base": "https://us-central1-aiplatform.googleapis.com/v1/projects",
             "models": {
-                "text": "gemini-2.0-flash", 
-                "vision": "gemini-2.0-flash",
-                "embedding": "text-embedding-004",
-                "image_generation": "gemini-2.0-flash-preview-image-generation",
+                "text": "gemini-2.5-flash",
+                "vision": "gemini-2.5-flash",
+                "embedding": "gemini-embedding-001",
+                "image_generation": "gemini-2.5-flash-image",
                 "video_generation": "veo-2.0-generate-001",
                 "tts": "gemini-2.5-flash-preview-tts",
                 "tts_pro": "gemini-2.5-pro-preview-tts",
-                "legacy_text": "gemini-1.5-pro",
-                "legacy_vision": "gemini-1.5-pro"
+                "legacy_text": "gemini-2.0-flash",
+                "legacy_vision": "gemini-2.0-flash"
             },
             "endpoints": {
                 "generateContent": ":generateContent",
@@ -115,7 +126,13 @@ config = {
         "anthropic": {
             "base": "https://api.anthropic.com",
             "messages": "/v1/messages",
-            "version": "2023-06-01"
+            "version": "2023-06-01",
+            "models": {
+                "chat": "claude-sonnet-5",
+                "sonnet": "claude-sonnet-5",
+                "opus": "claude-opus-5",
+                "haiku": "claude-haiku-4-5"
+            }
         },
         "nvidia": {
             "base": "https://integrate.api.nvidia.com",

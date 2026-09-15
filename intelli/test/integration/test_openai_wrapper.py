@@ -59,16 +59,20 @@ class TestOpenAIWrapper(unittest.TestCase):
             "prompt": "teddy writing a blog in times square",
             "n": 1,
             "size": "1024x1024",
-            "quality": "standard",
-            "model": "dall-e-3"
+            "quality": "low",
+            "model": "gpt-image-2"
         }
-        
+
         result = self.openai.generate_images(params)
-        print('Image Model Result:\n', result['data'][0]['url'], '\n')
+        # gpt-image models return base64 (b64_json), not URLs
+        print('Image Model Result keys:\n', list(result['data'][0].keys()), '\n')
         self.assertTrue("data" in result)
+        self.assertIn("b64_json", result['data'][0])
 
     def test_generate_images_gpt_image_1(self):
-        """Test the latest gpt-image-1 model with new parameters"""
+        """Test the gpt-image-1 model with the gpt-image specific parameters"""
+        # output_compression is only valid for jpeg/webp; a transparent background
+        # needs png or webp, so webp exercises both parameters together.
         params = {
             "prompt": "A cute baby sea otter floating on its back",
             "model": "gpt-image-1",
@@ -76,14 +80,14 @@ class TestOpenAIWrapper(unittest.TestCase):
             "size": "1024x1024",
             "background": "transparent",
             "quality": "high",
-            "output_format": "png",
+            "output_format": "webp",
             "output_compression": 90,
             "moderation": "auto",
             "user": "test_user_openai_wrapper"
         }
-        
+
         result = self.openai.generate_images(params)
-        print('GPT-Image-1 Model Result:\n', result, '\n')
+        print('GPT-Image-1 Model Result keys:\n', list(result['data'][0].keys()), '\n')
         self.assertTrue("data" in result)
         # gpt-image-1 returns base64 encoded images, not URLs
         self.assertTrue(len(result['data']) > 0)
