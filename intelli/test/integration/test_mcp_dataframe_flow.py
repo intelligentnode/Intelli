@@ -19,7 +19,8 @@ from typing import Dict, Any, List, Optional
 
 # Adjust path to import from the parent directory (Intelli root)
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(os.path.dirname(current_dir))
+# Repository root is three levels up; the inner 'intelli/' dir would shadow the mcp SDK.
+parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
 # Add 'Intelli' to sys.path
 intelli_root_path = parent_dir
 sys.path.insert(0, intelli_root_path)

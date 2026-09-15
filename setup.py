@@ -21,13 +21,15 @@ setup(
     install_requires=[
         "python-dotenv>=1.0.0",
         "networkx>=3.2.0",
+        # Core HTTP client used by every provider wrapper (was previously undeclared).
+        "requests>=2.31,<3",
     ],
     extras_require={
         "visual": ["matplotlib>=3.6.0"],
         "offline": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text"],
         "llamacpp": ["llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"],
-        "mcp": ["mcp[ws,cli]>=1.9,<2", "pandas"],
-        "dataframe": ["pandas", "polars>=0.19.0"],
+        "mcp": ["mcp[ws,cli]>=1.9,<2", "pandas>=2,<3"],
+        "dataframe": ["pandas>=2,<3", "polars>=0.19.0"],
         "speech": [
             "speechmatics-batch",
             "speechmatics-rt",
@@ -51,7 +53,7 @@ setup(
         ],
         "all": [
             "matplotlib>=3.6.0",
-            "numpy>=1.26.0,<2.2.0",
+            "numpy>=1.26.0,<3",
             "keras-nlp",
             "keras>=3",
             "librosa",
@@ -61,7 +63,7 @@ setup(
             "huggingface_hub>=0.28.1",
             "mcp[ws,cli]>=1.9,<2",
             "playwright>=1.40",
-            "pandas",
+            "pandas>=2,<3",
             "polars",
             "speechmatics-batch",
             "speechmatics-rt",

@@ -10,11 +10,11 @@ It expects the sample CSV to be located at ./data/sample_data.csv relative to th
 import os
 import sys
 
-# Adjust path to import from the parent directory (Intelli root)
+# Adjust path to import from the repository root (three levels up from
+# intelli/test/integration). Inserting the inner 'intelli/' package dir instead
+# would put intelli's own 'mcp/' folder ahead of the mcp SDK and shadow it.
 current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(os.path.dirname(current_dir))
-# Add 'Intelli' to sys.path
-intelli_root_path = parent_dir
+intelli_root_path = os.path.dirname(os.path.dirname(os.path.dirname(current_dir)))
 sys.path.insert(0, intelli_root_path)
 
 # Import from new location with fallback

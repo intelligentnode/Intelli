@@ -24,7 +24,9 @@ config = {
             "base": "https://{resource-name}.openai.azure.com/openai",
             "completions": "/deployments/{deployment-id}/completions?api-version={api-version}",
             "chatgpt": "/deployments/{deployment-id}/chat/completions?api-version={api-version}",
-            "responses": "/deployments/{deployment-id}/responses?api-version={api-version}",
+            # Azure's Responses API is resource-level (deployment goes in the body's
+            # 'model'), not under /deployments/{name} like chat/completions.
+            "responses": "/responses?api-version={api-version}",
             "imagegenerate": "/images/generations:submit?api-version={api-version}",
             "embeddings": "/deployments/{deployment-id}/embeddings?api-version={api-version}",
             "audiotranscriptions": "/deployments/{deployment-id}/audio/transcriptions?api-version={api-version}",

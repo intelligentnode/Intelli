@@ -782,11 +782,10 @@ class AzureAgentWrapper:
         Poll a response until completion or terminal status.
         """
         start = time.time()
-        # Avoid an unbounded poll loop: when no explicit timeout is given, fall back
-        # to the client timeout or a sane ceiling so a stuck run cannot hang forever.
-        effective_timeout = timeout_seconds
-        if effective_timeout is None:
-            effective_timeout = self._timeout if self._timeout is not None else 300.0
+        # Backward compatible: with no explicit timeout, fall back to the client
+        # timeout only if one was configured; otherwise poll unbounded as before.
+        # (A hard-coded ceiling would silently break long-running downstream callers.)
+        effective_timeout = timeout_seconds if timeout_seconds is not None else self._timeout
         while True:
             response = self.get_response(response_id)
             status = self._extract_response_status(response)
