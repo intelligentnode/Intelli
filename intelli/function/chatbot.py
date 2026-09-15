@@ -189,12 +189,18 @@ class Chatbot:
         # it through so the caller's per-call model is respected (None -> config default).
         model_override = params.pop("model", None)
         response = self.wrapper.generate_content(params, model_override=model_override)
+        candidates = response.get("candidates", [])
+        # No candidates at all is a real error (e.g. a prompt-level safety block
+        # returns promptFeedback instead).
+        if not candidates:
+            raise Exception("Error when calling gemini: {}".format(response))
         output = []
-        for candidate in response.get("candidates", []):
-            if "content" in candidate:
-                output.append(candidate["content"]["parts"][0]["text"])
-            else:
-                raise Exception("Error when calling gemini: {}".format(response))
+        for candidate in candidates:
+            parts = (candidate.get("content") or {}).get("parts") or []
+            # Join all text parts. A candidate may legitimately have no parts,
+            # e.g. it exhausted the token budget on internal thinking or stopped
+            # on a non-text finish reason - return "" rather than crashing.
+            output.append("".join(p.get("text", "") for p in parts if isinstance(p, dict)))
         return output
 
     def _chat_anthropic(self, params):

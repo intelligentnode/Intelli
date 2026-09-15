@@ -17,8 +17,8 @@ class ChatModelInput:
     def __init__(self, system, model=None, temperature=1,
                  max_tokens=None, numberOfOutputs=1, attach_reference=False,
                  filter_options={}, tools=None, functions=None, function_call=None,
-                 tool_choice=None,
                  reasoning_effort=None, verbosity=None,
+                 tool_choice=None,
                  **options):
         self.system = system
         self.model = model

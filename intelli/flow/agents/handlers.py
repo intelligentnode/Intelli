@@ -394,6 +394,88 @@ class MCPAgentHandler(AgentHandler):
         return tool_name, arguments
 
 
+class CoderAgentHandler(AgentHandler):
+    """Handler for autonomous coding agents (agent_type='coder').
+
+    model_params: key, model, workspace (required), test_command, max_iterations,
+    allow_bash, bash_timeout. The task input text is the coding task.
+    """
+
+    def execute(self, agent_input, custom_params):
+        from intelli.function.coding_agent import CodingAgent
+
+        workspace = custom_params.get("workspace")
+        if not workspace:
+            raise ValueError("CoderAgent requires 'workspace' in model_params")
+
+        task = agent_input.desc
+        if self.mission and self.mission not in task:
+            task = f"{self.mission}: {task}"
+
+        agent = CodingAgent(
+            api_key=custom_params.get("key"),
+            provider=self.provider,
+            model=custom_params.get("model"),
+            workspace=workspace,
+            options=self.options,
+            allow_bash=custom_params.get("allow_bash", True),
+            bash_timeout=custom_params.get("bash_timeout", 120),
+            max_iterations=custom_params.get("max_iterations", 20),
+            log=custom_params.get("log", False),
+        )
+        result = agent.run(task, test_command=custom_params.get("test_command"))
+
+        # Return a text summary so downstream flow tasks can consume it.
+        status = "succeeded" if result.get("success") else "did not fully succeed"
+        return f"Coding task {status} after {result.get('iterations')} iteration(s). {result.get('summary', '')}"
+
+
+class ComputerAgentHandler(AgentHandler):
+    """Handler for computer-use agents (agent_type='computer').
+
+    model_params: key, model, max_iterations, start_url (browser env) or an
+    'environment' instance passed via options. The task input text is the goal.
+    """
+
+    def execute(self, agent_input, custom_params):
+        from intelli.function.computer_agent import ComputerAgent
+
+        task = agent_input.desc
+        if self.mission and self.mission not in task:
+            task = f"{self.mission}: {task}"
+
+        # Environment: explicit instance wins; otherwise a Playwright browser.
+        environment = (self.options or {}).get("environment") or custom_params.get("environment")
+        owns_environment = False
+        if environment is None:
+            from intelli.function.browser_env import PlaywrightBrowserEnvironment
+            environment = PlaywrightBrowserEnvironment(
+                start_url=custom_params.get("start_url", "about:blank"),
+                headless=custom_params.get("headless", True),
+            )
+            owns_environment = True
+
+        opts = self.options or {}
+        agent = ComputerAgent(
+            api_key=custom_params.get("key"),
+            provider=self.provider,
+            model=custom_params.get("model"),
+            environment=environment,
+            max_iterations=custom_params.get("max_iterations", 25),
+            # Forward the human-in-the-loop hooks; defaults stay safe (no
+            # auto-acknowledgement of provider safety checks) when unset.
+            on_action=custom_params.get("on_action") or opts.get("on_action"),
+            on_safety_check=custom_params.get("on_safety_check") or opts.get("on_safety_check"),
+            log=custom_params.get("log", False),
+        )
+        try:
+            result = agent.run(task)
+        finally:
+            if owns_environment:
+                environment.close()
+        return result.get("output", "")
+
+
 # Factory to get the appropriate handler
 def get_agent_handler(agent_type, provider, mission, model_params, options):
     """Factory function to get the appropriate agent handler"""
@@ -406,6 +488,8 @@ def get_agent_handler(agent_type, provider, mission, model_params, options):
         AgentTypes.EMBED.value: EmbedAgentHandler,
         AgentTypes.SEARCH.value: SearchAgentHandler,
         AgentTypes.MCP.value: MCPAgentHandler,
+        AgentTypes.CODER.value: CoderAgentHandler,
+        AgentTypes.COMPUTER.value: ComputerAgentHandler,
     }
 
     if agent_type not in handlers:

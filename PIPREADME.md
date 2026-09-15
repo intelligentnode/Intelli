@@ -18,9 +18,14 @@ A framework for creating chatbots and AI agent workflows. It enables seamless in
 - Async flow-based agent orchestration.
 - Multi-modal support (text, images, speech).
 - Model Context Protocol (MCP) integration for standardized model interactions.
+- Coding agent and computer-use / browser agent (`agent_type="coder"` / `"computer"`).
 
 ```bash
 pip install intelli[mcp]
+
+# computer-use / browser agent (Playwright)
+pip install intelli[computer]
+python -m playwright install chromium
 ```
 
 # Latest changes

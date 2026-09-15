@@ -26,6 +26,10 @@ pip install intelli
 
 # With MCP support
 pip install "intelli[mcp]"
+
+# With the computer-use / browser agent (Playwright)
+pip install "intelli[computer]"
+python -m playwright install chromium
 ```
 
 For detailed usage instructions, refer to the [documentation](https://doc.intellinode.ai/docs/python).
@@ -103,6 +107,42 @@ To build async flows with multiple paths, refer to the [flow tutorial](https://d
 
 Or build the entire flow using natural language with **Vibe Agents**.
 Refer to [the documentation](https://docs.intellinode.ai/docs/python/vibe-agents) for more details.
+
+## Coding Agent
+Point intelli at a repository and give it a task. The coding agent gets a
+path-confined toolset (read/write/edit/glob/grep/bash) and loops edit → run
+tests → iterate until the tests pass, using any chat provider.
+```python
+from intelli.function.coding_agent import CodingAgent
+
+agent = CodingAgent(api_key=YOUR_KEY, provider="anthropic",
+                    model="claude-sonnet-4-6", workspace="./my_repo")
+result = agent.run("Fix the failing tests in calc.py",
+                   test_command="python -m pytest -q")
+print(result["success"], result["summary"])
+```
+Or run it inside a flow as `agent_type="coder"` with `model_params={"key": ..., "workspace": ..., "test_command": ...}`.
+
+## Computer Use / Browser Agent
+Drive a screen or browser with the native computer-use tools of Anthropic
+(`computer_20251124`) or OpenAI (GA `computer` tool): screenshot → the model
+proposes an action → execute → repeat. Install with `pip install intelli[computer]`.
+```python
+from intelli.function.computer_agent import ComputerAgent
+from intelli.function.browser_env import PlaywrightBrowserEnvironment
+
+env = PlaywrightBrowserEnvironment(start_url="https://example.com")
+agent = ComputerAgent(api_key=YOUR_KEY, provider="anthropic",
+                      model="claude-sonnet-4-6", environment=env,
+                      on_action=lambda a: True)  # human-in-the-loop hook
+try:
+    result = agent.run("Find the pricing page and report the cheapest plan")
+    print(result["output"])
+finally:
+    env.close()
+```
+Also available in flows as `agent_type="computer"`. Implement `ComputerEnvironment`
+for a custom desktop instead of the browser.
 
 ## Generate Images
 Use the image controller to generate arts from multiple models with minimum code change:

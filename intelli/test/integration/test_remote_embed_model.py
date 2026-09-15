@@ -49,12 +49,13 @@ class TestRemoteEmbedModel(unittest.TestCase):
         provider = "gemini"
         model = RemoteEmbedModel(self.GEMINI_API_KEY, provider)
         embed_input = EmbedInput(
-            ["Explore Gemini's API for embeddings."], "models/embedding-001"
+            ["Explore Gemini's API for embeddings."], "models/gemini-embedding-001"
         )
 
         result = model.get_embeddings(embed_input)
+        # Gemini embedContent returns {"embedding": {"values": [...]}}.
         self.assertIsInstance(
-            result["values"], list, "Gemini response should be a list of embeddings"
+            result["embedding"]["values"], list, "Gemini response should be a list of embeddings"
         )
 
     def test_vllm_embeddings(self):

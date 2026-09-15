@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="1.4.10",
+    version="1.4.11",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Build AI agents and MCPs with Intellinode.",
@@ -37,8 +37,18 @@ setup(
             "numpy",
             "openai>=2.5.0",
         ],
+        "computer": ["playwright>=1.40"],
         "azure-assistant": ["openai>=2.5.0,<3"],
-        "azure-agent": ["azure-ai-projects>=2.0,<3", "azure-identity>=1.17,<2", "openai>=2.5.0,<3"],
+        "azure-agent": [
+            "azure-ai-projects>=2.0,<3",
+            "azure-identity>=1.17,<2",
+            "openai>=2.5.0,<3",
+        ],
+        "agent": [
+            "azure-ai-projects>=2.0,<3",
+            "azure-identity>=1.17,<2",
+            "openai>=2.5.0,<3",
+        ],
         "all": [
             "matplotlib>=3.6.0",
             "numpy>=1.26.0,<2.2.0",
@@ -50,6 +60,7 @@ setup(
             "llama-cpp-python>=0.3.7",
             "huggingface_hub>=0.28.1",
             "mcp[ws,cli]>=1.9,<2",
+            "playwright>=1.40",
             "pandas",
             "polars",
             "speechmatics-batch",
