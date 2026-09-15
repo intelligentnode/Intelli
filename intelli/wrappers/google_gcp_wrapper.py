@@ -11,7 +11,7 @@ from intelli.config import config
 
 logger = logging.getLogger(__name__)
 
-_INSTALL_HINT = "pip install intelli[gcp]"
+_INSTALL_HINT = "pip install intelli[agent]"
 
 _CLOUD_PLATFORM_SCOPE = "https://www.googleapis.com/auth/cloud-platform"
 
