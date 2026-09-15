@@ -50,6 +50,9 @@ setup(
             "azure-ai-projects>=2.0,<3",
             "azure-identity>=1.17,<2",
             "openai>=2.5.0,<3",
+            "google-adk>=2.9,<3",
+            "google-cloud-aiplatform[agent-engines]>=1.148.1,<2",
+            "google-auth>=2.47,<3"
         ],
         "all": [
             "matplotlib>=3.6.0",
