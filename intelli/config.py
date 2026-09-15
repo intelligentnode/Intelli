@@ -123,6 +123,13 @@ config = {
                 "files": ""
             }
         },
+        "gcp": {
+            "default_location": "us-central1",
+            "models": {
+                "text": "gemini-2.5-flash",
+                "embedding": "text-embedding-005"
+            }
+        },
         "anthropic": {
             "base": "https://api.anthropic.com",
             "messages": "/v1/messages",

@@ -79,6 +79,9 @@ python -m unittest intelli.test.integration.test_azure_whisper_wrapper
 python -m unittest intelli.test.integration.test_azure_assistant_wrapper
 python -m unittest intelli.test.integration.test_azure_agent_wrapper
 
+# google gcp adk
+python -m unittest intelli.test.integration.test_google_gcp_wrapper
+
 # vibe
 python -m unittest intelli.test.integration.test_vibeflow_simple
 python -m unittest intelli.test.integration.test_vibeagent_blog_poste
