@@ -57,24 +57,27 @@ def is_reasoning_model(model_name):
         return False
 
 
-# Claude model families that REMOVED sampling parameters (temperature/top_p/top_k).
-# Sending those parameters to these models returns an HTTP 400, so the input
-# builder must omit them. Opus 4.6 / Sonnet 4.x still accept temperature.
+# Claude models that REMOVED sampling parameters (temperature/top_p/top_k).
+# Sending them returns HTTP 400 ("`temperature` is deprecated for this model"),
+# so the input builder must omit them. Verified live: Opus 4.7+ and every
+# Claude 5 family model (Sonnet 5, Opus 5, Fable 5.x, Mythos) reject them;
+# Sonnet 4.x, Opus <= 4.6 and Haiku 4.5 still accept temperature.
 _CLAUDE_NO_SAMPLING_TOKENS = (
-    "opus-4-7",
-    "opus-4-8",
-    "opus-4-9",
-    "fable-5",
-    "mythos-5",
     "mythos-preview",
 )
+
+# "<family>-<major>[-<minor>]" inside a Claude id, e.g. claude-opus-4-8 ->
+# (opus, 4, 8), claude-sonnet-5 -> (sonnet, 5, None). The 1-2 digit bound plus
+# the trailing (?!\d) keep 8-digit date suffixes (…-20251101) and legacy
+# "claude-3-7-sonnet-20250219" style ids from being read as versions.
+_CLAUDE_VERSION_RE = re.compile(r"(opus|sonnet|haiku|fable|mythos)-(\d{1,2})(?:-(\d{1,2}))?(?!\d)")
 
 
 def claude_rejects_sampling_params(model_name):
     """
-    Return True for Claude models that reject temperature/top_p/top_k (they were
-    removed on Opus 4.7+ and the Fable/Mythos family). For these models the
-    Anthropic input builder must not emit sampling parameters.
+    Return True for Claude models that reject temperature/top_p/top_k (removed on
+    Opus 4.7+ and the whole Claude 5 family). For these models the Anthropic
+    input builder must not emit sampling parameters.
 
     Args:
         model_name: Model name string or None
@@ -85,5 +88,15 @@ def claude_rejects_sampling_params(model_name):
     if not model_name:
         return False
     model_lower = model_name.lower()
-    return any(token in model_lower for token in _CLAUDE_NO_SAMPLING_TOKENS)
+    if any(token in model_lower for token in _CLAUDE_NO_SAMPLING_TOKENS):
+        return True
+
+    match = _CLAUDE_VERSION_RE.search(model_lower)
+    if not match:
+        return False
+    family, major, minor = match.group(1), int(match.group(2)), match.group(3)
+    if major >= 5:
+        return True
+    # Opus 4.7 was the first 4.x release to drop sampling parameters.
+    return family == "opus" and major == 4 and minor is not None and int(minor) >= 7
 

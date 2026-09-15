@@ -35,7 +35,7 @@ class TestFlows(unittest.TestCase):
             agent_type=AgentTypes.IMAGE.value,
             provider="openai",
             mission="generate image",
-            model_params={"key": self.openai_api_key, "model": "dall-e-3", "width": 1024, "height": 1024},
+            model_params={"key": self.openai_api_key, "model": "gpt-image-2", "width": 1024, "height": 1024},
         )
 
         # Define tasks

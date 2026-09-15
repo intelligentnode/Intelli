@@ -188,6 +188,11 @@ class Chatbot:
         # from the request body. Pop the model the input builder emitted and thread
         # it through so the caller's per-call model is respected (None -> config default).
         model_override = params.pop("model", None)
+        # Backward compatibility: the bare placeholder "gemini" (used in older docs
+        # and examples) was previously ignored; keep mapping it to the configured
+        # default instead of sending a non-existent model id to the API.
+        if model_override in (None, "", "gemini"):
+            model_override = None
         response = self.wrapper.generate_content(params, model_override=model_override)
         candidates = response.get("candidates", [])
         # No candidates at all is a real error (e.g. a prompt-level safety block

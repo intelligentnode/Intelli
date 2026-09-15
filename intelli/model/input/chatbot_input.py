@@ -85,8 +85,12 @@ class ChatModelInput:
             'input': input_text.strip(),
         }
         
-        # Add reasoning configuration if specified (default to low for GPT-5)
-        reasoning_effort = self.reasoning_effort or 'low'
+        # Add reasoning configuration if specified. Default to 'low' for GPT-5,
+        # except the *-pro models which only accept medium/high/xhigh.
+        if self.reasoning_effort:
+            reasoning_effort = self.reasoning_effort
+        else:
+            reasoning_effort = 'medium' if '-pro' in (self.model or '').lower() else 'low'
         params['reasoning'] = {'effort': reasoning_effort}
         
         # Add verbosity if specified (GPT-5 uses text.verbosity as string: 'low', 'medium', 'high')
@@ -155,7 +159,8 @@ class ChatModelInput:
     def get_mistral_input(self):
         messages = [{'role': msg.role, 'content': msg.content} for msg in self.messages]
         params = {
-            'model': self.model,
+            # Fall back to the configured default so Mistral works without a model id.
+            'model': self.model or config['url']['mistral']['models']['chat'],
             'messages': messages,
             **({'temperature': self.temperature} if self.temperature is not None else {}),
             **({'max_tokens': self.max_tokens} if self.max_tokens is not None else {}),

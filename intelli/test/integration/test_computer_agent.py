@@ -137,7 +137,7 @@ class TestComputerAgentLiveProvider(unittest.TestCase):
     """Optional real-provider run. Off by default (needs a funded key + a browser).
 
     Enable with:  RUN_LIVE_COMPUTER_USE=1 COMPUTER_USE_PROVIDER=anthropic \
-                  COMPUTER_USE_MODEL=claude-sonnet-4-6 python -m unittest ...
+                  COMPUTER_USE_MODEL=claude-sonnet-5 python -m unittest ...
     """
 
     def test_live_provider_navigation(self):
@@ -151,7 +151,7 @@ class TestComputerAgentLiveProvider(unittest.TestCase):
         if not key:
             self.skipTest(f"no API key for provider {provider}")
         model = os.getenv("COMPUTER_USE_MODEL",
-                          "claude-sonnet-4-6" if provider == "anthropic" else "gpt-5.5")
+                          "claude-sonnet-5" if provider == "anthropic" else "gpt-5.5")
 
         from intelli.function.browser_env import PlaywrightBrowserEnvironment
         from intelli.function.computer_agent import ComputerAgent

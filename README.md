@@ -54,17 +54,20 @@ def call_chatbot(provider, model=None, api_key=None, options=None):
 
     return response
 
-# call chatGPT (GPT-5 is default)
+# call chatGPT (GPT-5.5 is default)
 call_chatbot(ChatProvider.OPENAI) 
 
-# call GPT-4 explicitly
-call_chatbot(ChatProvider.OPENAI, "gpt-4o")
+# call a specific OpenAI model
+call_chatbot(ChatProvider.OPENAI, "gpt-4.1")
 
-# call claude3
-call_chatbot(ChatProvider.ANTHROPIC, "claude-3-7-sonnet-20250219")
+# call claude (Sonnet 5 is default, use "claude-opus-5" for Opus)
+call_chatbot(ChatProvider.ANTHROPIC, "claude-sonnet-5")
 
 # call google gemini
 call_chatbot(ChatProvider.GEMINI)
+
+# call mistral (Mistral Large is default)
+call_chatbot(ChatProvider.MISTRAL, "mistral-large-latest")
 
 # Call NVIDIA Deepseek
 call_chatbot(ChatProvider.NVIDIA, "deepseek-ai/deepseek-r1")
@@ -84,8 +87,8 @@ from intelli.flow import Agent, Task, SequenceFlow, TextTaskInput, TextProcessor
 
 
 # define agents
-blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-4'})
-copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini'})
+blog_agent = Agent(agent_type='text', provider='openai', mission='write blog posts', model_params={'key': YOUR_OPENAI_API_KEY, 'model': 'gpt-5.5'})
+copy_agent = Agent(agent_type='text', provider='gemini', mission='generate description', model_params={'key': YOUR_GEMINI_API_KEY, 'model': 'gemini-2.5-flash'})
 artist_agent = Agent(agent_type='image', provider='stability', mission='generate image', model_params={'key': YOUR_STABILITY_API_KEY})
 
 # define tasks
@@ -116,7 +119,7 @@ tests → iterate until the tests pass, using any chat provider.
 from intelli.function.coding_agent import CodingAgent
 
 agent = CodingAgent(api_key=YOUR_KEY, provider="anthropic",
-                    model="claude-sonnet-4-6", workspace="./my_repo")
+                    model="claude-sonnet-5", workspace="./my_repo")
 result = agent.run("Fix the failing tests in calc.py",
                    test_command="python -m pytest -q")
 print(result["success"], result["summary"])
@@ -133,7 +136,7 @@ from intelli.function.browser_env import PlaywrightBrowserEnvironment
 
 env = PlaywrightBrowserEnvironment(start_url="https://example.com")
 agent = ComputerAgent(api_key=YOUR_KEY, provider="anthropic",
-                      model="claude-sonnet-4-6", environment=env,
+                      model="claude-sonnet-5", environment=env,
                       on_action=lambda a: True)  # human-in-the-loop hook
 try:
     result = agent.run("Find the pricing page and report the cheapest plan")
@@ -152,7 +155,7 @@ from intelli.model.input.image_input import ImageModelInput
 
 # model details - change only two words to switch
 provider = "openai"
-model_name = "dall-e-3"
+model_name = "gpt-image-2"
 
 # prepare the input details
 prompts = "cartoonishly-styled solitary snake logo, looping elegantly to form both the body of the python and an abstract play on data nodes."

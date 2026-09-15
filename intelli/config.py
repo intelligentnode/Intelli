@@ -90,7 +90,13 @@ config = {
         "mistral": {
             "base": "https://api.mistral.ai",
             "completions": "/v1/chat/completions",
-            "embed": "/v1/embeddings"
+            "embed": "/v1/embeddings",
+            # Used when the caller does not pass a model (previously the request
+            # was sent with model=None and rejected by the API).
+            "models": {
+                "chat": "mistral-large-latest",
+                "embed": "mistral-embed"
+            }
         },
         "gemini": {
             "base": "https://generativelanguage.googleapis.com/v1beta/models",
@@ -122,9 +128,9 @@ config = {
             "messages": "/v1/messages",
             "version": "2023-06-01",
             "models": {
-                "chat": "claude-sonnet-4-6",
-                "sonnet": "claude-sonnet-4-6",
-                "opus": "claude-opus-4-8",
+                "chat": "claude-sonnet-5",
+                "sonnet": "claude-sonnet-5",
+                "opus": "claude-opus-5",
                 "haiku": "claude-haiku-4-5"
             }
         },

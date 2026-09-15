@@ -49,7 +49,7 @@ class TestVibeFlowSimple(unittest.TestCase):
 
     def test_vibe_image_generation(self):
         """Test image generation vibe."""
-        description = f"Create a flow that generates an image of a 'futuristic city' using openai dall-e-3 with width 1024, height 1024 and response_format b64_json. Save output to {self.OUTPUT_DIR}"
+        description = f"Create a flow that generates an image of a 'futuristic city' using openai gpt-image-2 with width 1024, height 1024. Save output to {self.OUTPUT_DIR}"
         
         print(f"\n--- VIBE IMAGE GENERATION START ---")
         # Build flow
