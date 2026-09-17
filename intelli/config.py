@@ -125,9 +125,11 @@ config = {
         },
         "gcp": {
             "default_location": "us-central1",
+            "chirp_location": "us",
             "models": {
                 "text": "gemini-2.5-flash",
-                "embedding": "text-embedding-005"
+                "embedding": "text-embedding-005",
+                "chirp": "chirp_3"
             }
         },
         "anthropic": {

@@ -283,6 +283,141 @@ class TestGoogleGCPWrapperContract(unittest.TestCase):
             "default_collection/dataStores/my-store",
         )
 
+    # -- speech transcription --------------------------------------------
+
+    def _patch_speech(self, transcript="hello from chirp"):
+        """Patch Speech-to-Text V2 so transcribe_chirp3 can run without the SDK."""
+        calls = {"client": [], "recognize": [], "batch_recognize": [], "result": []}
+
+        class FakeMessage:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+                for key, value in kwargs.items():
+                    setattr(self, key, value)
+
+        class FakeTypes:
+            AutoDetectDecodingConfig = FakeMessage
+            RecognitionConfig = FakeMessage
+            RecognitionFeatures = FakeMessage
+            SpeakerDiarizationConfig = FakeMessage
+            PhraseSet = FakeMessage
+            SpeechAdaptation = type(
+                "SpeechAdaptation",
+                (FakeMessage,),
+                {"AdaptationPhraseSet": FakeMessage},
+            )
+            RecognizeRequest = FakeMessage
+            BatchRecognizeRequest = FakeMessage
+            BatchRecognizeFileMetadata = FakeMessage
+            RecognitionOutputConfig = FakeMessage
+            InlineOutputConfig = FakeMessage
+
+        class FakeAlternative:
+            def __init__(self, text):
+                self.transcript = text
+
+        class FakeResult:
+            def __init__(self, text):
+                self.alternatives = [FakeAlternative(text)]
+
+        class FakeRecognizeResponse:
+            def __init__(self, text):
+                self.results = [FakeResult(text)]
+
+        class FakeBatchFileResult:
+            def __init__(self, text):
+                self.transcript = FakeRecognizeResponse(text)
+
+        class FakeBatchResponse:
+            def __init__(self, uri, text):
+                self.results = {uri: FakeBatchFileResult(text)}
+
+        class FakeOperation:
+            def result(self, timeout=None):
+                calls["result"].append({"timeout": timeout})
+                uri = calls["batch_recognize"][-1]["request"].files[0].uri
+                return FakeBatchResponse(uri, transcript)
+
+        class FakeSpeechClient:
+            def __init__(self, **kwargs):
+                calls["client"].append(kwargs)
+
+            def recognize(self, request=None):
+                calls["recognize"].append({"request": request})
+                return FakeRecognizeResponse(transcript)
+
+            def batch_recognize(self, request=None):
+                calls["batch_recognize"].append({"request": request})
+                return FakeOperation()
+
+        class FakeClientOptions:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+
+        patcher = patch(
+            f"{WRAPPER_MODULE}._check_speech_imports",
+            return_value=(FakeClientOptions, FakeSpeechClient, FakeTypes),
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return calls
+
+    def test_transcribe_chirp3_from_bytes_uses_recognize(self):
+        calls = self._patch_speech()
+        wrapper = build_wrapper()
+
+        result = wrapper.transcribe_chirp3(audio_file=b"RIFF-audio", language="en")
+
+        self.assertEqual(result["text"], "hello from chirp")
+        self.assertEqual(result["model"], "chirp_3")
+        self.assertEqual(result["method"], "recognize")
+        self.assertEqual(len(calls["recognize"]), 1)
+        self.assertEqual(calls["batch_recognize"], [])
+        request = calls["recognize"][0]["request"]
+        self.assertEqual(request.content, b"RIFF-audio")
+        self.assertEqual(request.config.model, "chirp_3")
+        self.assertEqual(request.config.language_codes, ["en-US"])
+        self.assertIn(
+            "projects/test-project/locations/us/recognizers/_",
+            request.recognizer,
+        )
+        client_options = calls["client"][0]["client_options"]
+        self.assertEqual(client_options.kwargs["api_endpoint"], "us-speech.googleapis.com")
+
+    def test_transcribe_chirp3_from_gcs_uri_uses_batch_recognize(self):
+        calls = self._patch_speech(transcript="from bucket")
+        wrapper = build_wrapper()
+
+        result = wrapper.transcribe_chirp3(audio_uri="gs://bucket/call.wav", language="en-US")
+
+        self.assertEqual(result["text"], "from bucket")
+        self.assertEqual(result["method"], "batch_recognize")
+        self.assertEqual(calls["recognize"], [])
+        self.assertEqual(len(calls["batch_recognize"]), 1)
+        request = calls["batch_recognize"][0]["request"]
+        self.assertEqual(request.files[0].uri, "gs://bucket/call.wav")
+        self.assertTrue(request.recognition_output_config.inline_response_config)
+        self.assertEqual(calls["result"][0]["timeout"], 600)
+
+    def test_transcribe_chirp3_gs_path_on_audio_file(self):
+        calls = self._patch_speech()
+        wrapper = build_wrapper()
+
+        wrapper.transcribe_chirp3("gs://bucket/notes.wav")
+
+        self.assertEqual(len(calls["batch_recognize"]), 1)
+        self.assertEqual(calls["recognize"], [])
+
+    def test_transcribe_chirp3_requires_audio(self):
+        wrapper = build_wrapper()
+        with self.assertRaises(ValueError):
+            wrapper.transcribe_chirp3()
+
+    def test_transcribe_chirp3_rejects_local_and_uri_together(self):
+        wrapper = build_wrapper()
+        with self.assertRaises(ValueError):
+            wrapper.transcribe_chirp3(audio_file=b"abc", audio_uri="gs://bucket/a.wav")
+
     # -- agent and tool construction -------------------------------------
 
     def _patch_adk(self, agent_cls=None):
@@ -519,6 +654,40 @@ class TestGoogleGCPWrapperContract(unittest.TestCase):
             return [chunk async for chunk in wrapper.stream_async(SimpleNamespace(), "hi")]
 
         self.assertEqual(asyncio.run(collect()), ["one shot"])
+
+    def test_streaming_methods_time_out(self):
+        wrapper = build_wrapper(_timeout=0.05)
+        self._patch_adk()
+
+        class SlowRunner(FakeRunner):
+            async def run_async(self, **kwargs):
+                await asyncio.sleep(5)
+                yield FakeEvent(text="too late")
+
+        async def collect_text():
+            return [
+                chunk
+                async for chunk in wrapper.stream_async(SimpleNamespace(), "hi")
+            ]
+
+        async def collect_events():
+            return [
+                event
+                async for event in wrapper.stream_events_async(
+                    SimpleNamespace(), "hi"
+                )
+            ]
+
+        for collect in (collect_text, collect_events):
+            runner = SlowRunner()
+            with self.subTest(method=collect.__name__):
+                with patch.object(
+                    wrapper, "_get_runner", return_value=(runner, "app")
+                ):
+                    with self.assertRaisesRegex(
+                        TimeoutError, "agent stream exceeded"
+                    ):
+                        asyncio.run(collect())
 
     def test_session_helpers(self):
         wrapper, runner = self._wrapper_with_runner([])

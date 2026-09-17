@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="2.0.1",
+    version="2.0.2",
     author="Intellinode",
     author_email="admin@intellinode.ai",
     description="Build AI agents and MCPs with Intellinode.",
@@ -52,7 +52,8 @@ setup(
             "openai>=2.5.0,<3",
             "google-adk>=2.9,<3",
             "google-cloud-aiplatform[agent-engines]>=1.148.1,<2",
-            "google-auth>=2.47,<3"
+            "google-auth>=2.47,<3",
+            "google-cloud-speech>=2.31,<3",
         ],
         "all": [
             "matplotlib>=3.6.0",
