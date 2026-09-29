@@ -109,7 +109,7 @@ To build async flows with multiple paths, refer to the [flow tutorial](https://d
 
 
 Or build the entire flow using natural language with **Vibe Agents**.
-Refer to [the documentation](https://docs.intellinode.ai/docs/python/vibe-agents) for more details.
+Refer to [the documentation](https://www.intellinode.ai/docs/python/vibe-agents) for more details.
 
 ## Coding Agent
 Point intelli at a repository and give it a task. The coding agent gets a
@@ -167,16 +167,13 @@ results = wrapper.generate_images(image_input)
 ```
 
 ## GGUF Optimized Models
-Llama CPP provides an efficient way to run language models locally with support for models in the new **GGUF** format,  [check the docs](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).  
+Llama CPP provides an efficient way to run language models locally with support for models in the new **GGUF** format,  [check the docs](https://www.intellinode.ai/docs/python/offline-chatbot/llamacpp).  
 
 ## MCP Calculator Demo
 Check out the [MCP Calculator Demo](sample/http_mcp) for sample how to create an MCP server with math operations and a client that uses flow to interpret natural language queries.
 
 ## MCP DataFrame Demo
 Check out the [MCP DataFrame Demo](sample/http_dataframe_mcp) for an example of how to serve dataframes as MCP servers and utilize them within Intelli flows, enabling integration with AI models.
-
-## Connect Your Docs With Chatbot 
-IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
 
 ```python
 # creating chatbot with the intellinode one key

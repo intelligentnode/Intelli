@@ -32,12 +32,12 @@ python -m playwright install chromium
 
 - Add the coding agent and the computer-use / browser agent (`agent_type="coder"` / `"computer"`).
 - Update the default models: GPT-5.5, Claude Sonnet 5 / Opus 5, gpt-image-2, Mistral Large, Gemini 2.5.
-- Update the speech recognition (speechmatics, Whisper, and more) [doc](https://docs.intellinode.ai/docs/python/controllers/recognition).
-- Support MCP capabilities [doc](https://docs.intellinode.ai/docs/python/mcp/get-started).
-- Support llama.cpp & GGUF models for fast inference [doc](https://docs.intellinode.ai/docs/python/offline-chatbot/llamacpp).
-- Add web search via [Search agent](https://docs.intellinode.ai/docs/python/flows/search-agent).
+- Update the speech recognition (speechmatics, Whisper, and more) [doc](https://www.intellinode.ai/docs/python/controllers/recognition).
+- Support MCP capabilities [doc](https://www.intellinode.ai/docs/python/mcp/get-started).
+- Support llama.cpp & GGUF models for fast inference [doc](https://www.intellinode.ai/docs/python/offline-chatbot/llamacpp).
+- Add web search via [Search agent](https://www.intellinode.ai/docs/python/flows/search-agent).
 
-For detailed instructions, refer to [intelli documentation](https://docs.intellinode.ai/docs/python).
+For detailed instructions, refer to [intelli documentation](https://www.intellinode.ai/docs/python).
 
 # Code Examples
 
@@ -79,7 +79,7 @@ call_chatbot(ChatProvider.VLLM, "meta-llama/Llama-3.1-8B-Instruct", options={"ba
 ```
 
 ## Chat With Docs
-Chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://app.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
+Chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://chat.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
 
 ```python
 # creating chatbot with the intellinode one key
