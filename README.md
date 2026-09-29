@@ -175,9 +175,6 @@ Check out the [MCP Calculator Demo](sample/http_mcp) for sample how to create an
 ## MCP DataFrame Demo
 Check out the [MCP DataFrame Demo](sample/http_dataframe_mcp) for an example of how to serve dataframes as MCP servers and utilize them within Intelli flows, enabling integration with AI models.
 
-## Connect Your Docs With Chatbot 
-IntelliPy allows you to chat with your docs using multiple LLMs. To connect your data, visit the [IntelliNode App](https://chat.intellinode.ai/), start a project using the Document option, upload your documents or images, and copy the generated One Key. This key will be used to connect the chatbot to your uploaded data.
-
 ```python
 # creating chatbot with the intellinode one key
 bot = Chatbot(YOUR_OPENAI_API_KEY, "openai", {"one_key": YOUR_ONE_KEY})
