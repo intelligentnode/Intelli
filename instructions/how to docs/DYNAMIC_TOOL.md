@@ -419,4 +419,4 @@ if tool_info:
     print(f"Call ID: {tool_info['id']}")
 ```
 
-**Learn More**: For MCP documentation: [Get Started with MCP](https://docs.intellinode.ai/docs/python/mcp/get-started).
+**Learn More**: For MCP documentation: [Get Started with MCP](https://www.intellinode.ai/docs/python/mcp/get-started).

@@ -18,7 +18,7 @@ If you use the term **“Vibe Agents”** publicly (docs, blogs, papers, talks, 
 
 And link to one of:
 - https://github.com/intelligentnode/Intelli
-- https://docs.intellinode.ai/docs/python/vibe-agents
+- https://www.intellinode.ai/docs/python/vibe-agents
 
 ## Avoid confusion
 
