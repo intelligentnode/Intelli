@@ -121,7 +121,11 @@ class Chatbot:
             )
 
         params = getattr(chat_input, get_input_method)()
-        result = chat_method(params)
+        if self.provider == ChatProvider.OPENAI.value:
+            # Route on the RAW model id: the builder strips ':chat' from params['model'].
+            result = chat_method(params, is_reasoning_model(chat_input.model))
+        else:
+            result = chat_method(params)
         return (
             {"result": result, "references": references}
             if chat_input.attach_reference
@@ -161,10 +165,11 @@ class Chatbot:
         response = self.wrapper.generate(params["prompt"], params["max_length"])
         return [response]
 
-    def _chat_openai(self, params):
-        # Check if this is a reasoning model (GPT-5+)
-        model_name = params.get('model', '')
-        is_gpt5_plus = is_reasoning_model(model_name)
+    def _chat_openai(self, params, is_gpt5_plus=None):
+        # Check if this is a reasoning model (GPT-5+), unless chat() already decided it
+        # on the raw model id (params['model'] has any ':chat' override stripped).
+        if is_gpt5_plus is None:
+            is_gpt5_plus = is_reasoning_model(params.get('model', ''))
         
         if is_gpt5_plus:
             # GPT-5+ uses different endpoint and response format
@@ -269,8 +274,13 @@ class Chatbot:
             chat_input.model = config['url']['openai']['models']['chat']
 
         params = getattr(chat_input, f"get_{self.provider}_input")()
+        if self.provider == ChatProvider.OPENAI.value:
+            # Route on the RAW model id: the builder strips ':chat' from params['model'].
+            stream = streaming_method(params, is_reasoning_model(chat_input.model))
+        else:
+            stream = streaming_method(params)
 
-        for content in streaming_method(params):
+        for content in stream:
             yield content
 
     def _stream_llamacpp(self, params):
@@ -279,14 +289,14 @@ class Chatbot:
         for chunk in self.wrapper.generate_text_stream(params):
             yield chunk
 
-    def _stream_openai(self, params):
+    def _stream_openai(self, params, is_gpt5_plus=None):
         """
         Private helper method to stream text from OpenAI and parse each content chunk.
         Note: GPT-5+ models may not support streaming in the same way as previous models.
         """
-        # Check if this is a reasoning model (GPT-5+)
-        model_name = params.get('model', '')
-        is_gpt5_plus = is_reasoning_model(model_name)
+        # Check if this is a reasoning model (GPT-5+), unless stream() already decided it.
+        if is_gpt5_plus is None:
+            is_gpt5_plus = is_reasoning_model(params.get('model', ''))
         
         if is_gpt5_plus:
             # GPT-5+ streaming is not yet supported
