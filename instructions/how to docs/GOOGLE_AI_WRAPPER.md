@@ -78,8 +78,7 @@ Rules the code follows:
 | Code execution / URL context | `tools=[{"codeExecution": {}}]` / `[{"urlContext": {}}]` | yes | yes | yes |
 | Image / audio / video / PDF understanding | `media_part`, `media_to_text`, `audio_to_text`, `video_to_text`, `image_to_text` | yes (inline, Files API URIs, YouTube) | yes (inline, `gs://`) | yes (inline, `gs://`) |
 | Gemini image generation + editing | `generate_image`, `edit_image`, `extract_images` | yes | yes | yes |
-| Imagen generate | `imagen_generate_images` | yes | yes (1) | yes (us-central1) |
-| Imagen edit / upscale | `imagen_edit_image`, `imagen_upscale_image` | no (Vertex only) | yes (1) | yes (us-central1) |
+| Imagen generate / edit / upscale (retired by Google, 404 since 2026-06-30) | `imagen_generate_images`, `imagen_edit_image`, `imagen_upscale_image` | only with an explicit `model=` | only with an explicit `model=` (1) | only with an explicit `model=` (us-central1) |
 | Veo video | `generate_video`, `wait_for_video_completion`, `extract_videos`, `download_media` | yes | no (`ValueError`) | yes (us-central1) |
 | Lyria music | `generate_music`, `extract_audio`, `audio_to_wav` | Lyria 3 (`lyria-3.5`) | `lyria-002` (1) | `lyria-002` (us-central1) |
 | Gemini TTS, multi-speaker | `generate_gemini_speech`, `generate_multi_speaker_speech` | yes | yes | yes |
@@ -243,14 +242,17 @@ r2 = w.edit_image("Make it night time, keep the fox.", ["fox.png"], model_overri
 
 `generate_image(prompt, config_params=None, model_override=None, *, images=None)` (config_params is merged into `generationConfig`; default `responseModalities` is `["TEXT", "IMAGE"]`), `edit_image(prompt, images, config_params=None, model_override=None)`. For iterative editing keep a chat: `w.start_chat("gemini-3.1-flash-image", generation_config={"responseModalities": ["TEXT", "IMAGE"]})`, then `w.extract_images(chat.send("Now add a moon"))`.
 
-### Imagen (deprecated by Google; prefer Gemini image models)
+### Imagen (retired by Google; use the Gemini image models above)
+
+Google retired the Imagen models on 2026-06-30 and they return 404 NOT_FOUND, so config has no Imagen defaults. Without `model=` these methods raise a `ValueError` that says so. Keep them only for a project that still has an Imagen model:
 
 ```python
-r = wp.imagen_generate_images("A red bicycle on a beach", number_of_images=2, aspect_ratio="1:1")
+r = wp.imagen_generate_images("A red bicycle on a beach", number_of_images=2, aspect_ratio="1:1",
+                              model="<an Imagen model your project can call>")
 images = wp.extract_images(r)                      # works on Imagen predictions too
 r = wp.imagen_edit_image("Replace the background with a city street", "bike.png",
-                         mask_mode="MASK_MODE_BACKGROUND")
-r = wp.imagen_upscale_image("bike.png", "x2")
+                         mask_mode="MASK_MODE_BACKGROUND", model="imagen-3.0-capability-001")
+r = wp.imagen_upscale_image("bike.png", "x2", model="imagen-4.0-upscale-preview")
 ```
 
 Signatures: `imagen_generate_images(prompt, number_of_images=1, model=None, *, aspect_ratio=None, negative_prompt=None, parameters=None)`, `imagen_edit_image(prompt, image, mask=None, *, edit_mode=None, mask_mode=None, model=None, parameters=None)`, `imagen_upscale_image(image, upscale_factor='x2', model=None, *, parameters=None)`. A retired Imagen model fails with a `GoogleAIError` starting with `Imagen error` (Google's message says it is deprecated).
@@ -381,7 +383,8 @@ Signatures: `list_agent_engines(location=None, page_size=None, page_token=None, 
 | Helper | Returns |
 | --- | --- |
 | `extract_text(response, include_thoughts=False)` | joined text of the first candidate (thought parts skipped) |
-| `extract_function_calls(response)` | `[{'name', 'args', 'id'?}]` |
+| `extract_finish_reason(response)` | `STOP`, `MAX_TOKENS`, `SAFETY`, `RECITATION`... or the prompt `blockReason` (use it to tell a cut-off answer from a complete one) |
+| `extract_function_calls(response)` | `[{'name', 'args', 'id'?}]` (args exactly as the model sent them) |
 | `extract_grounding(response)` | `groundingMetadata` dict or `{}` |
 | `extract_images(response)` | `[{'mime_type', 'data'}]` from Gemini parts or Imagen predictions |
 | `extract_audio(response)` | `[{'mime_type', 'data'}]` from Gemini TTS / music parts or Lyria predictions |
@@ -519,7 +522,7 @@ Other exceptions: `ValueError` (no default model for a kind, empty model, bytes 
 
 ## 11. Gotchas
 
-1. **Developer API defaults are 2.5-era** (`config['url']['gemini']['models']`: text `gemini-2.5-flash`, TTS `gemini-2.5-flash-preview-tts`, video `veo-2.0-generate-001`). Gemini 2.5 text models retire on **2026-10-20**. Pass `model=` explicitly on the Developer API. Vertex defaults are Gemini 3.x (section 12).
+1. **Developer API text and TTS defaults are 2.5-era** (`config['url']['gemini']['models']`: text `gemini-2.5-flash`, TTS `gemini-2.5-flash-preview-tts`; video is `veo-3.1-fast-generate-preview`). Gemini 2.5 text models retire on **2026-10-20**. Pass `model=` explicitly on the Developer API. Vertex defaults are Gemini 3.x (section 12).
 2. **Explicit location wins everywhere.** With `location="global"` (or `GOOGLE_CLOUD_LOCATION`), Veo and Live also go to `global`, where the Live models are not served. Either omit `location`, or pass `location="us-central1"` per call (`generate_video`, `generate_music`, `live_connect` / `live_generate`, Agent Engine methods). Imagen methods have no `location` argument.
 3. The Live models (`gemini-3.8-live`) are served only from `us-central1`. `gemini-3.8-flash`, `gemini-3.5-flash` and `gemini-3.1-flash-image` are served from `global` and express mode.
 4. Veo, the Live API, Agent Engine and Vertex context caching need `project_id`.
@@ -534,10 +537,14 @@ Other exceptions: `ValueError` (no default model for a kind, empty model, bytes 
 13. Veo `image` / `last_frame` given as a path or bytes are sent with `mimeType: image/png` whatever the real format. Use PNG files, or pass a dict `{"bytesBase64Encoded": b64, "mimeType": "image/jpeg"}`.
 14. `chat.stream` does not set `chat.last_response`; use `chat.send` when you need grounding metadata or function calls. Parallel function calls go back in one turn: `chat.send(parts=[...])`.
 15. `live_generate` calls `asyncio.run`; inside Jupyter / FastAPI use `await live_generate_async(...)`.
-16. Imagen is deprecated by Google in favor of Gemini image models; a retired Imagen model fails with a deprecation message.
+16. Imagen is retired by Google (404); the Imagen methods need an explicit `model=` and otherwise raise a `ValueError` that explains this. Use `generate_image` / `edit_image`.
 17. Some organizations disallow API keys. Use ADC: `gcloud auth application-default login`, then `GoogleAIWrapper(project_id=PROJECT)`.
-18. `GOOGLE_GENAI_USE_VERTEXAI=true` (or `GOOGLE_GENAI_USE_ENTERPRISE`) in the environment switches every `GoogleAIWrapper` built without an explicit `vertex=` to Vertex, including the ones `Chatbot`, the controllers and Flow agents build. Pass `{"vertex": False}` in options to stay on the Developer API. `GeminiAIWrapper` always defaults to `vertex=False`.
-19. Never print `wrapper.api_key`, and never commit keys. Keys go only in the gitignored `intelli/.env`.
+18. `GOOGLE_GENAI_USE_VERTEXAI=true` (or `GOOGLE_GENAI_USE_ENTERPRISE`) switches a `GoogleAIWrapper(...)` you construct yourself without `vertex=` to Vertex. It does not affect `Chatbot`, the controllers or Flow agents: `from_options` selects Vertex only when the options say so (`vertex`, `project_id`, `credentials` or `access_token`). `GeminiAIWrapper` always defaults to `vertex=False`.
+19. Vertex with OAuth (`access_token`, `credentials`, ADC) needs a project; without one the wrapper raises instead of using the express URL, which accepts API keys only. A `credentials` object with a `project_id` attribute supplies the project.
+20. A chat turn whose reply is blocked or empty is not added to `chat.history`, so it cannot block the next turn. Check `extract_finish_reason(chat.last_response)`.
+21. A stream that ends with an error chunk raises `GoogleAIError` instead of returning a silently cut-off answer. Streams are decoded as UTF-8.
+22. `download_media` sends the key or token only to Google API hosts; redirects to other hosts get no credentials.
+23. Never print `wrapper.api_key`, and never commit keys. Keys go only in the gitignored `intelli/.env`.
 
 ## 12. Model catalog
 
@@ -547,8 +554,8 @@ Other exceptions: `ValueError` (no default model for a kind, empty model, bytes 
 | --- | --- | --- |
 | `text` / `vision` | `gemini-2.5-flash` | `gemini-3.8-flash` |
 | `image_generation` | `gemini-2.5-flash-image` | `gemini-3.1-flash-image` |
-| `imagen` / `imagen_edit` / `imagen_upscale` | `imagen-4.0-generate-001` / none / none | `imagen-4.0-generate-001` / `imagen-3.0-capability-001` / `imagen-4.0-upscale-preview` |
-| `video_generation` | `veo-2.0-generate-001` | `veo-3.1-fast-generate-001` |
+| `imagen` / `imagen_edit` / `imagen_upscale` | none (Imagen retired) | none (Imagen retired) |
+| `video_generation` | `veo-3.1-fast-generate-preview` (key `video_generation_developer`); `veo-3.1-fast-generate-001` when a `project_id` sends Veo to Vertex | `veo-3.1-fast-generate-001` |
 | `tts` / `tts_pro` | `gemini-2.5-flash-preview-tts` / `gemini-2.5-pro-preview-tts` | `gemini-2.5-flash-tts` / `gemini-2.5-pro-tts` |
 | `music` | `lyria-3.5` | `lyria-002` |
 | `live` | `gemini-3.8-live` | `gemini-3.8-live` |
