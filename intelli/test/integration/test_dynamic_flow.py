@@ -500,8 +500,22 @@ class TestDynamicFlow(unittest.TestCase):
             log=True,
         )
 
-        formatter_task = Task(
-            TextTaskInput("Format this content nicely with markdown:"),
+        simple_formatter_task = Task(
+            TextTaskInput("Format this simplified content nicely with markdown:"),
+            Agent(
+                agent_type=AgentTypes.TEXT.value,
+                provider="mistral",
+                mission="Format content",
+                model_params={
+                    "key": self.api_keys["mistral"],
+                    "model": "mistral-medium",
+                },
+            ),
+            log=True,
+        )
+
+        detailed_formatter_task = Task(
+            TextTaskInput("Format this detailed content nicely with markdown:"),
             Agent(
                 agent_type=AgentTypes.TEXT.value,
                 provider="mistral",
@@ -520,7 +534,8 @@ class TestDynamicFlow(unittest.TestCase):
             "complexity_analyzer": analyzer_task,
             "simplifier": simplifier_task,
             "expander": expander_task,
-            "formatter": formatter_task,
+            "simple_formatter": simple_formatter_task,
+            "detailed_formatter": detailed_formatter_task,
         }
 
         # Define complexity router function
@@ -548,8 +563,10 @@ class TestDynamicFlow(unittest.TestCase):
         map_paths = {
             # Static connections
             "initial_query": ["complexity_analyzer"],
-            "simplifier": ["formatter"],
-            "expander": ["formatter"],
+            # Each branch has its own formatter. A formatter shared by both
+            # branches would wait for the branch that did not run.
+            "simplifier": ["simple_formatter"],
+            "expander": ["detailed_formatter"],
         }
 
         dynamic_connectors = {
@@ -593,16 +610,19 @@ class TestDynamicFlow(unittest.TestCase):
         self.assertIn(
             "complexity_analyzer", results, "Analyzer task should be in results"
         )
-        self.assertIn("formatter", results, "Formatter task should be in results")
 
-        # Check which path was taken
+        # Check which path was taken, only the formatter of that path runs
         if "simplifier" in results:
             print("🔍 Content was routed to the simplifier")
             self.assertNotIn("expander", results, "Only one path should be taken")
+            self.assertIn("simple_formatter", results, "Simple formatter should run")
+            self.assertNotIn("detailed_formatter", results, "Only the chosen path's formatter should run")
         else:
             print("🔍 Content was routed to the expander")
             self.assertIn("expander", results, "Expander task should be in results")
             self.assertNotIn("simplifier", results, "Only one path should be taken")
+            self.assertIn("detailed_formatter", results, "Detailed formatter should run")
+            self.assertNotIn("simple_formatter", results, "Only the chosen path's formatter should run")
 
 
 if __name__ == "__main__":

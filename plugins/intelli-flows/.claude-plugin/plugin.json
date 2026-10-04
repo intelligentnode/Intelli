@@ -1,0 +1,12 @@
+{
+  "name": "intelli-flows",
+  "version": "1.0.0",
+  "description": "Teaches Claude Code to write, run, draw and explain Intelli flows and Vibe Agents in Python.",
+  "author": {
+    "name": "IntelliNode"
+  },
+  "homepage": "https://www.intellinode.ai/docs/python",
+  "repository": "https://github.com/intelligentnode/Intelli",
+  "license": "Apache-2.0",
+  "keywords": ["intelli", "ai-agents", "flows", "python"]
+}

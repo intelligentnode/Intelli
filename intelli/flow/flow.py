@@ -88,7 +88,8 @@ class Flow:
                 If not specified, uses default naming: "{task_name}_output.{ext}"
                 
         Raises:
-            ValueError: If the dependency graph has cycles or if dynamic connector destinations are invalid.
+            ValueError: If the dependency graph has cycles, if dynamic connector destinations are invalid,
+                or if a task waits for two destinations of the same dynamic connector.
             
         Examples:
             Basic flow with static routing:
@@ -198,6 +199,25 @@ class Flow:
             raise ValueError(
                 "The dependency graph has cycles, please revise map_paths and dynamic_connectors."
             )
+
+        # A connector runs only one of its destinations, so a task that waits for two
+        # destinations that no other connector can start would never run
+        for task_name, connector in self.dynamic_connectors.items():
+            other_destinations = {
+                dest_task
+                for other_name, other in self.dynamic_connectors.items()
+                if other_name != task_name
+                for dest_task in other.destinations.values()
+            }
+            own_destinations = set(connector.destinations.values()) - other_destinations
+            for child_task in self.graph.nodes():
+                waits_for = sorted(own_destinations.intersection(self.graph.predecessors(child_task)))
+                if len(waits_for) > 1:
+                    raise ValueError(
+                        f"Task '{child_task}' waits for {waits_for}, but the dynamic connector on "
+                        f"'{task_name}' runs only one of them, so '{child_task}' would never run. "
+                        f"Give each destination its own next task in map_paths."
+                    )
 
     async def _execute_task(self, task_name):
         """
@@ -488,6 +508,13 @@ class Flow:
                     # Skip if edge is dynamic (we handle those separately)
                     edge_data = self.graph.get_edge_data(task_name, succ)
                     if edge_data.get("edge_type") == "dynamic":
+                        continue
+
+                    # A connector destination runs only when its connector selects it
+                    if any(
+                        data.get("edge_type") == "dynamic"
+                        for _, _, data in self.graph.in_edges(succ, data=True)
+                    ):
                         continue
 
                     if succ not in executed_tasks and succ not in tasks_to_execute:
