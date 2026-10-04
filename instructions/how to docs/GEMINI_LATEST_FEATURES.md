@@ -1,3 +1,7 @@
+> **Deprecated:** `GeminiAIWrapper` is deprecated. Use `GoogleAIWrapper` (`intelli.wrappers.googleai_wrapper`) directly; it covers the Gemini Developer API and Vertex AI.
+> The current guide is [GOOGLE_AI_WRAPPER.md](GOOGLE_AI_WRAPPER.md). This page describes the older API and its model names may be out of date.
+> Migration table: section 9 of that guide (`GeminiAIWrapper.generate_speech` -> `GoogleAIWrapper.generate_gemini_speech`).
+
 # Gemini API Latest Features - Implementation Guide
 
 This document outlines all the latest Gemini API features that have been implemented in the updated `GeminiAIWrapper` and `GoogleAIWrapper` classes.

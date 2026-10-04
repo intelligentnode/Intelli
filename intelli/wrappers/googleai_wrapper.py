@@ -1,6 +1,8 @@
 import json
+import logging
 import requests
 import base64
+import binascii
 import contextlib
 import copy
 import io
@@ -13,6 +15,10 @@ from typing import List, Dict, Any, Optional, Union
 
 from intelli.config import config
 from intelli.utils.conn_helper import ConnHelper
+
+# websockets logs handshake headers (including credentials) at DEBUG; keep this logger above DEBUG.
+_LIVE_LOGGER = logging.getLogger('intelli.googleai.live')
+_LIVE_LOGGER.setLevel(logging.INFO)
 
 
 class GoogleAIError(Exception):
@@ -55,7 +61,7 @@ class GoogleAIWrapper:
     def __init__(self, api_key=None, timeout=180, *, vertex=None, project_id=None, location=None,
                  credentials=None, access_token=None, api_version=None, base_url=None,
                  quota_project_id=None, session=None):
-        self.api_key = api_key
+        self.api_key = api_key.strip() if isinstance(api_key, str) else api_key
         self.timeout = timeout
         self.headers = {
             'Content-Type': 'application/json; charset=utf-8',
@@ -611,6 +617,15 @@ class GoogleAIWrapper:
 
     _REVERSE_KEY_MAP = {v: k for k, v in _KEY_MAP.items()}
 
+    # Values under these keys belong to the caller (function arguments, tool and response
+    # schemas), so their field names are never renamed or aliased.
+    _USER_DATA_KEYS = {'args', 'response', 'parameters', 'parametersJsonSchema', 'parameters_json_schema',
+                       'responseSchema', 'response_schema', 'responseJsonSchema', 'response_json_schema'}
+
+    # Hosts that may receive the wrapper credentials (download_media)
+    _GOOGLE_API_HOST = re.compile(r'(^|\.)(generativelanguage|([a-z0-9-]+-)?aiplatform)\.googleapis\.com$'
+                                  r'|^aiplatform\.[a-z0-9-]+\.rep\.googleapis\.com$')
+
     _MIME_TYPES = {
         '.png': 'image/png',
         '.jpg': 'image/jpeg',
@@ -650,6 +665,8 @@ class GoogleAIWrapper:
         self.vertex = bool(vertex)
 
         # With ADC (no API key) the project can come from the environment.
+        if self.vertex and not project_id and credentials is not None:
+            project_id = getattr(credentials, 'project_id', None) or None
         if self.vertex and not project_id and not self.api_key:
             project_id = os.getenv('GOOGLE_CLOUD_PROJECT') or None
         self.project_id = project_id
@@ -663,6 +680,7 @@ class GoogleAIWrapper:
 
         self._credentials = credentials
         self._access_token = access_token
+        self._last_token = None
         self.quota_project_id = quota_project_id
         self.base_url = base_url.rstrip('/') if base_url else None
         self.session = session if session is not None else requests.Session()
@@ -683,8 +701,11 @@ class GoogleAIWrapper:
             if api_version:
                 self._dev_api_base = re.sub(r'/v[^/]+$', '/' + api_version, self._dev_api_base)
                 self._dev_models_base = self._dev_api_base + '/models'
+                self._dev_files_base = re.sub(r'/v[^/]+/files$', f'/{api_version}/files', self._dev_files_base)
+                self._dev_upload_base = re.sub(r'/v[^/]+/files$', f'/{api_version}/files', self._dev_upload_base)
             self.api_version = self._dev_api_base.rsplit('/', 1)[-1]
-            self.models = dict(gemini_cfg['models'])
+            # Shared with config, like GeminiAIWrapper: later config changes apply to existing wrappers.
+            self.models = gemini_cfg['models']
         self._capability_locations = dict(vertex_cfg.get('locations', {}))
 
     @classmethod
@@ -706,6 +727,11 @@ class GoogleAIWrapper:
             kwargs['project_id'] = options['vertex_project']
         if options.get('vertex_location') and 'location' not in kwargs:
             kwargs['location'] = options['vertex_location']
+        if 'vertex' not in kwargs:
+            # Chatbot, Agents and controllers stay on the Developer API unless the options ask for
+            # Vertex AI, even when GOOGLE_GENAI_USE_VERTEXAI is set in the environment.
+            kwargs['vertex'] = bool(kwargs.get('project_id') or kwargs.get('credentials') is not None
+                                    or kwargs.get('access_token'))
         if timeout is None:
             timeout = options.get('timeout', 180)
         return cls(api_key, timeout=timeout, **kwargs)
@@ -722,7 +748,7 @@ class GoogleAIWrapper:
         out: Dict[str, Any] = {}
         for k, v in obj.items():
             new_k = self._KEY_MAP.get(k, k)
-            out[new_k] = self._camelize(v)
+            out[new_k] = copy.deepcopy(v) if k in self._USER_DATA_KEYS else self._camelize(v)
         return out
 
     def _snake_alias(self, obj: Any) -> Any:
@@ -736,7 +762,7 @@ class GoogleAIWrapper:
             return obj
         out: Dict[str, Any] = {}
         for k, v in obj.items():
-            aliased_v = self._snake_alias(v)
+            aliased_v = v if k in self._USER_DATA_KEYS else self._snake_alias(v)
             out[k] = aliased_v
             snake_k = self._REVERSE_KEY_MAP.get(k)
             if snake_k and snake_k not in out:
@@ -749,7 +775,7 @@ class GoogleAIWrapper:
             return [self._unalias(x) for x in obj]
         if not isinstance(obj, dict):
             return obj
-        return {k: self._unalias(v) for k, v in obj.items()
+        return {k: (v if k in self._USER_DATA_KEYS else self._unalias(v)) for k, v in obj.items()
                 if not (k in self._KEY_MAP and self._KEY_MAP[k] in obj)}
 
     def _content(self, content):
@@ -840,6 +866,9 @@ class GoogleAIWrapper:
         else:
             if not self.api_key and not self.project_id:
                 self._get_access_token()  # ADC can provide the project
+                if not self.project_id:
+                    raise GoogleAIError("Vertex AI with OAuth credentials needs a project. Pass project_id=... "
+                                        "(or set GOOGLE_CLOUD_PROJECT). Only API keys can use express mode.")
             if self.project_id:
                 location = location or self.location or 'global'
                 path = f"projects/{self.project_id}/locations/{location}/{path}"
@@ -885,7 +914,8 @@ class GoogleAIWrapper:
     def _get_access_token(self):
         token = self._access_token() if callable(self._access_token) else self._access_token
         if token:
-            return token
+            self._last_token = str(token).strip()
+            return self._last_token
         if not self.vertex:
             raise GoogleAIError("The Gemini Developer API needs an API key. Pass api_key, or use "
                                 "vertex=True with Application Default Credentials.")
@@ -914,7 +944,8 @@ class GoogleAIWrapper:
                 credentials.refresh(Request())
             except Exception as error:
                 raise GoogleAIError(self._redact(f"Could not refresh Google credentials: {error}")) from None
-        return credentials.token
+        self._last_token = str(credentials.token).strip()
+        return self._last_token
 
     def _secrets(self):
         values = [self.api_key]
@@ -923,7 +954,15 @@ class GoogleAIWrapper:
         token = getattr(self._credentials, 'token', None)
         if isinstance(token, str):
             values.append(token)
-        return [v for v in values if isinstance(v, str) and len(v) >= 6]
+        values.append(self._last_token)
+        secrets = []
+        for value in values:
+            if isinstance(value, str):
+                # raw, trimmed and repr-escaped forms (a key with a trailing newline appears as '...\\n')
+                for form in (value, value.strip(), repr(value)[1:-1], repr(value.strip())[1:-1]):
+                    if len(form) >= 6 and form not in secrets:
+                        secrets.append(form)
+        return sorted(secrets, key=len, reverse=True)
 
     def _redact(self, text):
         text = str(text)
@@ -1001,10 +1040,10 @@ class GoogleAIWrapper:
     def _iter_sse(response):
         """Parse a server-sent events stream into JSON objects."""
         buffer = []
-        for raw_line in response.iter_lines(decode_unicode=True):
+        for raw_line in response.iter_lines():
             if raw_line is None:
                 continue
-            line = raw_line.decode('utf-8') if isinstance(raw_line, bytes) else raw_line
+            line = raw_line.decode('utf-8', errors='replace') if isinstance(raw_line, (bytes, bytearray)) else raw_line
             if line.startswith('data:'):
                 buffer.append(line[5:].lstrip())
             elif not line.strip() and buffer:
@@ -1018,11 +1057,17 @@ class GoogleAIWrapper:
     # ------------------------------------------------------------------
     def _get_mime_type(self, file_path):
         """Get MIME type for a file path or URI."""
-        extension = os.path.splitext(file_path.split('?')[0])[1].lower()
+        return self._known_mime_type(file_path) or 'application/octet-stream'
+
+    def _known_mime_type(self, file_path):
+        """MIME type of a path or URI from its extension, or None when it is not a media/document type."""
+        extension = os.path.splitext(str(file_path).split('?')[0])[1].lower()
         if extension in self._MIME_TYPES:
             return self._MIME_TYPES[extension]
-        guessed = mimetypes.guess_type(file_path)[0]
-        return guessed or 'application/octet-stream'
+        guessed = mimetypes.guess_type(str(file_path).split('?')[0])[0]
+        if guessed and (guessed.split('/')[0] in ('image', 'audio', 'video', 'text') or guessed == 'application/pdf'):
+            return guessed
+        return None
 
     def media_part(self, source=None, mime_type=None, *, data=None, path=None, uri=None, video_metadata=None):
         """
@@ -1035,6 +1080,10 @@ class GoogleAIWrapper:
             return source
         if isinstance(source, tuple):
             source, mime_type = source[0], (source[1] if len(source) > 1 else mime_type)
+        if isinstance(source, os.PathLike):
+            source = os.fspath(source)
+        if isinstance(source, memoryview):
+            source = source.tobytes()
         if isinstance(source, (bytes, bytearray)):
             data = source
         elif isinstance(source, str):
@@ -1051,7 +1100,10 @@ class GoogleAIWrapper:
         if uri:
             if not mime_type:
                 is_youtube = 'youtube.com' in uri or 'youtu.be' in uri
-                mime_type = 'video/mp4' if is_youtube else self._get_mime_type(uri)
+                mime_type = 'video/mp4' if is_youtube else self._known_mime_type(uri)
+            if not mime_type:
+                raise ValueError(f"Could not tell the file type of {uri[:80]}; pass mime_type "
+                                 "(for a Files API URI use get_file(name)['mimeType']).")
             part = {'fileData': {'mimeType': mime_type, 'fileUri': uri}}
         elif data is not None:
             if isinstance(data, (bytes, bytearray)):
@@ -1115,6 +1167,15 @@ class GoogleAIWrapper:
         parts = ((candidates[0] or {}).get('content') or {}).get('parts') or []
         return "".join(p.get('text', '') for p in parts
                        if isinstance(p, dict) and (include_thoughts or not p.get('thought')))
+
+    @staticmethod
+    def extract_finish_reason(response):
+        """finishReason of the first candidate (e.g. STOP, MAX_TOKENS, SAFETY, RECITATION), or the prompt
+        blockReason when the prompt was blocked, or None."""
+        candidates = (response or {}).get('candidates') or []
+        if candidates:
+            return (candidates[0] or {}).get('finishReason')
+        return ((response or {}).get('promptFeedback') or {}).get('blockReason')
 
     @staticmethod
     def extract_function_calls(response):
@@ -1188,11 +1249,28 @@ class GoogleAIWrapper:
         return buffer.getvalue()
 
     @staticmethod
+    def _fix_wav_sizes(raw):
+        """Correct the RIFF and data chunk sizes when the header claims more audio than is present."""
+        position = raw.find(b'data', 12)
+        if raw[8:12] != b'WAVE' or position < 0 or position + 8 > len(raw):
+            return raw
+        actual = len(raw) - (position + 8)
+        declared = int.from_bytes(raw[position + 4:position + 8], 'little')
+        if declared <= actual:
+            return raw
+        fixed = bytearray(raw)
+        fixed[4:8] = (len(raw) - 8).to_bytes(4, 'little')
+        fixed[position + 4:position + 8] = actual.to_bytes(4, 'little')
+        return bytes(fixed)
+
+    @staticmethod
     def audio_to_wav(audio):
         """Return WAV bytes for an item from extract_audio (raw L16 PCM is wrapped, WAV is returned as is)."""
         raw = base64.b64decode(audio['data']) if isinstance(audio.get('data'), str) else audio.get('data')
         mime = (audio.get('mime_type') or '').lower()
-        if raw[:4] == b'RIFF' or 'wav' in mime:
+        if raw[:4] == b'RIFF':
+            return GoogleAIWrapper._fix_wav_sizes(raw)
+        if 'wav' in mime:
             return raw
         if 'l16' in mime or 'pcm' in mime:
             match = re.search(r'rate=(\d+)', mime)
@@ -1228,9 +1306,15 @@ class GoogleAIWrapper:
                         yield line
             else:
                 for chunk in self._iter_sse(response):
+                    if isinstance(chunk, dict) and isinstance(chunk.get('error'), dict):
+                        error = chunk['error']
+                        raise GoogleAIError(self._redact(f"Gemini stream error: {json.dumps(error)}"),
+                                            status_code=error.get('code'), details=self._redact_obj(chunk))
                     yield self._snake_alias(chunk)
         except requests.exceptions.RequestException as error:
             raise self._api_error('Gemini stream error', error) from None
+        except ValueError:
+            raise GoogleAIError("Gemini stream error: could not parse a stream chunk") from None
         finally:
             response.close()
 
@@ -1304,9 +1388,12 @@ class GoogleAIWrapper:
 
     def count_tokens(self, params, model=None):
         """Count the tokens of a request body or a prompt string."""
-        model = model or self._default_model('text')
         body = self._prepare_body(params)
-        if not self.vertex:
+        body_model = body.pop('model', None) if isinstance(body, dict) else None
+        model = model or body_model or self._default_model('text')
+        if self.vertex:
+            body = {k: body[k] for k in ('contents', 'systemInstruction', 'tools', 'generationConfig') if k in body}
+        else:
             # The Developer API takes extra request fields only inside generateContentRequest.
             extra = {k: body.pop(k) for k in ('systemInstruction', 'tools', 'generationConfig', 'toolConfig',
                                               'safetySettings', 'cachedContent') if k in body}
@@ -1437,6 +1524,8 @@ class GoogleAIWrapper:
         (e.g. {"imageConfig": {"aspectRatio": "16:9"}}).
         """
         model = model_override or self._default_model('image_generation')
+        if images is not None and not isinstance(images, (list, tuple)):
+            images = [images]
 
         default_config = {
             "responseModalities": ["TEXT", "IMAGE"]
@@ -1460,24 +1549,58 @@ class GoogleAIWrapper:
             images = [images]
         return self.generate_image(prompt, config_params, model_override, images=images)
 
-    def _imagen_image(self, image, mime_type=None):
+    @staticmethod
+    def _sniff_image_mime(data):
+        if data[:3] == b'\xff\xd8\xff':
+            return 'image/jpeg'
+        if data[:8] == b'\x89PNG\r\n\x1a\n':
+            return 'image/png'
+        if data[:4] == b'RIFF' and data[8:12] == b'WEBP':
+            return 'image/webp'
+        return None
+
+    def _imagen_image(self, image, mime_type=None, default_mime=None):
+        """Image object for Imagen / Veo requests: bytes, a path, a gs:// URI, base64 text or a dict."""
         if isinstance(image, dict):
             return image
-        if isinstance(image, (bytes, bytearray)):
-            result = {'bytesBase64Encoded': base64.b64encode(bytes(image)).decode('utf-8')}
+        if isinstance(image, os.PathLike):
+            image = os.fspath(image)
+        if isinstance(image, (bytes, bytearray, memoryview)):
+            data = bytes(image)
+            result = {'bytesBase64Encoded': base64.b64encode(data).decode('utf-8')}
+            mime_type = mime_type or self._sniff_image_mime(data)
         elif isinstance(image, str) and image.startswith('gs://'):
             result = {'gcsUri': image}
+            mime_type = mime_type or self._known_mime_type(image)
+        elif isinstance(image, str) and image.startswith(('http://', 'https://')):
+            raise ValueError("Imagen and Veo take image bytes, a local path or a gs:// URI, not an http(s) URL.")
         elif isinstance(image, str) and os.path.exists(image):
             with open(image, 'rb') as file:
-                result = {'bytesBase64Encoded': base64.b64encode(file.read()).decode('utf-8')}
-            mime_type = mime_type or self._get_mime_type(image)
+                data = file.read()
+            result = {'bytesBase64Encoded': base64.b64encode(data).decode('utf-8')}
+            mime_type = mime_type or self._known_mime_type(image) or self._sniff_image_mime(data)
         elif isinstance(image, str):
-            result = {'bytesBase64Encoded': image}  # already base64
+            try:
+                base64.b64decode(image, validate=True)
+            except (binascii.Error, ValueError):
+                raise ValueError(f"Not an existing file path, a gs:// URI or base64 image data: {image[:60]}") from None
+            result = {'bytesBase64Encoded': image}
         else:
             raise ValueError("image must be bytes, a path, a gs:// URI, base64 text or a dict")
+        mime_type = mime_type or default_mime
         if mime_type:
             result['mimeType'] = mime_type
         return result
+
+    def _imagen_model(self, model, kind):
+        if model:
+            return model
+        default = self.models.get(kind)
+        if not default:
+            raise ValueError("Google retired the Imagen models on 2026-06-30 (they return 404 NOT_FOUND). Use "
+                             "generate_image / edit_image with a Gemini image model, or pass model= for an "
+                             "Imagen model your project can still call.")
+        return default
 
     def imagen_generate_images(self, prompt, number_of_images=1, model=None, *, aspect_ratio=None,
                                negative_prompt=None, parameters=None):
@@ -1490,7 +1613,7 @@ class GoogleAIWrapper:
         if parameters:
             request_parameters.update(parameters)
         body = {'instances': [{'prompt': prompt}], 'parameters': request_parameters}
-        url = self._model_url(model or self._default_model('imagen'), 'predict', self._location_for('imagen'))
+        url = self._model_url(self._imagen_model(model, 'imagen'), 'predict', self._location_for('imagen'))
         return self._request_json('POST', url, body, alias=False, error_prefix='Imagen error')
 
     def imagen_edit_image(self, prompt, image, mask=None, *, edit_mode=None, mask_mode=None, model=None,
@@ -1514,7 +1637,7 @@ class GoogleAIWrapper:
         if parameters:
             request_parameters.update(parameters)
         body = {'instances': [{'prompt': prompt, 'referenceImages': references}], 'parameters': request_parameters}
-        url = self._model_url(model or self._default_model('imagen_edit'), 'predict', self._location_for('imagen'))
+        url = self._model_url(self._imagen_model(model, 'imagen_edit'), 'predict', self._location_for('imagen'))
         return self._request_json('POST', url, body, alias=False, error_prefix='Imagen edit error')
 
     def imagen_upscale_image(self, image, upscale_factor='x2', model=None, *, parameters=None):
@@ -1524,7 +1647,7 @@ class GoogleAIWrapper:
             request_parameters.update(parameters)
         body = {'instances': [{'prompt': 'Upscale the image', 'image': self._imagen_image(image)}],
                 'parameters': request_parameters}
-        url = self._model_url(model or self._default_model('imagen_upscale'), 'predict', self._location_for('imagen'))
+        url = self._model_url(self._imagen_model(model, 'imagen_upscale'), 'predict', self._location_for('imagen'))
         return self._request_json('POST', url, body, alias=False, error_prefix='Imagen upscale error')
 
     # ------------------------------------------------------------------
@@ -1542,9 +1665,9 @@ class GoogleAIWrapper:
         """
         instance = {'prompt': prompt}
         if image is not None:
-            instance['image'] = self._imagen_image(image, None if isinstance(image, dict) else 'image/png')
+            instance['image'] = self._imagen_image(image, default_mime='image/png')
         if last_frame is not None:
-            instance['lastFrame'] = self._imagen_image(last_frame, None if isinstance(last_frame, dict) else 'image/png')
+            instance['lastFrame'] = self._imagen_image(last_frame, default_mime='image/png')
         parameters = {'aspectRatio': '16:9'}
         if config_params:
             parameters.update(config_params)
@@ -1562,7 +1685,7 @@ class GoogleAIWrapper:
                               else config['url']['gemini']['models']['video_generation'])
             url = self._vertex_project_url(project, location, f"{self._vertex_model_path(model)}:predictLongRunning")
         else:
-            model = model or self._default_model('video_generation')
+            model = model or self._default_model('video_generation_developer')
             url = self._model_url(model, 'predictLongRunning')
         return self._request_json('POST', url, body, alias=False, error_prefix='Veo Video Generation error')
 
@@ -1579,7 +1702,7 @@ class GoogleAIWrapper:
                                       error_prefix='Video status check error')
         if self.vertex:
             raise ValueError("Vertex AI operation names start with 'projects/'.")
-        return self._request_json('GET', f"{self._dev_api_base}/{operation_name}", alias=False,
+        return self._request_json('GET', f"{self.base_url or self._dev_api_base}/{operation_name}", alias=False,
                                   error_prefix='Video status check error')
 
     def check_video_generation_status(self, operation_name, project_id=None):
@@ -1600,11 +1723,34 @@ class GoogleAIWrapper:
 
         raise TimeoutError(f"Video generation did not complete within {max_wait_time} seconds")
 
+    def _is_google_api_host(self, url):
+        from urllib.parse import urlparse
+        host = (urlparse(url).hostname or '').lower()
+        if self.base_url and host == (urlparse(self.base_url).hostname or '').lower():
+            return True
+        return bool(self._GOOGLE_API_HOST.search(host))
+
     def download_media(self, uri):
-        """Download a generated file from an https URI (e.g. a Developer API Veo video) with the wrapper auth."""
-        response = self._request('GET', uri, params={'alt': 'media'} if 'alt=' not in uri else None,
-                                 error_prefix='Download error')
-        return response.content
+        """
+        Download a generated file from an https URI (e.g. a Developer API Veo video). The wrapper
+        credentials are sent only to Google API hosts; redirects to other hosts get no credentials.
+        """
+        if not uri.startswith('https://'):
+            raise ValueError("download_media takes an https:// URI")
+        url, params = uri, ({'alt': 'media'} if 'alt=' not in uri else None)
+        for _ in range(5):
+            headers = self._auth_headers() if self._is_google_api_host(url) else {}
+            try:
+                response = self.session.get(url, headers=headers, params=params, timeout=self.timeout,
+                                            allow_redirects=False)
+                if response.status_code in (301, 302, 303, 307, 308) and response.headers.get('Location'):
+                    url, params = response.headers['Location'], None
+                    continue
+                response.raise_for_status()
+                return response.content
+            except requests.exceptions.RequestException as error:
+                raise self._api_error('Download error', error) from None
+        raise GoogleAIError("Download error: too many redirects")
 
     # ------------------------------------------------------------------
     # Music (Lyria) and speech (Gemini TTS)
@@ -1702,13 +1848,46 @@ class GoogleAIWrapper:
         parts = (content or {}).get('parts') or []
         return "\n".join(p.get('text', '') for p in parts if isinstance(p, dict) and p.get('text'))
 
+    @staticmethod
+    def _batches(texts, max_count, max_chars):
+        """Split texts into batches by count and by an approximate size budget."""
+        batch, size = [], 0
+        for text in texts:
+            if batch and (len(batch) >= max_count or size + len(text) > max_chars):
+                yield batch
+                batch, size = [], 0
+            batch.append(text)
+            size += len(text)
+        if batch:
+            yield batch
+
     def _vertex_embed(self, model_id, texts, task_type=None, title=None, output_dimensionality=None):
-        """Vertex AI embeddings through :predict. gemini-embedding-001 takes one input per request."""
+        """
+        Vertex AI embeddings. gemini-embedding-001 and text-embedding-* use :predict (gemini-embedding-001
+        takes one input per request; others up to 250 inputs and about 20k tokens). Newer Gemini embedding
+        models (e.g. gemini-embedding-2) use :embedContent, one input per request.
+        """
         vectors = []
-        batch_size = 1 if model_id.startswith('gemini-embedding') else 250
-        for start in range(0, len(texts), batch_size):
+        if 'gemini' in model_id and model_id != 'gemini-embedding-001':
+            for text in texts:
+                body = {'content': {'role': 'user', 'parts': [{'text': text}]}}
+                config_values = {}
+                if task_type:
+                    config_values['taskType'] = task_type
+                if title:
+                    config_values['title'] = title
+                if output_dimensionality:
+                    config_values['outputDimensionality'] = output_dimensionality
+                if config_values:
+                    body['embedContentConfig'] = config_values
+                data = self._request_json('POST', self._model_url(model_id, 'embedContent'), body, alias=False,
+                                          error_prefix='Gemini API error')
+                vectors.append((data.get('embedding') or {}).get('values', []))
+            return vectors
+        max_count = 1 if model_id.startswith('gemini-embedding') else 250
+        for batch in self._batches(texts, max_count, 50000):
             instances = []
-            for text in texts[start:start + batch_size]:
+            for text in batch:
                 instance = {'content': text}
                 if task_type:
                     instance['task_type'] = task_type
@@ -1746,9 +1925,9 @@ class GoogleAIWrapper:
         return self._request_json('POST', self._model_url(model_id, 'embedContent'), self._camelize(params),
                                   error_prefix='Gemini API error')
 
-    def get_batch_embeddings(self, params):
+    def get_batch_embeddings(self, params, model=None):
         """Get batch embeddings for multiple texts. Returns [{'values': [...]}, ...]."""
-        model = self._default_model('embedding')
+        model = model or self._default_model('embedding')
 
         if self.vertex:
             requests_list = params.get('requests', []) if isinstance(params, dict) else []
@@ -1779,19 +1958,22 @@ class GoogleAIWrapper:
         model_id = (model or self._default_model('embedding')).split('/')[-1]
         if self.vertex:
             return self._vertex_embed(model_id, list(texts), task_type, title, output_dimensionality)
-        requests_list = []
-        for text in texts:
-            request = {'model': f'models/{model_id}', 'content': {'parts': [{'text': text}]}}
-            if task_type:
-                request['taskType'] = task_type
-            if title:
-                request['title'] = title
-            if output_dimensionality:
-                request['outputDimensionality'] = output_dimensionality
-            requests_list.append(request)
-        data = self._request_json('POST', self._model_url(model_id, 'batchEmbedContents'),
-                                  {'requests': requests_list}, alias=False, error_prefix='Gemini API error')
-        return [item.get('values', []) for item in data.get('embeddings', [])]
+        vectors = []
+        for batch in self._batches(list(texts), 100, 10 ** 9):  # batchEmbedContents takes at most 100 requests
+            requests_list = []
+            for text in batch:
+                request = {'model': f'models/{model_id}', 'content': {'parts': [{'text': text}]}}
+                if task_type:
+                    request['taskType'] = task_type
+                if title:
+                    request['title'] = title
+                if output_dimensionality:
+                    request['outputDimensionality'] = output_dimensionality
+                requests_list.append(request)
+            data = self._request_json('POST', self._model_url(model_id, 'batchEmbedContents'),
+                                      {'requests': requests_list}, alias=False, error_prefix='Gemini API error')
+            vectors.extend(item.get('values', []) for item in data.get('embeddings', []))
+        return vectors
 
     # ------------------------------------------------------------------
     # Files API (Gemini Developer API only)
@@ -1846,7 +2028,8 @@ class GoogleAIWrapper:
     def list_files(self):
         """List uploaded files"""
         self._developer_api_only("The Files API")
-        return self._request_json('GET', self._dev_files_base, alias=False, error_prefix='List files error')
+        url = f"{self.base_url}/files" if self.base_url else self._dev_files_base
+        return self._request_json('GET', url, alias=False, error_prefix='List files error')
 
     def get_file(self, file_name):
         """Get the metadata (state, uri) of an uploaded file ('files/<id>' or '<id>')."""
@@ -1860,6 +2043,8 @@ class GoogleAIWrapper:
         return response.json() if response.content else {"status": "deleted"}
 
     def _file_url(self, file_name):
+        if self.base_url:
+            return f"{self.base_url}/{file_name if file_name.startswith('files/') else 'files/' + file_name}"
         if file_name.startswith('files/'):
             return f"{self._dev_api_base}/{file_name}"
         return f"{self._dev_files_base}/{file_name}"
@@ -1899,9 +2084,10 @@ class GoogleAIWrapper:
             location = location or self.location or 'global'
             path = f"cachedContents/{name.split('/')[-1]}" if name else 'cachedContents'
             return self._vertex_project_url(project, location, path)
+        root = self.base_url or self._dev_api_base
         if name:
-            return f"{self._dev_api_base}/{name if name.startswith('cachedContents/') else 'cachedContents/' + name}"
-        return f"{self._dev_api_base}/cachedContents"
+            return f"{root}/{name if name.startswith('cachedContents/') else 'cachedContents/' + name}"
+        return f"{root}/cachedContents"
 
     def create_cached_content(self, model, contents, *, system_instruction=None, ttl='3600s', display_name=None,
                               tools=None, tool_config=None, location=None):
@@ -1994,7 +2180,9 @@ class GoogleAIWrapper:
         response = self._request('POST', url, body, params={'alt': 'sse'}, stream=True,
                                  error_prefix='Agent Engine error')
         try:
-            for line in response.iter_lines(decode_unicode=True):
+            for raw_line in response.iter_lines():
+                line = (raw_line.decode('utf-8', errors='replace') if isinstance(raw_line, (bytes, bytearray))
+                        else raw_line)
                 if not line:
                     continue
                 if line.startswith('data:'):
@@ -2045,12 +2233,17 @@ class GoogleAIWrapper:
         generation_config.setdefault('responseModalities', ['AUDIO'])
 
         async def _open():
-            try:
-                return await websockets.connect(url, additional_headers=headers, max_size=None,
-                                                open_timeout=self.timeout)
-            except TypeError:
-                return await websockets.connect(url, extra_headers=headers, max_size=None,
-                                                open_timeout=self.timeout)
+            # websockets >= 14 takes additional_headers, older versions extra_headers. The dedicated
+            # logger keeps handshake headers (credentials) out of DEBUG logs.
+            attempts = [{'additional_headers': headers, 'logger': _LIVE_LOGGER},
+                        {'extra_headers': headers, 'logger': _LIVE_LOGGER},
+                        {'additional_headers': headers}, {'extra_headers': headers}]
+            for index, extra in enumerate(attempts):
+                try:
+                    return await websockets.connect(url, max_size=None, open_timeout=self.timeout, **extra)
+                except TypeError:
+                    if index == len(attempts) - 1:
+                        raise
 
         try:
             websocket = await _open()
@@ -2115,13 +2308,13 @@ class GoogleAIChatSession:
         user_content = self._user_content(message, media, parts)
         response = self.wrapper.generate_content(self._body(user_content), model=self.model)
         self.last_response = response
-        self.history.append(user_content)
         candidates = response.get('candidates') or []
         model_content = (candidates[0] or {}).get('content') if candidates else None
         if model_content and model_content.get('parts'):
+            # A blocked or empty reply leaves the history unchanged, so the next turn is not blocked too.
             model_content = self.wrapper._unalias(model_content)
             model_content.setdefault('role', 'model')
-            self.history.append(model_content)
+            self.history.extend([user_content, model_content])
         return response
 
     def send_text(self, message=None, media=None):
@@ -2145,9 +2338,8 @@ class GoogleAIChatSession:
             text = GoogleAIWrapper.extract_text(chunk)
             if text:
                 yield text
-        self.history.append(user_content)
         if parts:
-            self.history.append({'role': 'model', 'parts': self._merge_text_parts(parts)})
+            self.history.extend([user_content, {'role': 'model', 'parts': self._merge_text_parts(parts)}])
 
     @staticmethod
     def _merge_text_parts(parts):

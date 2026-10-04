@@ -27,21 +27,67 @@ class GeminiAIWrapper:
             DeprecationWarning,
             stacklevel=2,
         )
-        self.API_BASE_URL = config['url']['gemini']['base']
-        self.UPLOAD_BASE_URL = config['url']['gemini']['upload_base']
-        self.FILES_BASE_URL = config['url']['gemini']['files_base']
-        self.VERTEX_BASE_URL = config['url']['gemini']['vertex_base']
-        self.timeout = timeout
-        self.session = requests.Session()
-        self.session.headers.update({
+        session = requests.Session()
+        session.headers.update({
             'Content-Type': 'application/json'
         })
-        self.API_KEY = api_key
-        self.models = config['url']['gemini']['models']
-        self.endpoints = config['url']['gemini']['endpoints']
         # Gemini Developer API unless Vertex options (vertex=True, project_id=...) are passed.
         google_options.setdefault('vertex', False)
-        self.google = GoogleAIWrapper(api_key, timeout=timeout, session=self.session, **google_options)
+        self.google = GoogleAIWrapper(api_key, timeout=timeout, session=session, **google_options)
+        self.VERTEX_BASE_URL = config['url']['gemini']['vertex_base']
+        self.models = config['url']['gemini']['models']
+        self.endpoints = config['url']['gemini']['endpoints']
+
+    # The old wrapper read these attributes on every call; they stay live by proxying to self.google.
+    @property
+    def session(self):
+        return self.google.session
+
+    @session.setter
+    def session(self, value):
+        self.google.session = value
+
+    @property
+    def timeout(self):
+        return self.google.timeout
+
+    @timeout.setter
+    def timeout(self, value):
+        self.google.timeout = value
+
+    @property
+    def API_KEY(self):
+        return self.google.api_key
+
+    @API_KEY.setter
+    def API_KEY(self, value):
+        self.google.api_key = value
+        self.google.headers['X-Goog-Api-Key'] = value
+
+    @property
+    def API_BASE_URL(self):
+        return self.google._dev_models_base
+
+    @API_BASE_URL.setter
+    def API_BASE_URL(self, value):
+        self.google._dev_models_base = value
+        self.google._dev_api_base = value[:-len('/models')] if value.endswith('/models') else value
+
+    @property
+    def UPLOAD_BASE_URL(self):
+        return self.google._dev_upload_base
+
+    @UPLOAD_BASE_URL.setter
+    def UPLOAD_BASE_URL(self, value):
+        self.google._dev_upload_base = value
+
+    @property
+    def FILES_BASE_URL(self):
+        return self.google._dev_files_base
+
+    @FILES_BASE_URL.setter
+    def FILES_BASE_URL(self, value):
+        self.google._dev_files_base = value
 
     _KEY_MAP = GoogleAIWrapper._KEY_MAP
     _REVERSE_KEY_MAP = GoogleAIWrapper._REVERSE_KEY_MAP
@@ -163,7 +209,7 @@ class GeminiAIWrapper:
 
     def get_batch_embeddings(self, params):
         """Get batch embeddings for multiple texts"""
-        return self.google.get_batch_embeddings(params)
+        return self.google.get_batch_embeddings(params, model=self._model('embedding'))
 
     def _get_mime_type(self, file_path):
         """Get MIME type for file"""

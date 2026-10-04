@@ -108,13 +108,14 @@ config = {
                 "vision": "gemini-2.5-flash",
                 "embedding": "gemini-embedding-001",
                 "image_generation": "gemini-2.5-flash-image",
-                "video_generation": "veo-2.0-generate-001",
+                # Vertex AI id (the old default veo-2.0-generate-001 returns 404 now)
+                "video_generation": "veo-3.1-fast-generate-001",
+                "video_generation_developer": "veo-3.1-fast-generate-preview",
                 "tts": "gemini-2.5-flash-preview-tts",
                 "tts_pro": "gemini-2.5-pro-preview-tts",
                 "legacy_text": "gemini-2.0-flash",
                 "legacy_vision": "gemini-2.0-flash",
                 # Used by the newer GoogleAIWrapper methods on the Gemini Developer API
-                "imagen": "imagen-4.0-generate-001",
                 "music": "lyria-3.5",
                 "live": "gemini-3.8-live"
             },
@@ -147,26 +148,21 @@ config = {
                     "vision": "gemini-3.8-flash",
                     "embedding": "gemini-embedding-001",
                     "image_generation": "gemini-3.1-flash-image",
-                    "imagen": "imagen-4.0-generate-001",
-                    "imagen_edit": "imagen-3.0-capability-001",
-                    "imagen_upscale": "imagen-4.0-upscale-preview",
                     "video_generation": "veo-3.1-fast-generate-001",
                     "tts": "gemini-2.5-flash-tts",
                     "tts_pro": "gemini-2.5-pro-tts",
                     "music": "lyria-002",
                     "live": "gemini-3.8-live"
                 },
-                # Model ids checked against the Agent Platform docs and an express-mode key (2026-10).
-                # Gemini 2.5 text models retire on 2026-10-20.
+                # Model ids checked against the Agent Platform docs and live calls (2026-10).
+                # Gemini 2.5 text models retire on 2026-10-20. Imagen models were retired on 2026-06-30
+                # (404 NOT_FOUND); use the Gemini image models instead.
                 "catalog": {
                     "text": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash",
                              "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview",
                              "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
                     "image": ["gemini-3.1-flash-image", "gemini-3.1-flash-lite-image", "gemini-3-pro-image",
                               "gemini-2.5-flash-image"],
-                    "imagen": ["imagen-4.0-generate-001", "imagen-4.0-fast-generate-001",
-                               "imagen-4.0-ultra-generate-001", "imagen-3.0-capability-001",
-                               "imagen-4.0-upscale-preview"],
                     "video": ["veo-3.1-generate-001", "veo-3.1-fast-generate-001", "veo-3.1-lite-generate-001"],
                     "tts": ["gemini-2.5-flash-tts", "gemini-2.5-pro-tts", "gemini-3.8-flash-tts",
                             "gemini-3.8-flash-lite-tts", "gemini-2.5-flash-lite-preview-tts"],

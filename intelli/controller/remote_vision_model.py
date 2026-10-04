@@ -52,9 +52,13 @@ class RemoteVisionModel:
     def call_gemini_vision(self, inputs):
         model_override = inputs.get("model")
         data = self.provider_wrapper.image_to_text_params(inputs, model_override=model_override)
-        return " ".join(
-            part["text"] for part in data["candidates"][0]["content"]["parts"] if "text" in part
-        )
+        candidates = data.get("candidates") or []
+        parts = ((candidates[0] or {}).get("content") or {}).get("parts") or [] if candidates else []
+        texts = [part["text"] for part in parts if "text" in part and not part.get("thought")]
+        if not texts:
+            reason = (candidates[0] or {}).get("finishReason") if candidates else data.get("promptFeedback")
+            raise Exception(f"Gemini returned no text for the image (reason: {reason})")
+        return " ".join(texts)
 
     def call_google_vision(self, inputs):
         # Read the image file
