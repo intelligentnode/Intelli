@@ -12,11 +12,13 @@
   "license": "Apache-2.0",
   "keywords": [
     "intelli",
+    "intellinode",
     "ai-agents",
     "multi-agent",
     "workflow",
     "diagram",
     "flows",
+    "llm chain",
     "python"
   ]
 }
