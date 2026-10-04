@@ -10,11 +10,21 @@
     {
       "name": "intelli-flows",
       "source": "./plugins/intelli-flows",
-      "description": "Teaches Claude Code to write, run, draw and explain Intelli flows and Vibe Agents in Python.",
+      "description": "Design, draw and run AI agent flows that mix providers (OpenAI, Anthropic, Gemini, AWS Bedrock, local models) and agent types (text, image, vision, speech, search, MCP) with the Intelli Python library.",
       "homepage": "https://www.intellinode.ai/docs/python",
       "repository": "https://github.com/intelligentnode/Intelli",
       "license": "Apache-2.0",
-      "keywords": ["intelli", "ai-agents", "flows", "python"],
+      "keywords": [
+        "intelli",
+        "intellinode",
+        "ai-agents",
+        "multi-agent",
+        "workflow",
+        "diagram",
+        "flows",
+        "llm chain",
+        "python"
+      ],
       "category": "development"
     }
   ]
