@@ -5,7 +5,7 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="2.1.0",
+    version="2.1.1",
     author="Intellinode",
     author_email="alex@intellinode.ai",
     description="Build AI agents and MCPs with Intellinode.",

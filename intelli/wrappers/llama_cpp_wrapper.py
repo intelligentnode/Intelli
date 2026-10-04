@@ -2,7 +2,6 @@ import os
 import logging
 import requests
 import importlib
-import numpy as np
 from typing import Optional, Dict, Union, List
 
 # Initial attempt to import
@@ -358,6 +357,14 @@ class IntelliLlamaCPPWrapper:
                         and len(emb) > 0
                         and isinstance(emb[0], list)
                     ):
+                        # numpy is needed for llama.cpp embeddings only
+                        try:
+                            import numpy as np
+                        except ImportError as e:
+                            print("Warning: numpy is required to average the llama.cpp token embeddings.")
+                            raise ImportError(
+                                "numpy is not installed. Install via:\n\n  pip install intelli[llamacpp]\n"
+                            ) from e
                         emb_array = np.array(emb)
                         avg_emb = emb_array.mean(axis=0).tolist()
                         return {"embedding": avg_emb}

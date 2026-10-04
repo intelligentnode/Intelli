@@ -1,6 +1,5 @@
 import os
 import tempfile
-import numpy as np
 
 
 class SpeechRecognitionInput:
@@ -110,6 +109,15 @@ class SpeechRecognitionInput:
         Get audio data for processing with local models.
         Enhanced to handle bytes data and file paths from flow tasks.
         """
+        # numpy is needed for local models only
+        try:
+            import numpy as np
+        except ImportError as e:
+            print("Warning: numpy is required to load audio for local speech recognition.")
+            raise ImportError(
+                "numpy is not installed. Install via:\n\n  pip install intelli[offline]\n"
+            ) from e
+
         # If we already have audio data as a numpy array, return it
         if self.audio_data is not None and not isinstance(self.audio_data, (bytes, bytearray)):
             # Assume it's already a numpy array
