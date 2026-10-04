@@ -2,6 +2,8 @@ from intelli.model.input.text_speech_input import Text2SpeechInput
 from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.elevenlabs_wrapper import ElevenLabsWrapper
+from intelli.wrappers.aws_wrapper import AWSWrapper
+from intelli.config import config
 
 # OpenAI voice and model names that Gemini TTS does not have (flow speech agents default to them).
 _OPENAI_VOICES = {'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer', 'verse'}
@@ -12,6 +14,7 @@ SupportedSpeechModels = {
     'OPENAI': 'openai',
     'ELEVENLABS': 'elevenlabs',
     'GEMINI': 'gemini',
+    'AWS': 'aws',
 }
 
 
@@ -42,6 +45,9 @@ class RemoteSpeechModel:
         elif key_type == SupportedSpeechModels['GEMINI']:
             # Vertex AI options (vertex, project_id, location) are read from options.
             self.gemini_wrapper = GoogleAIWrapper.from_options(key_value, self.options, timeout=self.timeout)
+        elif key_type == SupportedSpeechModels['AWS']:
+            # Amazon Polly needs IAM credentials (options or the AWS credential chain), not a Bedrock API key.
+            self.aws_wrapper = AWSWrapper.from_options(key_value, self.options, timeout=self.timeout)
         else:
             raise ValueError('Invalid provider name')
 
@@ -97,6 +103,14 @@ class RemoteSpeechModel:
                                 if mime.startswith('audio/'):
                                     return inline.get('data')
             return response
+
+        elif self.key_type == SupportedSpeechModels['AWS']:
+            params = input_params.get_aws_input()
+            if str(params.get('voice_id') or '').lower() in _OPENAI_VOICES | {''}:
+                speech_cfg = config['url']['aws']['speech']
+                male = getattr(input_params, 'gender', '') == 'MALE'
+                params['voice_id'] = speech_cfg['male_voice'] if male else speech_cfg['voice']
+            return self.aws_wrapper.synthesize_speech(params.pop('text'), **params)
         else:
             raise ValueError('The keyType is not supported')
 

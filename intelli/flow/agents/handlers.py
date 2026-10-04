@@ -33,7 +33,8 @@ class TextAgentHandler(AgentHandler):
         chat_input = ChatModelInput(self.mission, **f_params)
         api_key = custom_params.get("key")
         provider_lower = (self.provider or "").lower()
-        if not api_key and provider_lower not in {"vllm", "llamacpp", "keras"}:
+        # AWS can authenticate with IAM credentials from options or the AWS credential chain.
+        if not api_key and provider_lower not in {"vllm", "llamacpp", "keras", "aws"}:
             raise ValueError(f"API key is required for {self.provider} text generation")
 
         chatbot = Chatbot(api_key, self.provider, self.options)
@@ -59,7 +60,7 @@ class ImageAgentHandler(AgentHandler):
             prompt=self.mission + ": " + agent_input.desc, **f_params
         )
 
-        image_model = RemoteImageModel(custom_params["key"], self.provider, options=self.options)
+        image_model = RemoteImageModel(custom_params.get("key"), self.provider, options=self.options)
         result = image_model.generate_images(image_input)[0]
         return result
 
@@ -78,7 +79,7 @@ class VisionAgentHandler(AgentHandler):
             model=custom_params["model"],
         )
 
-        vision_model = RemoteVisionModel(custom_params["key"], self.provider, options=self.options)
+        vision_model = RemoteVisionModel(custom_params.get("key"), self.provider, options=self.options)
         result = vision_model.image_to_text(vision_input)
         return result
 
@@ -120,7 +121,7 @@ class SpeechAgentHandler(AgentHandler):
 
         # Create speech model
         api_key = custom_params.get("key")
-        if not api_key:
+        if not api_key and self.provider.lower() != "aws":
             raise ValueError(f"API key is required for {self.provider} speech synthesis")
 
         speech_model = RemoteSpeechModel(key_value=api_key, provider=self.provider.lower(), options=self.options)
@@ -244,7 +245,7 @@ class EmbedAgentHandler(AgentHandler):
 
         # Create embed model
         embed_model = RemoteEmbedModel(
-            api_key=custom_params["key"],
+            api_key=custom_params.get("key"),
             provider_name=self.provider,
             options=self.options,
         )
@@ -301,10 +302,26 @@ class SearchAgentHandler(AgentHandler):
                 else results
             )
 
+        # ------------------------------------------------------------
+        # Provider 3: Amazon Bedrock Knowledge Base retrieval
+        # ------------------------------------------------------------
+        if custom_params.get("knowledge_base_id"):
+            from intelli.wrappers.aws_wrapper import AWSWrapper
+
+            # Knowledge Bases need IAM credentials (options or the AWS credential chain).
+            wrapper = AWSWrapper.from_options(custom_params.get("key"), self.options)
+            response = wrapper.retrieve(
+                custom_params["knowledge_base_id"], agent_input.desc,
+                number_of_results=custom_params.get("k", 5),
+            )
+            as_text = bool(custom_params.get("as_text", True))
+            return AWSWrapper.retrieval_to_text(response) if as_text else response
+
         raise ValueError(
             "SearchAgent missing credentials. Provide either:\n"
             "- 'one_key' (Intellicloud semantic search)\n"
-            "- OR ('google_api_key' and 'google_cse_id') for Google web search"
+            "- OR ('google_api_key' and 'google_cse_id') for Google web search\n"
+            "- OR 'knowledge_base_id' for an Amazon Bedrock Knowledge Base"
         )
 
 

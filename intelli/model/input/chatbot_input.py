@@ -242,6 +242,35 @@ class ChatModelInput:
 
         return params
 
+    def get_aws_input(self):
+        """Amazon Bedrock Converse API input (the same request works for every Bedrock model)."""
+        system = []
+        messages = []
+        for msg in self.messages:
+            if msg.role == 'system':
+                if msg.content:
+                    system.append({'text': msg.content})
+            else:
+                messages.append({'role': msg.role, 'content': [{'text': msg.content}]})
+
+        # Claude models that removed sampling parameters reject temperature on Bedrock too.
+        send_temperature = self.temperature is not None and not claude_rejects_sampling_params(self.model)
+        params = {
+            # None means "use the configured default"; AWSWrapper moves the model into the URL.
+            'model': self.model,
+            'messages': messages,
+            **({'system': system} if system else {}),
+            **({'temperature': self.temperature} if send_temperature else {}),
+            **({'max_tokens': self.max_tokens} if self.max_tokens is not None else {}),
+            **self.options
+        }
+        # Tools may be in OpenAI, Anthropic or Bedrock format; AWSWrapper converts them.
+        if self.tools and 'tools' not in params:
+            params['tools'] = self.tools
+        if self.tool_choice is not None:
+            params.setdefault('tool_choice', self.tool_choice)
+        return params
+
     def get_keras_input(self):
         instructions = ""
         if any(msg.role == 'system' for msg in self.messages):

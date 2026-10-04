@@ -1,6 +1,7 @@
 from intelli.model.input.vision_input import VisionModelInput
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
+from intelli.wrappers.aws_wrapper import AWSWrapper
 
 
 class RemoteVisionModel:
@@ -8,6 +9,7 @@ class RemoteVisionModel:
         "openai": OpenAIWrapper,
         "gemini": GoogleAIWrapper,
         "google": GoogleAIWrapper,
+        "aws": AWSWrapper,
     }
 
     def __init__(self, api_key, provider="openai", options=None):
@@ -20,6 +22,9 @@ class RemoteVisionModel:
             if provider == "gemini":
                 # Vertex AI options (vertex, project_id, location) are read from options.
                 self.provider_wrapper = GoogleAIWrapper.from_options(api_key, self.options, timeout=self.timeout)
+            elif provider == "aws":
+                # Region and IAM credentials (when no Bedrock API key is used) are read from options.
+                self.provider_wrapper = AWSWrapper.from_options(api_key, self.options, timeout=self.timeout)
             else:
                 self.provider_wrapper = self.supported_vision_models[provider](api_key, timeout=self.timeout)
         else:
@@ -44,6 +49,8 @@ class RemoteVisionModel:
             return self.call_gemini_vision(inputs)
         elif self.provider == "google":
             return self.call_google_vision(inputs)
+        elif self.provider == "aws":
+            return self.call_aws_vision(inputs)
 
     def call_openai_vision(self, inputs):
         data = self.provider_wrapper.image_to_text(inputs)
@@ -59,6 +66,15 @@ class RemoteVisionModel:
             reason = (candidates[0] or {}).get("finishReason") if candidates else data.get("promptFeedback")
             raise Exception(f"Gemini returned no text for the image (reason: {reason})")
         return " ".join(texts)
+
+    def call_aws_vision(self, inputs):
+        data = self.provider_wrapper.image_to_text(
+            inputs.get("content", ""), inputs["image_data"], inputs.get("extension") or "png",
+            inputs.get("model"), max_tokens=inputs.get("max_tokens"))
+        text = AWSWrapper.extract_text(data)
+        if not text:
+            raise Exception(f"AWS returned no text for the image (reason: {data.get('stopReason')})")
+        return text
 
     def call_google_vision(self, inputs):
         # Read the image file

@@ -9,6 +9,7 @@ from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
+from intelli.wrappers.aws_wrapper import AWSWrapper
 from intelli.wrappers.keras_wrapper import KerasWrapper
 from intelli.wrappers.nvidia_wrapper import NvidiaWrapper
 from intelli.wrappers.llama_cpp_wrapper import IntelliLlamaCPPWrapper
@@ -25,6 +26,7 @@ class ChatProvider(Enum):
     NVIDIA = "nvidia"
     LLAMACPP = "llamacpp"
     VLLM = "vllm"
+    AWS = "aws"
 
 
 class Chatbot:
@@ -100,6 +102,10 @@ class Chatbot:
             if not vllm_base_url:
                 raise ValueError("VLLM provider requires baseUrl in options")
             return VLLMWrapper(vllm_base_url, self.api_key, timeout=self.timeout)
+        elif self.provider == ChatProvider.AWS.value:
+            # api_key is a Bedrock API key (optional). IAM keys, region and profile come from
+            # options, for example {"region": "us-east-1", "access_key_id": ..., "secret_access_key": ...}.
+            return AWSWrapper.from_options(self.api_key, self.options, timeout=self.timeout)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -259,6 +265,23 @@ class Chatbot:
             texts = [block['text'] for block in content_blocks
                      if isinstance(block, dict) and 'text' in block]
         return texts
+
+    def _chat_aws(self, params):
+        # fallback_models (model params or Chatbot options) are tried in order when a model
+        # is throttled or not available.
+        fallback_models = params.pop("fallback_models", None) or self.options.get("fallback_models")
+        response = self.wrapper.converse(params, fallback_models=fallback_models)
+        if response.get("stopReason") == "tool_use":
+            tool_calls = AWSWrapper.extract_tool_calls(response)
+            if tool_calls:
+                return [{"type": "tool_response", "tool_calls": tool_calls}]
+        return [AWSWrapper.extract_text(response)]
+
+    def _stream_aws(self, params):
+        for event in self.wrapper.converse_stream(params):
+            text = ((event.get("contentBlockDelta") or {}).get("delta") or {}).get("text")
+            if text:
+                yield text
 
     def _chat_nvidia(self, params):
         result = self.wrapper.generate_text(params)

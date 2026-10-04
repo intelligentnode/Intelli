@@ -40,6 +40,8 @@ setup(
             "openai>=2.5.0",
         ],
         "computer": ["playwright>=1.40"],
+        # Optional: AWSWrapper calls AWS over REST; the SDK is only used to read profiles, SSO and IAM roles.
+        "aws": ["boto3>=1.34"],
         "azure-assistant": ["openai>=2.5.0,<3"],
         "azure-agent": [
             "azure-ai-projects>=2.0,<3",

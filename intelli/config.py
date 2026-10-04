@@ -181,6 +181,30 @@ config = {
                 "chirp": "chirp_3"
             }
         },
+        # AWS AI services (AWSWrapper): Amazon Bedrock, Bedrock Agents / AgentCore and Polly
+        "aws": {
+            "default_region": "us-east-1",
+            "endpoints": {
+                "bedrock-runtime": "https://bedrock-runtime.{region}.amazonaws.com",
+                "bedrock": "https://bedrock.{region}.amazonaws.com",
+                "bedrock-agent-runtime": "https://bedrock-agent-runtime.{region}.amazonaws.com",
+                "bedrock-agentcore": "https://bedrock-agentcore.{region}.amazonaws.com",
+                "polly": "https://polly.{region}.amazonaws.com"
+            },
+            "models": {
+                # {geo} is the cross-region inference profile prefix of the wrapper region (us, eu, apac)
+                "chat": "{geo}.amazon.nova-lite-v1:0",
+                "vision": "{geo}.amazon.nova-lite-v1:0",
+                "embed": "amazon.titan-embed-text-v2:0",
+                "image": "amazon.nova-canvas-v1:0",
+                "video": "amazon.nova-reel-v1:1"
+            },
+            "speech": {
+                "engine": "neural",
+                "voice": "Joanna",
+                "male_voice": "Matthew"
+            }
+        },
         "anthropic": {
             "base": "https://api.anthropic.com",
             "messages": "/v1/messages",
