@@ -1,5 +1,4 @@
 from intelli.model.input.vision_input import VisionModelInput
-from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 
@@ -7,7 +6,7 @@ from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 class RemoteVisionModel:
     supported_vision_models = {
         "openai": OpenAIWrapper,
-        "gemini": GeminiAIWrapper,
+        "gemini": GoogleAIWrapper,
         "google": GoogleAIWrapper,
     }
 
@@ -18,7 +17,11 @@ class RemoteVisionModel:
 
         if provider in self.supported_vision_models:
             self.provider = provider
-            self.provider_wrapper = self.supported_vision_models[provider](api_key, timeout=self.timeout)
+            if provider == "gemini":
+                # Vertex AI options (vertex, project_id, location) are read from options.
+                self.provider_wrapper = GoogleAIWrapper.from_options(api_key, self.options, timeout=self.timeout)
+            else:
+                self.provider_wrapper = self.supported_vision_models[provider](api_key, timeout=self.timeout)
         else:
             supported_models = ", ".join(self.supported_vision_models.keys())
             raise ValueError(
@@ -50,7 +53,7 @@ class RemoteVisionModel:
         model_override = inputs.get("model")
         data = self.provider_wrapper.image_to_text_params(inputs, model_override=model_override)
         return " ".join(
-            part["text"] for part in data["candidates"][0]["content"]["parts"]
+            part["text"] for part in data["candidates"][0]["content"]["parts"] if "text" in part
         )
 
     def call_google_vision(self, inputs):

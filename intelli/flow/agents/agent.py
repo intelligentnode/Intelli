@@ -155,7 +155,7 @@ class Agent(BasicAgent):
             prompt=self.mission + ": " + agent_input.desc, **f_params
         )
 
-        image_model = RemoteImageModel(custom_params["key"], self.provider)
+        image_model = RemoteImageModel(custom_params["key"], self.provider, options=self.options)
         result = image_model.generate_images(image_input)[0]
         return result
 
@@ -167,7 +167,7 @@ class Agent(BasicAgent):
             model=custom_params["model"],
         )
 
-        vision_model = RemoteVisionModel(custom_params["key"], self.provider)
+        vision_model = RemoteVisionModel(custom_params["key"], self.provider, options=self.options)
         result = vision_model.image_to_text(vision_input)
         return result
 
@@ -262,7 +262,7 @@ class Agent(BasicAgent):
 
         else:
             # For any other provider, just pass the provider as-is
-            speech_model = RemoteSpeechModel(key_value=api_key, provider=self.provider)
+            speech_model = RemoteSpeechModel(key_value=api_key, provider=self.provider, options=self.options)
 
         # Generate speech
         result = speech_model.generate_speech(speech_input)

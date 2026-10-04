@@ -4,7 +4,7 @@ from intelli.config import config
 from intelli.model.input.chatbot_input import ChatModelInput
 from intelli.utils.system_helper import SystemHelper
 from intelli.utils.model_helper import is_reasoning_model
-from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
+from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
@@ -70,7 +70,9 @@ class Chatbot:
         elif self.provider == ChatProvider.MISTRAL.value:
             return MistralAIWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.GEMINI.value:
-            return GeminiAIWrapper(self.api_key, timeout=self.timeout)
+            # Gemini Developer API by default; options such as {"vertex": True, "project_id": ...,
+            # "location": ...} select Vertex AI (Gemini Enterprise Agent Platform).
+            return GoogleAIWrapper.from_options(self.api_key, self.options, timeout=self.timeout)
         elif self.provider == ChatProvider.ANTHROPIC.value:
             return AnthropicWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.KERAS.value:
@@ -212,6 +214,15 @@ class Chatbot:
             # on a non-text finish reason - return "" rather than crashing.
             output.append("".join(p.get("text", "") for p in parts if isinstance(p, dict)))
         return output
+
+    def _stream_gemini(self, params):
+        model_override = params.pop("model", None)
+        if model_override in (None, "", "gemini"):
+            model_override = None
+        for chunk in self.wrapper.stream_generate_content(params, model_override=model_override):
+            text = GoogleAIWrapper.extract_text(chunk)
+            if text:
+                yield text
 
     def _chat_anthropic(self, params):
         response = self.wrapper.generate_text(params)

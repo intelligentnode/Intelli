@@ -1,14 +1,14 @@
 from intelli.model.input.image_input import ImageModelInput
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.stability_wrapper import StabilityAIWrapper
-from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
+from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 
 
 class RemoteImageModel:
     supported_image_models = {
         "openai": OpenAIWrapper,
         "stability": StabilityAIWrapper,
-        "gemini": GeminiAIWrapper,
+        "gemini": GoogleAIWrapper,
     }
 
     def __init__(self, api_key, provider="openai", options=None):
@@ -16,7 +16,11 @@ class RemoteImageModel:
             self.provider_name = provider
             self.options = options or {}
             self.timeout = self.options.get("timeout", 180)
-            self.provider = self.supported_image_models[provider](api_key, timeout=self.timeout)
+            if provider == "gemini":
+                # Vertex AI options (vertex, project_id, location) are read from options.
+                self.provider = GoogleAIWrapper.from_options(api_key, self.options, timeout=self.timeout)
+            else:
+                self.provider = self.supported_image_models[provider](api_key, timeout=self.timeout)
         else:
             supported_models = ", ".join(self.supported_image_models.keys())
             raise ValueError(f"The received provider {provider} not supported. Supported providers: {supported_models}")

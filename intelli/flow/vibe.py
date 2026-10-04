@@ -861,6 +861,8 @@ class VibeFlow:
             "key_value",
             "anthropic_key",
             "openai_key",
+            "access_token",
+            "vertex_api_key",
         }
 
         def _walk(obj):
