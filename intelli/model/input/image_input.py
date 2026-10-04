@@ -101,6 +101,20 @@ class ImageModelInput:
             
         return inputs
 
+    def get_aws_inputs(self):
+        """Get input parameters for Amazon Bedrock image generation (Nova Canvas, Titan, Stability)"""
+        inputs = {
+            "prompt": self.prompt,
+            "model": self.model,
+            "number_of_images": self.number_images,
+            "width": int(self.width) if str(self.width).isdigit() else None,
+            "height": int(self.height) if str(self.height).isdigit() else None,
+            "cfg_scale": self.diffusion_cfgScale,
+            # Nova Canvas and Titan know 'standard' and 'premium' only
+            "quality": self.quality if self.quality in ("standard", "premium") else None,
+        }
+        return {key: value for key, value in inputs.items() if value is not None}
+
     def set_default_values(self, provider):
         if provider == "openai":
             self.number_images = 1
@@ -115,5 +129,10 @@ class ImageModelInput:
             self.number_images = 1
             self.imageSize = '1024x1024'
             # Gemini uses default model from config
+        elif provider == "aws":
+            self.number_images = 1
+            self.height = 1024
+            self.width = 1024
+            # AWS uses default model from config
         else:
             raise ValueError(f"Invalid provider name: {provider}")

@@ -2,13 +2,19 @@ from intelli.model.input.text_speech_input import Text2SpeechInput
 from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.elevenlabs_wrapper import ElevenLabsWrapper
-from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
+from intelli.wrappers.aws_wrapper import AWSWrapper
+from intelli.config import config
+
+# OpenAI voice and model names that Gemini TTS does not have (flow speech agents default to them).
+_OPENAI_VOICES = {'alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'onyx', 'nova', 'sage', 'shimmer', 'verse'}
+_GEMINI_MODEL_PREFIXES = ('gemini', 'models/', 'publishers/', 'projects/')
 
 SupportedSpeechModels = {
     'GOOGLE': 'google',
     'OPENAI': 'openai',
     'ELEVENLABS': 'elevenlabs',
     'GEMINI': 'gemini',
+    'AWS': 'aws',
 }
 
 
@@ -37,7 +43,11 @@ class RemoteSpeechModel:
         elif key_type == SupportedSpeechModels['ELEVENLABS']:
             self.elevenlabs_wrapper = ElevenLabsWrapper(key_value, timeout=self.timeout)
         elif key_type == SupportedSpeechModels['GEMINI']:
-            self.gemini_wrapper = GeminiAIWrapper(key_value, timeout=self.timeout)
+            # Vertex AI options (vertex, project_id, location) are read from options.
+            self.gemini_wrapper = GoogleAIWrapper.from_options(key_value, self.options, timeout=self.timeout)
+        elif key_type == SupportedSpeechModels['AWS']:
+            # Amazon Polly needs IAM credentials (options or the AWS credential chain), not a Bedrock API key.
+            self.aws_wrapper = AWSWrapper.from_options(key_value, self.options, timeout=self.timeout)
         else:
             raise ValueError('Invalid provider name')
 
@@ -72,7 +82,12 @@ class RemoteSpeechModel:
             params = input_params.get_gemini_input()
             # Allow overriding the Gemini TTS model if provided on the input object.
             model_override = getattr(input_params, "model", None)
-            response = self.gemini_wrapper.generate_speech(
+            if model_override and not str(model_override).startswith(_GEMINI_MODEL_PREFIXES):
+                model_override = None  # e.g. the OpenAI default 'tts-1'
+            prebuilt = (params.get('voice_config') or {}).get('prebuilt_voice_config') or {}
+            if str(prebuilt.get('voice_name', '')).lower() in _OPENAI_VOICES:
+                prebuilt['voice_name'] = 'Puck' if getattr(input_params, 'gender', '') == 'MALE' else 'Kore'
+            response = self.gemini_wrapper.generate_gemini_speech(
                 params['text'],
                 params.get('voice_config'),
                 model_override=model_override
@@ -88,6 +103,14 @@ class RemoteSpeechModel:
                                 if mime.startswith('audio/'):
                                     return inline.get('data')
             return response
+
+        elif self.key_type == SupportedSpeechModels['AWS']:
+            params = input_params.get_aws_input()
+            if str(params.get('voice_id') or '').lower() in _OPENAI_VOICES | {''}:
+                speech_cfg = config['url']['aws']['speech']
+                male = getattr(input_params, 'gender', '') == 'MALE'
+                params['voice_id'] = speech_cfg['male_voice'] if male else speech_cfg['voice']
+            return self.aws_wrapper.synthesize_speech(params.pop('text'), **params)
         else:
             raise ValueError('The keyType is not supported')
 

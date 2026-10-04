@@ -136,7 +136,8 @@ class Agent(BasicAgent):
 
         api_key = custom_params.get("key")
         provider_lower = (self.provider or "").lower()
-        if not api_key and provider_lower not in {"vllm", "llamacpp", "keras"}:
+        # AWS can authenticate with IAM credentials from options or the AWS credential chain.
+        if not api_key and provider_lower not in {"vllm", "llamacpp", "keras", "aws"}:
             raise ValueError(f"API key is required for {self.provider} text generation")
 
         chatbot = Chatbot(api_key, self.provider, self.options)
@@ -155,7 +156,7 @@ class Agent(BasicAgent):
             prompt=self.mission + ": " + agent_input.desc, **f_params
         )
 
-        image_model = RemoteImageModel(custom_params["key"], self.provider)
+        image_model = RemoteImageModel(custom_params.get("key"), self.provider, options=self.options)
         result = image_model.generate_images(image_input)[0]
         return result
 
@@ -167,7 +168,7 @@ class Agent(BasicAgent):
             model=custom_params["model"],
         )
 
-        vision_model = RemoteVisionModel(custom_params["key"], self.provider)
+        vision_model = RemoteVisionModel(custom_params.get("key"), self.provider, options=self.options)
         result = vision_model.image_to_text(vision_input)
         return result
 
@@ -194,7 +195,7 @@ class Agent(BasicAgent):
 
         # Get the API key from custom params
         api_key = custom_params.get("key")
-        if not api_key:
+        if not api_key and self.provider.lower() != "aws":
             raise ValueError(
                 f"API key is required for {self.provider} speech synthesis"
             )
@@ -262,7 +263,7 @@ class Agent(BasicAgent):
 
         else:
             # For any other provider, just pass the provider as-is
-            speech_model = RemoteSpeechModel(key_value=api_key, provider=self.provider)
+            speech_model = RemoteSpeechModel(key_value=api_key, provider=self.provider, options=self.options)
 
         # Generate speech
         result = speech_model.generate_speech(speech_input)
@@ -384,7 +385,7 @@ class Agent(BasicAgent):
 
         # Create embed model
         embed_model = RemoteEmbedModel(
-            api_key=custom_params["key"],
+            api_key=custom_params.get("key"),
             provider_name=self.provider,
             options=self.options,
         )

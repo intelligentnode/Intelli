@@ -54,8 +54,9 @@ pytest -s intelli/test/integration/test_chatbot_cpp.py
 python -m unittest intelli.test.integration.test_flow_sequence
 # map flow
 python -m unittest intelli.test.integration.test_flow_map
-# keras nlp
+# keras hub
 python -m unittest intelli.test.integration.test_keras_agent
+python -m unittest intelli.test.integration.test_keras_whisper
 # memory
 python -m unittest intelli.test.integration.test_flow_memory
 python -m unittest intelli.test.integration.test_flow_with_dbmemory

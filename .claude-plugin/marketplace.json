@@ -1,0 +1,21 @@
+{
+  "name": "intellinode",
+  "owner": {
+    "name": "IntelliNode"
+  },
+  "metadata": {
+    "description": "Claude Code plugins for building AI agent flows with Intelli."
+  },
+  "plugins": [
+    {
+      "name": "intelli-flows",
+      "source": "./plugins/intelli-flows",
+      "description": "Teaches Claude Code to write, run, draw and explain Intelli flows and Vibe Agents in Python.",
+      "homepage": "https://www.intellinode.ai/docs/python",
+      "repository": "https://github.com/intelligentnode/Intelli",
+      "license": "Apache-2.0",
+      "keywords": ["intelli", "ai-agents", "flows", "python"],
+      "category": "development"
+    }
+  ]
+}

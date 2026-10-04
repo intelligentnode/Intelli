@@ -1,14 +1,16 @@
 from intelli.model.input.image_input import ImageModelInput
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.stability_wrapper import StabilityAIWrapper
-from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
+from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
+from intelli.wrappers.aws_wrapper import AWSWrapper
 
 
 class RemoteImageModel:
     supported_image_models = {
         "openai": OpenAIWrapper,
         "stability": StabilityAIWrapper,
-        "gemini": GeminiAIWrapper,
+        "gemini": GoogleAIWrapper,
+        "aws": AWSWrapper,
     }
 
     def __init__(self, api_key, provider="openai", options=None):
@@ -16,7 +18,14 @@ class RemoteImageModel:
             self.provider_name = provider
             self.options = options or {}
             self.timeout = self.options.get("timeout", 180)
-            self.provider = self.supported_image_models[provider](api_key, timeout=self.timeout)
+            if provider == "gemini":
+                # Vertex AI options (vertex, project_id, location) are read from options.
+                self.provider = GoogleAIWrapper.from_options(api_key, self.options, timeout=self.timeout)
+            elif provider == "aws":
+                # Region and IAM credentials (when no Bedrock API key is used) are read from options.
+                self.provider = AWSWrapper.from_options(api_key, self.options, timeout=self.timeout)
+            else:
+                self.provider = self.supported_image_models[provider](api_key, timeout=self.timeout)
         else:
             supported_models = ", ".join(self.supported_image_models.keys())
             raise ValueError(f"The received provider {provider} not supported. Supported providers: {supported_models}")
@@ -29,6 +38,8 @@ class RemoteImageModel:
                 inputs = image_input.get_gemini_inputs()
             elif self.provider_name == "openai":
                 inputs = image_input.get_openai_inputs()
+            elif self.provider_name == "aws":
+                inputs = image_input.get_aws_inputs()
             else:  # stability
                 inputs = image_input.get_stability_inputs()
         else:
@@ -55,6 +66,10 @@ class RemoteImageModel:
                                 if mime.startswith('image/'):
                                     images.append(inline.get('data'))
             return images
+        elif self.provider_name == "aws":
+            inputs = dict(inputs)
+            results = self.provider.generate_image(inputs.pop("prompt", ""), inputs.pop("model", None), **inputs)
+            return AWSWrapper.extract_images(results)
         elif self.provider_name == "openai":
             results = self.provider.generate_images(inputs)
             return [data['url'] if 'url' in data else data['b64_json'] for data in results['data']]

@@ -4,18 +4,21 @@ from intelli.wrappers.keras_wrapper import KerasWrapper
 from intelli.flow.types import AgentTypes
 
 class KerasAgent(BasicAgent):
-    def __init__(self, agent_type, provider="", mission="", model_params={}, options=None, log=False, external=False):
+    def __init__(self, agent_type, provider="", mission="", model_params=None, options=None, log=False, external=False):
         super().__init__()
         self.type = agent_type
         self.provider = provider
         self.mission = mission
-        self.model_params = model_params
+        self.model_params = model_params if model_params is not None else {}
         self.options = options if options is not None else {}
         self.log = log
         self.external = external
 
         if not external:
-            self.wrapper = KerasWrapper(self.model_params.get("model_name"), self.model_params)
+            model_name = self.model_params.get("model_name") or self.model_params.get("model")
+            if not model_name:
+                raise ValueError("Send the model_name in model_params, or initiate the agent with external flag.")
+            self.wrapper = KerasWrapper(model_name, self.model_params)
         else:
             self.wrapper = None
 
@@ -31,7 +34,7 @@ class KerasAgent(BasicAgent):
         if self.wrapper:
             self.wrapper.update_model_params(model_params)
 
-    def execute(self, agent_input: AgentInput, new_params={}):
+    def execute(self, agent_input: AgentInput, new_params=None):
         """
         Execute the Keras agent based on the agent type.
         Handles both text generation and speech recognition (whisper) models.
@@ -62,13 +65,15 @@ class KerasAgent(BasicAgent):
         if self.log:
             print("Call the model generate with input: ", model_input)
 
-        generated_output = self.wrapper.generate(model_input, max_length=max_length)
+        # optional generation controls
+        generate_params = {
+            key: custom_params[key]
+            for key in ("max_new_tokens", "temperature", "top_k", "top_p", "seed", "sampler")
+            if custom_params.get(key) is not None
+        }
 
-        # Clean up output if needed
-        if isinstance(generated_output, str) and generated_output.startswith(model_input):
-            generated_output = generated_output.replace(model_input, "", 1).strip()
-
-        return generated_output
+        # the wrapper removes the prompt from the output
+        return self.wrapper.generate(model_input, max_length=max_length, **generate_params)
 
     def _execute_speech_recognition(self, agent_input, custom_params):
         """
@@ -81,7 +86,7 @@ class KerasAgent(BasicAgent):
         audio_data = None
         sample_rate = custom_params.get("sample_rate", 16000)
 
-        if hasattr(agent_input, "audio") and agent_input.audio:
+        if getattr(agent_input, "audio", None) is not None:
             # Audio directly from agent input
             audio_data = agent_input.audio
         elif isinstance(agent_input, bytes):
@@ -89,6 +94,13 @@ class KerasAgent(BasicAgent):
             audio_data = agent_input
         else:
             raise ValueError("Speech recognition requires audio data")
+
+        # Load the audio from a file path if needed
+        if isinstance(audio_data, str):
+            import soundfile as sf
+
+            file_path = audio_data[5:] if audio_data.startswith("file:") else audio_data
+            audio_data, sample_rate = sf.read(file_path)
 
         # Convert bytes to numpy array if needed
         if isinstance(audio_data, (bytes, bytearray)):
@@ -131,14 +143,12 @@ class KerasAgent(BasicAgent):
         # Prepare transcript parameters
         language = custom_params.get("language", "<|en|>")  # Whisper language prompt
         user_prompt = custom_params.get("user_prompt", "")
-        if self.mission and not user_prompt:
-            user_prompt = self.mission
 
         condition_on_previous_text = custom_params.get("condition_on_previous_text", True)
 
         # Ensure max_steps and max_chunk_sec have valid values (not None)
-        max_steps = custom_params.get("max_steps", 80)  # Default to 80 if not specified
-        max_chunk_sec = custom_params.get("max_chunk_sec", 30)  # Default to 30 if not specified
+        max_steps = custom_params.get("max_steps") or 80  # Default to 80 if not specified
+        max_chunk_sec = custom_params.get("max_chunk_sec") or 30  # Default to 30 if not specified
 
         if self.log:
             print(f"Transcribing audio with language: {language}, max_chunk_sec: {max_chunk_sec}")

@@ -28,6 +28,12 @@ class EmbedInput:
         }
         return inputs
 
+    def get_aws_inputs(self):
+        inputs = {"texts": self.texts}
+        if self.model:
+            inputs["model"] = self.model
+        return inputs
+
     def get_vllm_inputs(self):
         """
         Returns:
@@ -43,6 +49,8 @@ class EmbedInput:
             self.model = self.model or "gemini-embedding-001"
         elif provider == "mistral":
             self.model = self.model or "mistral-embed"
+        elif provider == "aws":
+            self.model = self.model or "amazon.titan-embed-text-v2:0"
         else:
             # No built-in default for this provider (e.g. nvidia/vllm where the
             # model is deployment-specific). Leave any caller-supplied model as-is

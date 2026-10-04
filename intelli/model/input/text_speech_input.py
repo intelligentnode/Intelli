@@ -71,6 +71,14 @@ class Text2SpeechInput:
 
         return params
 
+    def get_aws_input(self):
+        """Get input parameters for Amazon Polly text-to-speech"""
+        params = {"text": self.text, "voice_id": self.voice}
+        # 'model' selects the Polly engine; other values (e.g. the OpenAI default 'tts-1') use the default engine.
+        if self.model in ("standard", "neural", "long-form", "generative"):
+            params["engine"] = self.model
+        return params
+
     def get_gemini_input(self):
         """Get input parameters for Gemini text-to-speech"""
         voice_config = {

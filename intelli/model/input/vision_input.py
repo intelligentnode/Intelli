@@ -75,6 +75,15 @@ class VisionModelInput:
 
         return inputs
 
+    def get_aws_inputs(self):
+        return {
+            "content": self.content,
+            "image_data": self.image_data,
+            "extension": self.extension,
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+        }
+
     def get_google_inputs(self):
         """
         Google Vision API works directly with binary image data.
@@ -105,5 +114,7 @@ class VisionModelInput:
             return self.get_gemini_inputs()
         elif provider == "google":
             return self.get_google_inputs()
+        elif provider == "aws":
+            return self.get_aws_inputs()
         else:
             raise ValueError(f"Invalid provider name: {provider}")

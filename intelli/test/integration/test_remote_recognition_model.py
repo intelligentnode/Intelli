@@ -49,7 +49,7 @@ class TestRemoteRecognitionModel(unittest.TestCase):
         # Only set up Keras if we're going to test it
         self.keras_available = False
         try:
-            import keras_nlp
+            import keras_hub
             self.keras_available = True
             self.keras_recognition = RemoteRecognitionModel(
                 provider=SupportedRecognitionModels['KERAS'],

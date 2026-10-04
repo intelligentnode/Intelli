@@ -381,14 +381,18 @@ flow = Flow(
         "decision": decision_task,
         "tool_execution": tool_task,      # Dynamic destination
         "direct_response": direct_task,   # Dynamic destination  
-        "formatter": formatter_task,      # Static destination
-        "validator": validator_task       # Static destination
+        # Static tasks: each path has its own formatter and validator
+        "tool_formatter": tool_formatter_task,
+        "tool_validator": tool_validator_task,
+        "direct_formatter": direct_formatter_task,
+        "direct_validator": direct_validator_task
     },
     map_paths={
-        # Static routing: both dynamic destinations → formatter → validator
-        "tool_execution": ["formatter"],
-        "direct_response": ["formatter"], 
-        "formatter": ["validator"]
+        # Static routing: each dynamic destination → its own formatter → validator
+        "tool_execution": ["tool_formatter"],
+        "tool_formatter": ["tool_validator"],
+        "direct_response": ["direct_formatter"],
+        "direct_formatter": ["direct_validator"]
     },
     dynamic_connectors={
         # Dynamic routing from decision task
@@ -400,7 +404,9 @@ flow = Flow(
 This creates a flow where:
 1. LLM makes dynamic routing decision
 2. Either tool or direct path executes  
-3. Both paths converge to static formatting and validation
+3. The chosen path continues to its own formatter and validator
+
+Do not connect both paths to one shared formatter. A task waits for all of its parents in `map_paths`, and only one path runs, so a shared formatter would never run.
 
 ### Tool Information Extraction
 

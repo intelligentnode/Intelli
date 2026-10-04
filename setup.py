@@ -5,9 +5,9 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="2.0.3",
+    version="2.1.0",
     author="Intellinode",
-    author_email="admin@intellinode.ai",
+    author_email="alex@intellinode.ai",
     description="Build AI agents and MCPs with Intellinode.",
     long_description=pip_description,
     long_description_content_type="text/markdown",
@@ -26,7 +26,14 @@ setup(
     ],
     extras_require={
         "visual": ["matplotlib>=3.6.0"],
-        "offline": ["keras-nlp", "keras>=3", "librosa", "keras-hub", "tensorflow-text"],
+        "offline": [
+            "keras>=3.5",
+            "keras-hub>=0.20.0",
+            "tensorflow>=2.16",
+            'tensorflow-text; platform_system != "Windows"',
+            "librosa>=0.10",
+            "soundfile>=0.12.1",
+        ],
         "llamacpp": ["llama-cpp-python>=0.3.7", "huggingface_hub>=0.28.1"],
         "mcp": ["mcp[ws,cli]>=1.9,<2", "pandas>=2,<3"],
         "dataframe": ["pandas>=2,<3", "polars>=0.19.0"],
@@ -40,6 +47,8 @@ setup(
             "openai>=2.5.0",
         ],
         "computer": ["playwright>=1.40"],
+        # Optional: AWSWrapper calls AWS over REST; the SDK is only used to read profiles, SSO and IAM roles.
+        "aws": ["boto3>=1.34"],
         "azure-assistant": ["openai>=2.5.0,<3"],
         "azure-agent": [
             "azure-ai-projects>=2.0,<3",
@@ -58,11 +67,11 @@ setup(
         "all": [
             "matplotlib>=3.6.0",
             "numpy>=1.26.0,<3",
-            "keras-nlp",
-            "keras>=3",
-            "librosa",
-            "keras-hub",
-            "tensorflow-text",
+            "keras>=3.5",
+            "keras-hub>=0.20.0",
+            "tensorflow>=2.16",
+            'tensorflow-text; platform_system != "Windows"',
+            "librosa>=0.10",
             "llama-cpp-python>=0.3.7",
             "huggingface_hub>=0.28.1",
             "mcp[ws,cli]>=1.9,<2",

@@ -39,6 +39,13 @@ python -m playwright install chromium
 
 For detailed instructions, refer to [intelli documentation](https://www.intellinode.ai/docs/python).
 
+# Use with Claude Code and Codex
+Give your coding agent the Intelli rules, so it writes, runs and explains flows for you.
+- **Claude Code**: run `/plugin marketplace add intelligentnode/Intelli`, then `/plugin install intelli-flows@intellinode`.
+- **Codex, or any project**: run `curl -fsSL https://www.intellinode.ai/agent-kit/install.sh | sh` in the project folder. It adds an `AGENTS.md` section and the `intelli-flows` skill.
+- Then ask in plain words, for example: "Build an Intelli flow that triages support emails and draw its graph."
+- Agents can read the full docs index at [intellinode.ai/llms.txt](https://www.intellinode.ai/llms.txt).
+
 # Code Examples
 
 ## Create Chatbot

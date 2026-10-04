@@ -4,11 +4,12 @@ from intelli.config import config
 from intelli.model.input.chatbot_input import ChatModelInput
 from intelli.utils.system_helper import SystemHelper
 from intelli.utils.model_helper import is_reasoning_model
-from intelli.wrappers.geminiai_wrapper import GeminiAIWrapper
+from intelli.wrappers.googleai_wrapper import GoogleAIWrapper
 from intelli.wrappers.intellicloud_wrapper import IntellicloudWrapper
 from intelli.wrappers.mistralai_wrapper import MistralAIWrapper
 from intelli.wrappers.openai_wrapper import OpenAIWrapper
 from intelli.wrappers.anthropic_wrapper import AnthropicWrapper
+from intelli.wrappers.aws_wrapper import AWSWrapper
 from intelli.wrappers.keras_wrapper import KerasWrapper
 from intelli.wrappers.nvidia_wrapper import NvidiaWrapper
 from intelli.wrappers.llama_cpp_wrapper import IntelliLlamaCPPWrapper
@@ -25,6 +26,7 @@ class ChatProvider(Enum):
     NVIDIA = "nvidia"
     LLAMACPP = "llamacpp"
     VLLM = "vllm"
+    AWS = "aws"
 
 
 class Chatbot:
@@ -70,13 +72,16 @@ class Chatbot:
         elif self.provider == ChatProvider.MISTRAL.value:
             return MistralAIWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.GEMINI.value:
-            return GeminiAIWrapper(self.api_key, timeout=self.timeout)
+            # Gemini Developer API by default; options such as {"vertex": True, "project_id": ...,
+            # "location": ...} select Vertex AI (Gemini Enterprise Agent Platform).
+            return GoogleAIWrapper.from_options(self.api_key, self.options, timeout=self.timeout)
         elif self.provider == ChatProvider.ANTHROPIC.value:
             return AnthropicWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.KERAS.value:
-            return KerasWrapper(
-                self.options["model_name"], self.options.get("model_params", {})
-            )
+            model_name = self.options.get("model_name") or self.options.get("model")
+            if not model_name:
+                raise ValueError("Keras provider requires model_name in options")
+            return KerasWrapper(model_name, self.options.get("model_params", {}))
         elif self.provider == ChatProvider.NVIDIA.value:
             nvidia_options = self.options.get("nvidiaOptions", {})
             base_url = self.options.get("baseUrl", {})
@@ -98,6 +103,10 @@ class Chatbot:
             if not vllm_base_url:
                 raise ValueError("VLLM provider requires baseUrl in options")
             return VLLMWrapper(vllm_base_url, self.api_key, timeout=self.timeout)
+        elif self.provider == ChatProvider.AWS.value:
+            # api_key is a Bedrock API key (optional). IAM keys, region and profile come from
+            # options, for example {"region": "us-east-1", "access_key_id": ..., "secret_access_key": ...}.
+            return AWSWrapper.from_options(self.api_key, self.options, timeout=self.timeout)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -162,7 +171,16 @@ class Chatbot:
         return [response["choices"][0]["text"]]
 
     def _chat_keras(self, params):
-        response = self.wrapper.generate(params["prompt"], params["max_length"])
+        # optional sampling controls from the input options
+        sampling_params = {
+            key: params[key]
+            for key in ("temperature", "top_k", "top_p", "seed", "sampler")
+            if params.get(key) is not None
+        }
+        # max tokens limits the response only, like the other providers
+        response = self.wrapper.generate(
+            params["prompt"], max_new_tokens=params["max_length"], **sampling_params
+        )
         return [response]
 
     def _chat_openai(self, params, is_gpt5_plus=None):
@@ -213,6 +231,15 @@ class Chatbot:
             output.append("".join(p.get("text", "") for p in parts if isinstance(p, dict)))
         return output
 
+    def _stream_gemini(self, params):
+        model_override = params.pop("model", None)
+        if model_override in (None, "", "gemini"):
+            model_override = None
+        for chunk in self.wrapper.stream_generate_content(params, model_override=model_override):
+            text = GoogleAIWrapper.extract_text(chunk)
+            if text:
+                yield text
+
     def _chat_anthropic(self, params):
         response = self.wrapper.generate_text(params)
 
@@ -248,6 +275,23 @@ class Chatbot:
             texts = [block['text'] for block in content_blocks
                      if isinstance(block, dict) and 'text' in block]
         return texts
+
+    def _chat_aws(self, params):
+        # fallback_models (model params or Chatbot options) are tried in order when a model
+        # is throttled or not available.
+        fallback_models = params.pop("fallback_models", None) or self.options.get("fallback_models")
+        response = self.wrapper.converse(params, fallback_models=fallback_models)
+        if response.get("stopReason") == "tool_use":
+            tool_calls = AWSWrapper.extract_tool_calls(response)
+            if tool_calls:
+                return [{"type": "tool_response", "tool_calls": tool_calls}]
+        return [AWSWrapper.extract_text(response)]
+
+    def _stream_aws(self, params):
+        for event in self.wrapper.converse_stream(params):
+            text = ((event.get("contentBlockDelta") or {}).get("delta") or {}).get("text")
+            if text:
+                yield text
 
     def _chat_nvidia(self, params):
         result = self.wrapper.generate_text(params)

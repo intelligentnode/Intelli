@@ -108,11 +108,16 @@ config = {
                 "vision": "gemini-2.5-flash",
                 "embedding": "gemini-embedding-001",
                 "image_generation": "gemini-2.5-flash-image",
-                "video_generation": "veo-2.0-generate-001",
+                # Vertex AI id (the old default veo-2.0-generate-001 returns 404 now)
+                "video_generation": "veo-3.1-fast-generate-001",
+                "video_generation_developer": "veo-3.1-fast-generate-preview",
                 "tts": "gemini-2.5-flash-preview-tts",
                 "tts_pro": "gemini-2.5-pro-preview-tts",
                 "legacy_text": "gemini-2.0-flash",
-                "legacy_vision": "gemini-2.0-flash"
+                "legacy_vision": "gemini-2.0-flash",
+                # Used by the newer GoogleAIWrapper methods on the Gemini Developer API
+                "music": "lyria-3.5",
+                "live": "gemini-3.8-live"
             },
             "endpoints": {
                 "generateContent": ":generateContent",
@@ -121,6 +126,50 @@ config = {
                 "predictLongRunning": ":predictLongRunning",
                 "upload": "",
                 "files": ""
+            },
+            # Vertex AI / Gemini Enterprise Agent Platform (GoogleAIWrapper with vertex=True)
+            "vertex": {
+                "global_host": "https://aiplatform.googleapis.com",
+                "regional_host": "https://{location}-aiplatform.googleapis.com",
+                "multi_regional_host": "https://aiplatform.{location}.rep.googleapis.com",
+                "api_version": "v1beta1",
+                "default_location": "global",
+                # Project-mode locations for capabilities that are not served from "global",
+                # used when the wrapper location is not set explicitly.
+                "locations": {
+                    "video_generation": "us-central1",
+                    "live": "us-central1",
+                    "music": "us-central1",
+                    "imagen": "us-central1",
+                    "agent_engine": "us-central1"
+                },
+                "models": {
+                    "text": "gemini-3.8-flash",
+                    "vision": "gemini-3.8-flash",
+                    "embedding": "gemini-embedding-001",
+                    "image_generation": "gemini-3.1-flash-image",
+                    "video_generation": "veo-3.1-fast-generate-001",
+                    "tts": "gemini-2.5-flash-tts",
+                    "tts_pro": "gemini-2.5-pro-tts",
+                    "music": "lyria-002",
+                    "live": "gemini-3.8-live"
+                },
+                # Model ids checked against the Agent Platform docs and live calls (2026-10).
+                # Gemini 2.5 text models retire on 2026-10-20. Imagen models were retired on 2026-06-30
+                # (404 NOT_FOUND); use the Gemini image models instead.
+                "catalog": {
+                    "text": ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash",
+                             "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview",
+                             "gemini-3-flash-preview", "gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"],
+                    "image": ["gemini-3.1-flash-image", "gemini-3.1-flash-lite-image", "gemini-3-pro-image",
+                              "gemini-2.5-flash-image"],
+                    "video": ["veo-3.1-generate-001", "veo-3.1-fast-generate-001", "veo-3.1-lite-generate-001"],
+                    "tts": ["gemini-2.5-flash-tts", "gemini-2.5-pro-tts", "gemini-3.8-flash-tts",
+                            "gemini-3.8-flash-lite-tts", "gemini-2.5-flash-lite-preview-tts"],
+                    "music": ["lyria-002"],
+                    "live": ["gemini-3.8-live", "gemini-live-2.5-flash-native-audio"],
+                    "embedding": ["gemini-embedding-001", "text-embedding-005", "text-multilingual-embedding-002"]
+                }
             }
         },
         "gcp": {
@@ -130,6 +179,30 @@ config = {
                 "text": "gemini-2.5-flash",
                 "embedding": "text-embedding-005",
                 "chirp": "chirp_3"
+            }
+        },
+        # AWS AI services (AWSWrapper): Amazon Bedrock, Bedrock Agents / AgentCore and Polly
+        "aws": {
+            "default_region": "us-east-1",
+            "endpoints": {
+                "bedrock-runtime": "https://bedrock-runtime.{region}.amazonaws.com",
+                "bedrock": "https://bedrock.{region}.amazonaws.com",
+                "bedrock-agent-runtime": "https://bedrock-agent-runtime.{region}.amazonaws.com",
+                "bedrock-agentcore": "https://bedrock-agentcore.{region}.amazonaws.com",
+                "polly": "https://polly.{region}.amazonaws.com"
+            },
+            "models": {
+                # {geo} is the cross-region inference profile prefix of the wrapper region (us, eu, apac)
+                "chat": "{geo}.amazon.nova-lite-v1:0",
+                "vision": "{geo}.amazon.nova-lite-v1:0",
+                "embed": "amazon.titan-embed-text-v2:0",
+                "image": "amazon.nova-canvas-v1:0",
+                "video": "amazon.nova-reel-v1:1"
+            },
+            "speech": {
+                "engine": "neural",
+                "voice": "Joanna",
+                "male_voice": "Matthew"
             }
         },
         "anthropic": {
