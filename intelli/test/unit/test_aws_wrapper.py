@@ -11,6 +11,7 @@ import datetime
 import json
 import os
 import struct
+import tempfile
 import unittest
 import zlib
 from unittest.mock import patch
@@ -729,6 +730,23 @@ class TestMatchesTheAwsSdk(AWSTestCase):
                                  lambda w: w.synthesize_speech("hello"), "polly")
         self.assert_same_request("polly", "describe_voices", dict(Engine="neural", LanguageCode="en-US"),
                                  lambda w: w.list_voices("neural", "en-US"), "polly")
+
+    def test_profile_credentials_and_region_come_from_the_sdk(self):
+        with tempfile.TemporaryDirectory() as folder:
+            credentials_file, config_file = os.path.join(folder, "credentials"), os.path.join(folder, "config")
+            with open(credentials_file, "w") as file:
+                file.write(f"[dev]\naws_access_key_id = {ACCESS_KEY}\naws_secret_access_key = {SECRET_KEY}\n")
+            with open(config_file, "w") as file:
+                file.write("[profile dev]\nregion = eu-west-3\n")
+            os.environ.update({"AWS_SHARED_CREDENTIALS_FILE": credentials_file, "AWS_CONFIG_FILE": config_file})
+            session = FakeSession(FakeResponse(converse_reply()))
+            wrapper = AWSWrapper(profile="dev", session=session)
+            wrapper.converse({"messages": []}, "eu.amazon.nova-lite-v1:0")
+            self.assertEqual(AWSWrapper.from_options(None, {"aws_profile": "dev"}).region, "eu-west-3")
+        authorization = session.calls[0]["headers"]["Authorization"]
+        self.assertEqual(wrapper.region, "eu-west-3")
+        self.assertIn(f"Credential={ACCESS_KEY}/", authorization)
+        self.assertIn("/eu-west-3/bedrock/aws4_request", authorization)
 
     def test_event_stream_decoding_matches_the_sdk(self):
         from botocore.eventstream import EventStreamBuffer

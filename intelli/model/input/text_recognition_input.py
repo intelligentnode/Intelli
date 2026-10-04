@@ -122,9 +122,6 @@ class SpeechRecognitionInput:
                 # Try using soundfile first which handles various audio formats
                 try:
                     import soundfile as sf
-                    import io
-                    import tempfile
-                    import os
 
                     # Create temporary file from bytes
                     temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
@@ -144,8 +141,6 @@ class SpeechRecognitionInput:
                     print(f"Soundfile conversion failed: {e1}, trying librosa")
                     # Fall back to librosa
                     import librosa
-                    import tempfile
-                    import os
 
                     # Create temporary file from bytes
                     temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
@@ -208,9 +203,6 @@ class SpeechRecognitionInput:
         elif self.audio_data is not None:
             if isinstance(self.audio_data, (bytes, bytearray)):
                 try:
-                    import tempfile
-                    import os
-
                     # Create a temporary file with .mp3 extension
                     temp_file = tempfile.NamedTemporaryFile(suffix='.mp3', delete=False)
                     temp_file.write(self.audio_data)

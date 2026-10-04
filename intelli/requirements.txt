@@ -8,10 +8,12 @@ requests>=2.31,<3
 huggingface_hub>=0.28.1
 
 # ML dependencies
-keras-nlp
-keras>=3
-librosa
-keras-hub
+keras>=3.5
+keras-hub>=0.20.0
+tensorflow>=2.16
+tensorflow-text; platform_system != "Windows"
+librosa>=0.10
+soundfile>=0.12.1
 
 # For testing
 pytest>=7.0.0

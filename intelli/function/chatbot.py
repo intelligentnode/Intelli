@@ -78,9 +78,10 @@ class Chatbot:
         elif self.provider == ChatProvider.ANTHROPIC.value:
             return AnthropicWrapper(self.api_key, timeout=self.timeout)
         elif self.provider == ChatProvider.KERAS.value:
-            return KerasWrapper(
-                self.options["model_name"], self.options.get("model_params", {})
-            )
+            model_name = self.options.get("model_name") or self.options.get("model")
+            if not model_name:
+                raise ValueError("Keras provider requires model_name in options")
+            return KerasWrapper(model_name, self.options.get("model_params", {}))
         elif self.provider == ChatProvider.NVIDIA.value:
             nvidia_options = self.options.get("nvidiaOptions", {})
             base_url = self.options.get("baseUrl", {})
@@ -170,7 +171,16 @@ class Chatbot:
         return [response["choices"][0]["text"]]
 
     def _chat_keras(self, params):
-        response = self.wrapper.generate(params["prompt"], params["max_length"])
+        # optional sampling controls from the input options
+        sampling_params = {
+            key: params[key]
+            for key in ("temperature", "top_k", "top_p", "seed", "sampler")
+            if params.get(key) is not None
+        }
+        # max tokens limits the response only, like the other providers
+        response = self.wrapper.generate(
+            params["prompt"], max_new_tokens=params["max_length"], **sampling_params
+        )
         return [response]
 
     def _chat_openai(self, params, is_gpt5_plus=None):

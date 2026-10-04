@@ -285,7 +285,7 @@ class ChatModelInput:
 
         # at least one user message
         if not any(msg.role == 'user' for msg in self.messages):
-            raise "Send at least one user message."
+            raise ValueError("Send at least one user message.")
 
         # end with 'assistant: '
         if not chat_history or not chat_history[-1].startswith("assistant:"):
@@ -297,6 +297,8 @@ class ChatModelInput:
             'max_length': self.max_tokens or 180,
             **self.options
         }
+        if self.temperature != 1:
+            params.setdefault('temperature', self.temperature)
         return params
 
     def get_nvidia_input(self):
