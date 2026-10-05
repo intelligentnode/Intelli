@@ -7,7 +7,7 @@ When the user asks for an AI tool, follow this sequence. The user may not read c
 4. Read the output. An empty `flow.errors` only means nothing crashed. Check that `sorted(out)` lists exactly the steps you expect and that the text is right for the input: a small model may return the input unchanged or give every item the same label. Open saved images and check audio sizes too. Fix and run again.
 5. Report in plain language: what each step does, which model each step uses (say "a local model on your computer" for vllm), what you checked and what is still weak, and where the picture and the output files are.
 
-Install with `pip install -U "intelli[visual]"`, in the project's virtual environment if it has one. The visual extra adds matplotlib for flow pictures. Use version 2.1.0 or above (`pip show intelli`); these rules were checked on 2.0.3 and still hold. Import from `intelli.flow`:
+Install with `pip install -U "intelli[visual]"`, in the project's virtual environment if it has one. The visual extra adds matplotlib for flow pictures. Use version 2.1.1 or above (`pip show intelli`). Import from `intelli.flow`:
 `from intelli.flow import Agent, Task, TextTaskInput, Flow, SequenceFlow, DynamicConnector, Memory, CustomAgent, VibeAgent`
 
 Agents and tasks
@@ -27,7 +27,7 @@ Flow (async graph)
 - Memory: `memory.store("key", value)` before the run and `memory.retrieve("key")` after it. `Flow(..., output_memory_map={"task": "key"})` copies a task's output into memory, and `memory_key="key"` on a task replaces its input with the stored value, which is how a later step can read the original input.
 - For a batch, build a new Flow for each input.
 - Routing: `dynamic_connectors={"a": DynamicConnector(decision_fn=lambda out, kind: "x", destinations={"x": "task_x", "y": "task_y"})}`. Only the chosen task runs (4 destinations at most), and it receives the output of task "a". The destination keys are printed on the picture, so use readable words.
-- A routed task must have no other parent in `map_paths`, or every destination runs. To route after parallel steps, join them into one task and put the connector on that task.
+- To route after parallel steps, join them into one task and put the connector on that task. Before 2.1.0 a routed task with another parent in `map_paths` ran on every route.
 - Task failures do not raise. Check `flow.errors` (a dict) after every run.
 - `SequenceFlow([t1, t2]).start()` is synchronous and returns `{"task1": ..., "task2": ...}`.
 - Picture: `flow.generate_graph_img(name="graph", save_path=".")` returns the PNG path. Each step is labelled `name [agent_type:provider]` and colored by agent type, and routes are red dashed arrows. Keep the legend (the default) when the flow mixes agent types; pass `show_legend=False` for a text-only flow. It needs matplotlib, which the visual extra installs.
@@ -42,9 +42,9 @@ Vibe Agents (a flow from a plain language intent)
 - Tasks built from a spec use the default template (see Pitfalls). For exact prompts set `flow.tasks[name].template = obj` after building.
 
 Pitfalls
-- Never make one task depend on two branches of the same DynamicConnector. Only one branch runs, so that task never runs, and nothing errors.
+- Never make one task wait for two branches of the same DynamicConnector. Only one branch runs, so that task would never run: 2.1.0 and later raise a ValueError, and older versions fail silently. Give each branch its own next task.
 - `memory_key` replaces the input from parent tasks. With a list of keys, each value is cut to 100 characters.
 - An empty string from memory makes the task run on its description alone. Store "(none)" instead.
-- The default template sends `PREVIOUS_ANALYSIS: {0}`, then `CURRENT_TASK: <instruction>`, then the input. `{0}` is never filled, and Markdown headings in the input get broken up, so small models echo the input. For exact prompts pass any object with `apply_input(data) -> str` as `template=`. No other method is needed, and the instruction is not added for you.
+- The default template builds the prompt as `PREVIOUS_ANALYSIS: <input>`, then `CURRENT_TASK: <instruction>`. Before 2.1.0 it left a literal `{0}` and broke up Markdown headings, so small models echoed the input. For exact prompts pass any object with `apply_input(data) -> str` as `template=`. No other method is needed, and the instruction is not added for you.
 - Tiny local models are poor planners: qwen2.5:0.5b produced 0 valid VibeAgent specs in 42 tries. For a local planner, set `max_context_chars=0` (the default prompt is about 96k characters, and `context_files=[]` does not shrink it).
 - Docs index: https://www.intellinode.ai/llms.txt. Before using an Intelli API that is not listed above, open the matching page from the index. Where a docs page disagrees with the rules above, follow these rules: they were checked by running code.

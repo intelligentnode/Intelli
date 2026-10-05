@@ -11,7 +11,7 @@ takes its API key as `model_params["key"]`.
 | `speech` | text | audio (bytes) | `openai`, `gemini`, `elevenlabs`, `aws` (Polly), `google` | `model`, `voice`; `openai` also needs `"stream": False` |
 | `recognition` | audio | text | `openai`, `elevenlabs`, `speechmatics`, `keras` | `model` (`openai` default `whisper-1`), `language` |
 | `embed` | text | embedding vectors (the format depends on the provider) | `openai`, `gemini`, `mistral`, `aws`, `nvidia`, `vllm` | `model` |
-| `search` | text | text | Intellicloud (`one_key`), Google Custom Search (`google_api_key`, `google_cse_id`), Amazon Bedrock Knowledge Base (`knowledge_base_id`, provider `aws`) | `k` |
+| `search` | text | text | Google Custom Search (`google_api_key`, `google_cse_id`), Amazon Bedrock Knowledge Base (`knowledge_base_id`, provider `aws`) | `k` |
 | `mcp` | text | text | any MCP server | `command` + `args`, or `url`; `tool`; `arg_<name>` values |
 
 Notes
