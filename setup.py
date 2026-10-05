@@ -5,10 +5,10 @@ with open("PIPREADME.md", "r", encoding="utf-8") as fh:
 
 setup(
     name="intelli",
-    version="2.1.1",
+    version="2.1.2",
     author="Intellinode",
     author_email="alex@intellinode.ai",
-    description="Build AI agents and MCPs with Intellinode, or let coding agents like Claude Code and Codex build them.",
+    description="Build AI agents and MCPs with Intellinode, ready for coding agents like Claude Code and Codex.",
     long_description=pip_description,
     long_description_content_type="text/markdown",
     url="https://www.intellinode.ai/",
