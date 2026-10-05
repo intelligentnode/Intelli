@@ -8,7 +8,7 @@ setup(
     version="2.1.1",
     author="Intellinode",
     author_email="alex@intellinode.ai",
-    description="Build AI agents and MCPs with Intellinode.",
+    description="Build AI agents and MCPs with Intellinode, or let coding agents like Claude Code and Codex build them.",
     long_description=pip_description,
     long_description_content_type="text/markdown",
     url="https://www.intellinode.ai/",
