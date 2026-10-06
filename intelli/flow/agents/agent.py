@@ -112,7 +112,7 @@ class Agent(BasicAgent):
             return self._execute_search_agent(agent_input, custom_params)
         elif self.type == AgentTypes.MCP.value:
             return self._execute_mcp_agent(agent_input, custom_params)
-        elif self.type in (AgentTypes.CODER.value, AgentTypes.COMPUTER.value):
+        elif self.type in (AgentTypes.CODER.value, AgentTypes.COMPUTER.value, AgentTypes.ASSISTANT.value):
             # These types are handler-backed only; delegate to the handler module.
             from intelli.flow.agents.handlers import get_agent_handler
             handler = get_agent_handler(

@@ -26,6 +26,8 @@ class Task:
         self.output = None
         self.output_type = Matcher.output[agent.type]
         self.template = template
+        # the default template wraps the input; an assistant gets the input and the description apart
+        self.default_template = not template
         self.logger = Logger(log)
         self.model_params = model_params
         # Store memory key(s) - can be single key or list of keys
@@ -68,7 +70,7 @@ class Task:
                     self.logger.log(f"- Using single memory value of type: {type(input_data).__name__}")
                 else:
                     # For multiple items, convert to string for text-based agents
-                    if self.agent.type == AgentTypes.TEXT.value:
+                    if self.agent.type in (AgentTypes.TEXT.value, AgentTypes.ASSISTANT.value):
                         try:
                             # Create a formatted string representation
                             formatted_data = "Memory data:\n"
@@ -90,7 +92,7 @@ class Task:
                         input_data = memory_data
 
                 # If text agent, force input type to text
-                if self.agent.type == AgentTypes.TEXT.value:
+                if self.agent.type in (AgentTypes.TEXT.value, AgentTypes.ASSISTANT.value):
                     input_type = InputTypes.TEXT.value
                 # Try to determine input type if not provided
                 elif input_type is None:
@@ -163,6 +165,7 @@ class Task:
                 self.logger.log(traceback.format_exc())
 
         # Apply input template
+        assistant_message = None
         if input_data and input_type in [InputTypes.TEXT.value]:
             try:
                 # Convert dictionary to string for template application
@@ -173,6 +176,11 @@ class Task:
                     str_input = str(input_data)
 
                 agent_text = self.template.apply_input(str_input)
+                if self.default_template and self.agent.type == AgentTypes.ASSISTANT.value:
+                    assistant_message = str_input
+                elif self.default_template and self.agent.type == AgentTypes.SPEECH.value:
+                    # a speech step reads its input aloud, without the template's labels and instruction
+                    agent_text = str_input
             except Exception as e:
                 self.logger.log(f"Error applying template: {str(e)}")
                 # Fallback to direct concatenation
@@ -229,6 +237,10 @@ class Task:
         elif Matcher.input[self.agent.type] == InputTypes.TEXT.value:
             # Handle text input
             agent_input = TextAgentInput(agent_text)
+            if assistant_message is not None:
+                # the assistant answers the input (retrieval, history and memory use it) with the task as instruction
+                agent_input.message = assistant_message
+                agent_input.instruction = self.desc
             agent_inputs.append(agent_input)
 
         else:
@@ -283,7 +295,7 @@ class Task:
             self.logger.log(f"- Final speech result type: {type(result)}")
 
         # Log
-        if self.agent.type in [AgentTypes.TEXT.value]:
+        if self.agent.type in [AgentTypes.TEXT.value, AgentTypes.ASSISTANT.value]:
             if result is not None:
                 self.logger.log_head("- The task output head: ", str(result))
             else:

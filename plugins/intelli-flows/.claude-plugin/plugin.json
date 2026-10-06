@@ -1,8 +1,8 @@
 {
   "name": "intelli-flows",
   "displayName": "Intelli Visual Agent Flows",
-  "version": "1.1.0",
-  "description": "Design, draw and run AI agent flows that mix providers (OpenAI, Anthropic, Gemini, AWS Bedrock, local models) and agent types (text, image, vision, speech, search, MCP) with the Intelli Python library.",
+  "version": "1.2.0",
+  "description": "Design, draw and run AI agent flows that mix providers and agent types, and build assistants with memory and RAG over vector databases, with the Intelli Python library.",
   "author": {
     "name": "IntelliNode",
     "url": "https://www.intellinode.ai"
@@ -19,6 +19,9 @@
     "diagram",
     "flows",
     "llm chain",
+    "assistant",
+    "rag",
+    "vector-database",
     "python"
   ]
 }

@@ -39,6 +39,8 @@ class Chatbot:
         self.provider = self._get_provider(provider)
         self.options = options
         self.timeout = options.get("timeout", 180)
+        # the raw provider response of the last chat() call (usage, citations, tool calls)
+        self.last_response = None
         self.wrapper = self._initialize_provider()
         self.add_rag(options)
         self.system_helper = SystemHelper()
@@ -146,10 +148,12 @@ class Chatbot:
         if "messages" in params:
             # This is a chat completion request
             results = self.wrapper.generate_chat_text(params)
+            self.last_response = results
             return self._parse_vllm_chat_responses(results)
         else:
             # This is a regular completion request
             results = self.wrapper.generate_text(params)
+            self.last_response = results
             return self._parse_vllm_text_responses(results)
 
     def _parse_vllm_chat_responses(self, results):
@@ -167,6 +171,7 @@ class Chatbot:
     def _chat_llamacpp(self, params):
         # assume the wrapper returns a dict with key "choices" containing a list of text responses.
         response = self.wrapper.generate_text(params)
+        self.last_response = response
         # extract the text.
         return [response["choices"][0]["text"]]
 
@@ -192,6 +197,7 @@ class Chatbot:
         if is_gpt5_plus:
             # GPT-5+ uses different endpoint and response format
             results = self.wrapper.generate_gpt5_response(params)
+            self.last_response = results
             return self._parse_gpt5_responses(results)
         else:
             # Extract functions and function_call if present
@@ -200,10 +206,12 @@ class Chatbot:
             
             # Pass functions and function_call separately to wrapper
             results = self.wrapper.generate_chat_text(params, functions=functions, function_call=function_call)
+            self.last_response = results
             return self._parse_openai_responses(results)
 
     def _chat_mistral(self, params):
         response = self.wrapper.generate_text(params)
+        self.last_response = response
         return [choice["message"]["content"] for choice in response.get("choices", [])]
 
     def _chat_gemini(self, params):
@@ -217,6 +225,7 @@ class Chatbot:
         if model_override in (None, "", "gemini"):
             model_override = None
         response = self.wrapper.generate_content(params, model_override=model_override)
+        self.last_response = response
         candidates = response.get("candidates", [])
         # No candidates at all is a real error (e.g. a prompt-level safety block
         # returns promptFeedback instead).
@@ -236,12 +245,15 @@ class Chatbot:
         if model_override in (None, "", "gemini"):
             model_override = None
         for chunk in self.wrapper.stream_generate_content(params, model_override=model_override):
+            # the last chunk carries the usage and grounding metadata
+            self.last_response = chunk
             text = GoogleAIWrapper.extract_text(chunk)
             if text:
                 yield text
 
     def _chat_anthropic(self, params):
         response = self.wrapper.generate_text(params)
+        self.last_response = response
 
         content_blocks = response.get('content', []) if isinstance(response, dict) else []
 
@@ -281,6 +293,7 @@ class Chatbot:
         # is throttled or not available.
         fallback_models = params.pop("fallback_models", None) or self.options.get("fallback_models")
         response = self.wrapper.converse(params, fallback_models=fallback_models)
+        self.last_response = response
         if response.get("stopReason") == "tool_use":
             tool_calls = AWSWrapper.extract_tool_calls(response)
             if tool_calls:
@@ -295,6 +308,7 @@ class Chatbot:
 
     def _chat_nvidia(self, params):
         result = self.wrapper.generate_text(params)
+        self.last_response = result
         choices = result.get("choices", [])
         if not choices:
             raise Exception("No choices returned from NVIDIA API")

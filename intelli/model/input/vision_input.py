@@ -1,6 +1,12 @@
 import os
 import base64
 
+from intelli.utils.model_helper import is_reasoning_model
+
+DEFAULT_MAX_TOKENS = 300
+# Reasoning models (GPT-5 and later) spend part of the limit thinking, so 300 can leave no answer.
+REASONING_MAX_TOKENS = 4096
+
 
 class VisionModelInput:
 
@@ -11,7 +17,7 @@ class VisionModelInput:
         file_path=None,
         model=None,
         extension="png",
-        max_tokens=300,
+        max_tokens=None,
     ):
 
         self.content = content
@@ -45,8 +51,12 @@ class VisionModelInput:
                     ],
                 }
             ],
-            "max_tokens": self.max_tokens,
         }
+        # GPT-5 and later take max_completion_tokens; they reject max_tokens
+        if is_reasoning_model(self.model):
+            inputs["max_completion_tokens"] = self.max_tokens or REASONING_MAX_TOKENS
+        else:
+            inputs["max_tokens"] = self.max_tokens or DEFAULT_MAX_TOKENS
 
         return inputs
 
@@ -81,7 +91,7 @@ class VisionModelInput:
             "image_data": self.image_data,
             "extension": self.extension,
             "model": self.model,
-            "max_tokens": self.max_tokens,
+            "max_tokens": self.max_tokens or DEFAULT_MAX_TOKENS,
         }
 
     def get_google_inputs(self):

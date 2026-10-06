@@ -1,0 +1,6 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "intelli-flows",
+  "version": "1.2.0",
+  "description": "Design, draw and run AI agent flows that mix providers and agent types, and build assistants with memory and RAG over vector databases, with the Intelli Python library."
+}

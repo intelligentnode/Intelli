@@ -12,9 +12,12 @@ of the flow before any model is called, then runs it and reports what each step 
 ## What is inside
 
 One skill, `intelli-flows`, for workflows that mix providers (OpenAI, Anthropic, Gemini, AWS Bedrock,
-Mistral, local models) and agent types (text, image generation, vision, speech, transcription, embeddings,
-search, MCP tools). It also covers routing, memory, templates and Vibe Agents. Claude uses it when you ask
-for an AI workflow, an agent pipeline or a picture of one.
+Mistral, local models) and agent types (assistants that can answer from documents and remember conversations,
+image generation, vision, speech, transcription, embeddings, search, computer use, MCP tools). It also covers
+routing, memory, templates and Vibe Agents, and the `Assistant` class for
+chat apps with saved conversations, long-term memory and answers from your documents over a vector database
+(Qdrant, Chroma, Weaviate, Milvus, Elasticsearch, pgvector, MongoDB Atlas, Pinecone, Firestore or Vertex AI).
+Claude uses it when you ask for an AI workflow, an agent pipeline, a picture of one, or an assistant.
 
 ## What the skill does on your machine
 
@@ -23,6 +26,8 @@ for an AI workflow, an agent pipeline or a picture of one.
   `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`, AWS credentials) and sends each key only to its own provider's
   API when a step runs. Keys are never written into files or printed. Drawing a flow needs no key.
 - Save the flow picture and, when you ask for it, the generated images, audio and text in your project.
+- For an assistant, store conversations, documents and their embeddings where you choose: local files, or a
+  vector database or Firestore project you configure.
 - Read the Intelli documentation index at https://www.intellinode.ai/llms.txt when an API is not covered
   by the skill.
 

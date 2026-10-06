@@ -1,0 +1,20 @@
+{
+  "name": "intelli-python",
+  "interface": {
+    "displayName": "Intelli"
+  },
+  "plugins": [
+    {
+      "name": "intelli-flows",
+      "source": {
+        "source": "local",
+        "path": "./plugins/intelli-flows"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

@@ -77,11 +77,41 @@ class VisionAgentHandler(AgentHandler):
             image_data=agent_input.img,
             extension=custom_params.get("extension", "png"),
             model=custom_params["model"],
+            max_tokens=custom_params.get("max_tokens"),
         )
 
         vision_model = RemoteVisionModel(custom_params.get("key"), self.provider, options=self.options)
         result = vision_model.image_to_text(vision_input)
         return result
+
+
+# OpenAI speech reads at most 4096 characters per request
+OPENAI_SPEECH_LIMIT = 4096
+
+
+def split_for_speech(text, limit=OPENAI_SPEECH_LIMIT):
+    """Split text into pieces of at most `limit` characters, at sentence ends where possible."""
+    import re
+
+    pieces, current = [], ""
+    for sentence in re.split(r"(?<=[.!?])\s+", text.strip()):
+        while len(sentence) > limit:
+            # a sentence longer than the limit: cut it at a space
+            cut = sentence.rfind(" ", 0, limit)
+            cut = cut if cut > 0 else limit
+            if current:
+                pieces.append(current)
+                current = ""
+            pieces.append(sentence[:cut].strip())
+            sentence = sentence[cut:].strip()
+        if current and len(current) + 1 + len(sentence) > limit:
+            pieces.append(current)
+            current = sentence
+        else:
+            current = f"{current} {sentence}" if current else sentence
+    if current:
+        pieces.append(current)
+    return [piece for piece in pieces if piece]
 
 
 class SpeechAgentHandler(AgentHandler):
@@ -125,6 +155,14 @@ class SpeechAgentHandler(AgentHandler):
             raise ValueError(f"API key is required for {self.provider} speech synthesis")
 
         speech_model = RemoteSpeechModel(key_value=api_key, provider=self.provider.lower(), options=self.options)
+
+        # OpenAI reads at most 4096 characters: longer text is spoken in pieces and the audio joined
+        if self.provider.lower() == "openai" and not speech_input.stream and len(text_content) > OPENAI_SPEECH_LIMIT:
+            audio = b""
+            for piece in split_for_speech(text_content):
+                speech_input.text = piece
+                audio += speech_model.generate_speech(speech_input)
+            return audio
 
         # Generate speech
         result = speech_model.generate_speech(speech_input)
@@ -493,6 +531,177 @@ class ComputerAgentHandler(AgentHandler):
         return result.get("output", "")
 
 
+class AssistantAgentHandler(AgentHandler):
+    """Handler for assistant agents (agent_type='assistant'): a text agent that also answers from documents (RAG
+    over a vector store), keeps conversation history and long-term memory, and runs its own tools
+    (intelli.function.assistant.Assistant).
+
+    model_params: key, model, temperature, max_tokens, top_k, memory_top_k, min_score, max_history,
+    max_tool_steps, google_search, auto_title, show_sources (append the cited sources to the answer), and per
+    turn: conversation_id, user_id, filter, attachments. Other params go to the model request, as on text agents.
+    options: the provider settings (baseUrl, region, project_id, ...) plus
+        knowledge / memory: a VectorStore, or a store config ({'type': 'qdrant', 'url': ...}, see
+            intelli.store.factory); memory makes the assistant remember earlier conversations of a user_id.
+        history: a ChatHistory or a config ({'type': 'file', 'dir': './conversations'}).
+        documents: texts or {'id', 'text', 'metadata'} for the knowledge store; files: text file paths. Both are
+            added the first time the step runs, unless the store already holds records.
+        tools: functions the model can call (callables or tool dicts).
+        embedder: the embedder of config stores (default: the agent's provider and key, when it has embeddings).
+
+    The task input (the run's input or the previous steps' output) is the user message, used for retrieval,
+    history and memory; the task description joins the mission as the instruction. Without a conversation_id each
+    run is a new conversation, removed from the default in-memory history after the answer.
+    """
+
+    BUILD_PARAMS = ("model", "temperature", "max_tokens", "top_k", "memory_top_k", "min_score", "max_history",
+                    "max_tool_steps", "google_search", "auto_title")
+    TURN_PARAMS = ("conversation_id", "user_id", "filter", "attachments", "show_sources")
+    SETTINGS = ("knowledge", "memory", "history", "documents", "files", "tools", "embedder", "chunk_size",
+                "chunk_overlap")
+    EMBEDDING_PROVIDERS = {"openai", "gemini", "vertex", "mistral", "nvidia", "aws", "ollama"}
+
+    def __init__(self, provider, mission, model_params, options):
+        super().__init__(provider, mission, model_params, options)
+        import threading
+        self._lock = threading.Lock()
+        self._assistants = {}
+        self._resources = None
+        self.last_reply = None
+
+    def execute(self, agent_input, custom_params):
+        from intelli.function.assistant import DEFAULT_SYSTEM
+
+        params = dict(custom_params or {})
+        assistant = self._assistant(params)
+        mission = self.mission or DEFAULT_SYSTEM
+        message = getattr(agent_input, "message", None)
+        instruction = getattr(agent_input, "instruction", None)
+        if message is None:
+            message, system_message = agent_input.desc, mission
+        else:
+            system_message = f"{mission}\n\nCurrent task: {instruction}" if instruction else mission
+
+        conversation_id = params.get("conversation_id")
+        reply = assistant.chat(message, conversation_id=conversation_id, user_id=params.get("user_id"),
+                               attachments=params.get("attachments"), filter=params.get("filter"),
+                               system_message=system_message)
+        self.last_reply = reply
+        if not conversation_id and self._resources["temporary_history"]:
+            assistant.history.delete_conversation(reply["conversation_id"])
+
+        text = reply["text"]
+        cited = [reference for reference in reply.get("references") or [] if reference.get("cited")]
+        if params.get("show_sources") and (cited or reply.get("citations")):
+            lines = [f"[{reference['index']}] {assistant._source_label(reference)}" for reference in cited]
+            lines += [f"- {item.get('title') or item.get('uri')} ({item.get('uri')})"
+                      for item in reply.get("citations") or [] if isinstance(item, dict)]
+            text = f"{text}\n\nSources:\n" + "\n".join(lines)
+        return text
+
+    def _settings(self, params):
+        """Store settings from options, or from model_params when a spec put them there."""
+        options = self.options or {}
+        merged = {key: params[key] for key in self.SETTINGS if key in params}
+        merged.update({key: options[key] for key in self.SETTINGS if key in options})
+        return merged
+
+    def _assistant(self, params):
+        """One Assistant per set of build params (tasks may override them), sharing the stores and history."""
+        import json
+        from intelli.function.assistant import Assistant, DEFAULT_SYSTEM
+
+        with self._lock:
+            if self._resources is None:
+                self._resources = self._create_resources(params)
+            input_options = self._input_options(params)
+            key = json.dumps({"key": params.get("key"), "input": input_options,
+                              **{k: params.get(k) for k in self.BUILD_PARAMS}}, sort_keys=True, default=str)
+            if key not in self._assistants:
+                resources = self._resources
+                assistant = Assistant(
+                    provider=self.provider, api_key=params.get("key"),
+                    options={k: v for k, v in (self.options or {}).items() if k not in self.SETTINGS},
+                    system_message=self.mission or DEFAULT_SYSTEM, history=resources["history"],
+                    knowledge=resources["knowledge"], memory=resources["memory"], tools=resources["tools"],
+                    input_options=input_options,
+                    **{k: params[k] for k in self.BUILD_PARAMS if params.get(k) is not None})
+                self._load_documents(assistant, resources)
+                self._assistants[key] = assistant
+            return self._assistants[key]
+
+    def _input_options(self, params):
+        skip = {"key", *self.BUILD_PARAMS, *self.TURN_PARAMS, *self.SETTINGS, "stream"}
+        return {k: v for k, v in params.items() if k not in skip}
+
+    def _create_resources(self, params):
+        from intelli.store.factory import create_vector_store, create_chat_history
+
+        settings = self._settings(params)
+        embedder = settings.get("embedder") or self._default_embedder(params)
+        history = create_chat_history(settings.get("history"))
+        tools = settings.get("tools")
+        names = [tool for tool in tools or [] if isinstance(tool, str)] if isinstance(tools, list) else []
+        if names:
+            raise ValueError(f"Assistant tools must be functions or tool dicts, not names: {names}. "
+                             "VibeFlow resolves names from its tools registry.")
+        return {
+            "knowledge": self._store(settings.get("knowledge"), embedder, create_vector_store),
+            "memory": self._store(settings.get("memory"), embedder, create_vector_store),
+            "history": history,
+            "temporary_history": history is None,
+            "tools": tools,
+            "settings": settings,
+            "loaded": False,
+        }
+
+    def _store(self, config, embedder, create_vector_store):
+        if config is None:
+            return None
+        if isinstance(config, dict) and not config.get("embedder") and embedder is None \
+                and str(config.get("type", "")).lower() != "vertex_rag":
+            raise ValueError(
+                f"The {self.provider} assistant has no embedding model for its vector store: set 'embedder' in "
+                "the store config, e.g. {'provider': 'openai', 'api_key': '${ENV:OPENAI_API_KEY}'}.")
+        return create_vector_store(config, default_embedder=embedder)
+
+    def _default_embedder(self, params):
+        """The agent's own provider embeds config stores when it has an embedding model."""
+        provider = (self.provider or "").lower()
+        options = {k: v for k, v in (self.options or {}).items() if k not in self.SETTINGS}
+        key = params.get("key")
+        if provider == "gemini" and options.get("vertex"):
+            provider = "vertex"
+        if provider == "aws":
+            return {"provider": "aws", "api_key": key, "options": options}
+        if provider == "vertex":
+            google = ("project_id", "location", "access_token", "credentials")
+            return {"provider": "vertex", "api_key": key, "options": {k: options[k] for k in google if k in options}}
+        if provider == "ollama":
+            base_url = options.get("baseUrl")
+            return {"provider": "ollama", "options": {"base_url": base_url.rstrip("/") + "/v1"} if base_url else {}}
+        if provider in self.EMBEDDING_PROVIDERS and key:
+            return {"provider": provider, "api_key": key}
+        return None
+
+    def _load_documents(self, assistant, resources):
+        """Add the configured documents and files once, unless the knowledge store already holds records."""
+        settings = resources["settings"]
+        documents, files = settings.get("documents"), settings.get("files")
+        if resources["loaded"] or not (documents or files):
+            return
+        if not assistant.knowledge:
+            raise ValueError("Assistant documents and files need a knowledge store (options.knowledge).")
+        count = getattr(assistant.knowledge, "count", None)
+        if not (callable(count) and count() > 0):
+            sizes = {k: settings[k] for k in ("chunk_size", "chunk_overlap") if settings.get(k)}
+            if documents:
+                assistant.add_documents([documents] if isinstance(documents, (str, dict)) else documents, **sizes)
+            if files:
+                assistant.add_files(files, **sizes)
+        # marked only after success, so a failed load (a network error) is tried again on the next run
+        resources["loaded"] = True
+
+
 # Factory to get the appropriate handler
 def get_agent_handler(agent_type, provider, mission, model_params, options):
     """Factory function to get the appropriate agent handler"""
@@ -507,6 +716,7 @@ def get_agent_handler(agent_type, provider, mission, model_params, options):
         AgentTypes.MCP.value: MCPAgentHandler,
         AgentTypes.CODER.value: CoderAgentHandler,
         AgentTypes.COMPUTER.value: ComputerAgentHandler,
+        AgentTypes.ASSISTANT.value: AssistantAgentHandler,
     }
 
     if agent_type not in handlers:
