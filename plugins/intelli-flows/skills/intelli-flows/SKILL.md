@@ -55,8 +55,8 @@ see [references/assistant.md](references/assistant.md).
    - An `image` step's prompt is its mission, then the parent's text. It returns base64 image data.
    - An OpenAI `speech` step needs `"stream": False`, or it returns a stream and no audio is saved or passed on.
    - A `speech` step speaks its mission, then its input, word for word. Leave the mission empty and have the
-     step before it output only the words to say. Before 2.2.0 it also spoke the prompt template's labels, and
-     OpenAI rejected text over 4,096 characters; 2.2.0 speaks longer text in pieces.
+     step before it output only the words to say. Before 2.1.3 it also spoke the prompt template's labels, and
+     OpenAI rejected text over 4,096 characters; 2.1.3 speaks longer text in pieces.
    - Each provider needs its own key. A missing key fails only that step, so run only when every provider's
      key is set, or offer to move that step to a provider whose key is set.
    - Image, video and audio generation are billed per call. Tell the user before running those steps.

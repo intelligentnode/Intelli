@@ -7,7 +7,7 @@ When the user asks for an AI tool, follow this sequence. The user may not read c
 4. Read the output. An empty `flow.errors` only means nothing crashed. Check that `sorted(out)` lists exactly the steps you expect and that the text is right for the input: a small model may return the input unchanged or give every item the same label. Open saved images and check audio sizes too. Fix and run again.
 5. Report in plain language: what each step does, which model each step uses (say "a local model on your computer" for vllm), what you checked and what is still weak, and where the picture and the output files are.
 
-Install with `pip install -U "intelli[visual]"`, in the project's virtual environment if it has one. The visual extra adds matplotlib for flow pictures. Use version 2.2.0 or above (`pip show intelli`). Import from `intelli.flow`:
+Install with `pip install -U "intelli[visual]"`, in the project's virtual environment if it has one. The visual extra adds matplotlib for flow pictures. Use version 2.1.3 or above (`pip show intelli`). Import from `intelli.flow`:
 `from intelli.flow import Agent, Task, TextTaskInput, Flow, SequenceFlow, DynamicConnector, Memory, CustomAgent, VibeAgent`
 
 Agents and tasks
@@ -45,7 +45,7 @@ Vibe Agents (a flow from a plain language intent)
 - Tasks built from a spec use the default template (see Pitfalls). For exact prompts set `flow.tasks[name].template = obj` after building.
 
 Assistant and vector stores (chat apps, RAG, memory)
-- `from intelli.function.assistant import Assistant` and `from intelli.store import MemoryVectorStore, FileChatHistory, QdrantVectorStore, ...` (2.2.0 or above). In a flow, the same features come with `Agent("assistant", ...)`.
+- `from intelli.function.assistant import Assistant` and `from intelli.store import MemoryVectorStore, FileChatHistory, QdrantVectorStore, ...` (2.1.3 or above). In a flow, the same features come with `Agent("assistant", ...)`.
 - `assistant = Assistant(provider="openai", api_key=key, history=FileChatHistory(dir="./conversations"), knowledge=MemoryVectorStore(embedder={"provider": "openai", "api_key": key}), memory=MemoryVectorStore(embedder=...))`. Providers as in Agents, plus `vertex` and `ollama`.
 - `assistant.add_documents([{"id": "handbook", "text": text}])` splits into chunks `handbook#0`, `handbook#1`; `reply = assistant.chat(question, conversation_id=None, user_id="u1")` returns `text`, `conversation_id`, `references` (`cited` marks the [n] the answer used), `memories`, `usage`, `tool_steps`. `assistant.stream(...)` yields `start`, `text` chunks and `done`.
 - Tools: `tools=[python_function]` (docstring and type hints become the schema); the Assistant runs the tool loop. Attachments: `attachments=["photo.png"]` (Gemini: images, PDFs, audio, video; Anthropic: images and PDFs; others: images). `google_search=True` on gemini or vertex returns web `citations`.
@@ -57,5 +57,5 @@ Pitfalls
 - `memory_key` replaces the input from parent tasks. With a list of keys, each value is cut to 100 characters.
 - An empty string from memory makes the task run on its description alone. Store "(none)" instead.
 - The default template builds the prompt as `PREVIOUS_ANALYSIS: <input>`, then `CURRENT_TASK: <instruction>`. Before 2.1.0 it left a literal `{0}` and broke up Markdown headings, so small models echoed the input. For exact prompts pass any object with `apply_input(data) -> str` as `template=`. No other method is needed, and the instruction is not added for you.
-- Tiny local models are poor planners. With the 2.2.0 planner (a prompt of about 10k characters that checks and corrects its own plan), qwen2.5:0.5b returned a valid spec in 8 of 12 tries, but always a single step, even when the request asked for two or three. Plan with a cloud model, or write the spec yourself.
+- Tiny local models are poor planners. With the 2.1.3 planner (a prompt of about 10k characters that checks and corrects its own plan), qwen2.5:0.5b returned a valid spec in 8 of 12 tries, but always a single step, even when the request asked for two or three. Plan with a cloud model, or write the spec yourself.
 - Docs index: https://www.intellinode.ai/llms.txt. Before using an Intelli API that is not listed above, open the matching page from the index. Where a docs page disagrees with the rules above, follow these rules: they were checked by running code.
