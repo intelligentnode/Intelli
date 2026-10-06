@@ -1,3 +1,14 @@
+# NOTE FOR MAINTAINERS AND CODING AGENTS
+# A critical production app depends on this wrapper. Do not change its flow, behavior or public API (class and
+# method names, arguments, defaults, return values, errors) unless you are fixing a confirmed issue in this file.
+# The app calls __init__(connection_string=...), _get_openai_client, create_agent, update_agent, delete_agent,
+# create_conversation and create_response. It calls create_response without a timeout, so wait_for_response must
+# keep waiting without a limit when no timeout is set.
+# Changes elsewhere in Intelli must leave this file untouched. After any change, check that
+# `git diff -- intelli/wrappers/azure_agent_wrapper.py` shows nothing you did not intend, and run its offline
+# contract tests:
+#     python3 -m pytest "intelli/test/integration/test_azure_agent_wrapper.py::TestAzureAgentWrapperPayloadContract"
+# The other tests for this wrapper create and delete agents in a real Azure project; run them only when asked.
 import inspect
 import logging
 import os
