@@ -636,6 +636,7 @@ class Flow:
             AgentTypes.EMBED.value: "lightcoral",
             AgentTypes.SEARCH.value: "lightskyblue",
             AgentTypes.MCP.value: "mediumpurple",
+            AgentTypes.ASSISTANT.value: "royalblue",
         }
 
         node_colors = [
@@ -732,7 +733,8 @@ class Flow:
                 )
                 labels.append("Dynamic Connection")
 
-            plt.legend(handles, labels, loc="upper right", title="Legend")
+            # outside the drawing, so it never covers a step
+            plt.legend(handles, labels, loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0, title="Legend")
 
         # Add labels to dynamic edges
         edge_labels = {}
@@ -748,7 +750,7 @@ class Flow:
         # Save the image
         image_name = name if name.endswith(".png") else f"{name}.png"
         full_path = os.path.join(save_path, image_name)
-        plt.savefig(full_path)
+        plt.savefig(full_path, bbox_inches="tight")
         plt.close()
 
         return full_path

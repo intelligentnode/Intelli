@@ -1,3 +1,11 @@
+# NOTE FOR MAINTAINERS AND CODING AGENTS
+# A critical production app depends on this wrapper. Do not change its flow, behavior or public API (class and
+# method names, arguments, defaults, return values, errors) unless you are fixing a confirmed issue in this file.
+# Changes elsewhere in Intelli must leave it untouched. After any change, check that
+# `git diff -- intelli/wrappers/google_gcp_wrapper.py` shows nothing you did not intend, and run its offline
+# contract tests:
+#     python3 -m pytest "intelli/test/integration/test_google_gcp_wrapper.py::TestGoogleGCPWrapperContract"
+# From Intelli it imports only intelli.config, so a change there needs the same check.
 import asyncio
 import importlib
 import inspect

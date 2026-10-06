@@ -12,6 +12,7 @@ class AgentTypes(Enum):
     MCP = 'mcp'
     CODER = 'coder'
     COMPUTER = 'computer'
+    ASSISTANT = 'assistant'
 
 
 class InputTypes(Enum):
@@ -41,7 +42,8 @@ class Matcher():
         'search': 'text',
         'mcp': 'text',
         'coder': 'text',
-        'computer': 'text'
+        'computer': 'text',
+        'assistant': 'text'
     }
 
     # What each agent type produces as output
@@ -55,5 +57,6 @@ class Matcher():
         'search': 'text',
         'mcp': 'text',
         'coder': 'text',
-        'computer': 'text'
+        'computer': 'text',
+        'assistant': 'text'
     }
