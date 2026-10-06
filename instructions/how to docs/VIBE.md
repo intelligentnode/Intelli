@@ -131,7 +131,8 @@ def get_weather(city: str) -> dict:
 
 def read_only(action):
     """Blocks actions that would place an order, pay, submit, approve or delete."""
-    return not any(word in str(action.get("text", "")).lower() for word in ("order", "pay", "submit"))
+    text = f'{action.get("text", "")} {action.get("target_text", "")}'.lower()
+    return not any(word in text for word in ("order", "pay", "submit"))
 
 vf = VibeAgent(
     planner_provider="openai", planner_api_key=os.getenv("OPENAI_API_KEY"),
@@ -160,8 +161,9 @@ flow = await vf.build(
 ```
 
 Each computer step gets `"start_url"` and `"on_action": "read_only"`. They need `pip install "intelli[computer]"`
-and `playwright install chromium`. A guard receives each action before it runs; a click carries its coordinates,
-not the button's label, so a guard that checks words sees typed text only.
+and `playwright install chromium`. A guard receives each action before it runs: typed text is in `"text"`, and a
+click also carries `"target_text"`, the text of the button, link or input it hits, so `read_only` blocks a click on
+"Place order" too.
 
 ### The planner checks its plan
 

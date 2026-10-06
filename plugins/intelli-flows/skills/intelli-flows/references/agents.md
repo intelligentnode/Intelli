@@ -31,7 +31,7 @@ Notes
   credentials. Model ids are inference profiles such as `us.anthropic.claude-sonnet-4-6` or
   `us.amazon.nova-lite-v1:0`.
 - `gemini` on Vertex AI: add `options={"vertex": True, "project_id": ..., "location": ...}`.
-- A `computer` step drives a Chromium page through screenshots (`pip install "intelli[computer]"`, then `playwright install chromium`). Give each journey its own step and pass `on_action` to block writes.
+- A `computer` step drives a Chromium page through screenshots (`pip install "intelli[computer]"`, then `playwright install chromium`). Give each journey its own step and pass `on_action` to block writes. It gets each action: check `action.get("text", "")` (typed text) and `action.get("target_text", "")` (the text of the button, link or input a click hits).
 - An `embed` step's output is not text. End the flow with it, or pass it to a `CustomAgent` step that
   stores or compares the vectors.
 - `Flow(..., auto_save_outputs=True, output_dir="./outputs")` writes each image as PNG, each audio clip

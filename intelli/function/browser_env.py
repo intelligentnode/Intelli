@@ -40,6 +40,18 @@ def _normalize_key(combo):
     return "+".join(normalized)
 
 
+# Text of the button, link or input at a viewport point (innerText, value, aria-label).
+_DESCRIBE_POINT_JS = """([x, y]) => {
+    const el = document.elementFromPoint(x, y);
+    const target = el && el.closest("button, a, input, [role=button], [role=link]");
+    if (!target) return "";
+    const value = target.type === "password" ? "" : target.value;
+    const parts = [target.innerText, value, target.getAttribute("aria-label")]
+        .map(part => String(part || "").replace(/\\s+/g, " ").trim()).filter(Boolean);
+    return [...new Set(parts)].join(" ").slice(0, 200);
+}"""
+
+
 class PlaywrightBrowserEnvironment(ComputerEnvironment):
     """Drives a Chromium page as the agent's screen."""
 
@@ -62,6 +74,10 @@ class PlaywrightBrowserEnvironment(ComputerEnvironment):
 
     def screenshot(self):
         return self.page.screenshot(type="png")
+
+    def describe_point(self, x, y):
+        # Screenshot coordinates are viewport coordinates, as elementFromPoint expects.
+        return self.page.evaluate(_DESCRIBE_POINT_JS, [x, y])
 
     def click(self, x, y, button="left", modifiers=None):
         if modifiers:

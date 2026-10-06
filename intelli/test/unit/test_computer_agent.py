@@ -18,10 +18,14 @@ class FakeEnvironment(ComputerEnvironment):
 
     def __init__(self):
         self.calls = []
+        self.labels = {}  # (x, y) -> text of the element there
 
     def screenshot(self):
         self.calls.append(("screenshot",))
         return FAKE_PNG
+
+    def describe_point(self, x, y):
+        return self.labels.get((x, y), "")
 
     def click(self, x, y, button="left", modifiers=None):
         self.calls.append(("click", x, y, button))
@@ -199,6 +203,45 @@ class TestAnthropicComputerLoop(unittest.TestCase):
                               on_action=lambda a: (_ for _ in ()).throw(RuntimeError("boom")))
         self.assertTrue(agent._blocked({"action": "left_click"}))
 
+    def test_on_action_sees_click_target_text(self):
+        # A click carries only coordinates; the hook also gets the clicked text.
+        responses = [
+            {"stop_reason": "tool_use", "content": [
+                {"type": "tool_use", "id": "tu_1", "name": "computer",
+                 "input": {"action": "left_click", "coordinate": [10, 20]}},
+                {"type": "tool_use", "id": "tu_2", "name": "computer",
+                 "input": {"action": "type", "text": "hello"}},
+            ]},
+            {"stop_reason": "end_turn", "content": [{"type": "text", "text": "ok"}]},
+        ]
+        seen = []
+
+        def guard(action):
+            seen.append(action)
+            return "place order" not in action.get("target_text", "").lower()
+
+        agent, env = self._make_agent(responses, on_action=guard)
+        env.labels[(10, 20)] = "Place order"
+        agent.run("check out")
+
+        self.assertEqual(seen, [
+            {"action": "left_click", "coordinate": [10, 20], "target_text": "Place order"},
+            {"action": "type", "text": "hello"},
+        ])
+        self.assertNotIn(("click", 10, 20, "left"), env.calls)
+        self.assertIn(("type", "hello"), env.calls)
+        # The provider's action is copied, not changed: the replayed content stays verbatim.
+        replayed = agent._wrapper.requests[1]["params"]["messages"][1]["content"][0]["input"]
+        self.assertNotIn("target_text", replayed)
+
+    def test_target_lookup_error_blocks_click(self):
+        env = FakeEnvironment()
+        env.describe_point = lambda x, y: (_ for _ in ()).throw(RuntimeError("page closed"))
+        agent = ComputerAgent(api_key="k", provider="anthropic", model="claude-sonnet-4-6",
+                              environment=env, on_action=lambda a: True)
+        self.assertTrue(agent._blocked({"action": "left_click", "coordinate": [1, 2]}))
+        self.assertFalse(agent._blocked({"action": "type", "text": "hi"}))
+
 
 class TestOpenAIComputerLoop(unittest.TestCase):
     def _make_agent(self, responses, **kwargs):
@@ -301,6 +344,36 @@ class TestOpenAIComputerLoop(unittest.TestCase):
         # 'wheel' becomes a middle click, never a silent left click.
         self.assertIn(("click", 5, 6, "middle"), env.calls)
         self.assertNotIn(("click", 0, 0, "left"), env.calls)
+
+    def test_on_action_sees_click_target_text(self):
+        responses = [
+            {"id": "resp_1", "output": [
+                {"type": "computer_call", "call_id": "c1", "actions": [
+                    {"type": "click", "button": "left", "x": 100, "y": 50},
+                    {"type": "double_click", "x": 7, "y": 8},
+                    {"type": "type", "text": "hello"},
+                ], "pending_safety_checks": []},
+            ]},
+            {"id": "resp_2", "output": [
+                {"type": "message", "content": [{"type": "output_text", "text": "ok"}]},
+            ]},
+        ]
+        seen = []
+
+        def guard(action):
+            seen.append(action)
+            return "pay now" not in action.get("target_text", "").lower()
+
+        agent, env = self._make_agent(responses, on_action=guard)
+        env.labels[(100, 50)] = "Pay now"
+        env.labels[(7, 8)] = "INV-1043"
+        agent.run("open the invoice")
+
+        self.assertEqual([a.get("target_text") for a in seen], ["Pay now", "INV-1043", None])
+        self.assertEqual(seen[0]["type"], "click")
+        self.assertNotIn(("click", 100, 50, "left"), env.calls)
+        self.assertIn(("double_click", 7, 8), env.calls)
+        self.assertIn(("type", "hello"), env.calls)
 
 
 class TestComputerFlowIntegration(unittest.TestCase):

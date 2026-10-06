@@ -33,6 +33,13 @@ class ComputerEnvironment:
         """Return the current screen as PNG bytes."""
         raise NotImplementedError
 
+    def describe_point(self, x, y):
+        """Text of the button, link or input at (x, y), or "" when unknown.
+
+        Optional; the agent passes it to on_action as a click's 'target_text'.
+        """
+        return ""
+
     def click(self, x, y, button="left", modifiers=None):
         raise NotImplementedError
 
@@ -102,6 +109,11 @@ def _b64_png(png_bytes):
     return base64.standard_b64encode(png_bytes).decode("utf-8")
 
 
+# Click actions carry only coordinates, so on_action also gets the clicked text.
+_ANTHROPIC_CLICKS = ("left_click", "right_click", "middle_click", "double_click", "triple_click")
+_OPENAI_CLICKS = ("click", "double_click")
+
+
 class ComputerAgent:
     """Runs the screenshot->action loop against Anthropic or OpenAI computer use."""
 
@@ -116,7 +128,8 @@ class ComputerAgent:
             max_iterations: hard cap on model turns.
             on_action: optional callable(action_dict) -> bool; return False to
                 block the action (human-in-the-loop hook). Fail-closed: if it
-                raises, the action is treated as blocked.
+                raises, the action is treated as blocked. Clicks also carry
+                'target_text', the text of the button, link or input clicked.
             on_safety_check: optional callable(call, checks) -> bool for OpenAI
                 computer use. It MUST return True to acknowledge the provider's
                 pending safety checks and let the loop proceed. Default is to NOT
@@ -168,10 +181,23 @@ class ComputerAgent:
         if self.on_action is None:
             return False
         try:
-            return self.on_action(action) is False
+            return self.on_action(self._with_target_text(action)) is False
         except Exception:
-            # Fail closed: an erroring policy hook must not silently allow actions.
+            # Fail closed: an erroring policy hook (or target lookup) must not silently allow actions.
             return True
+
+    def _with_target_text(self, action):
+        """Copy of a click action with the clicked element's text as 'target_text'."""
+        if self.provider == "anthropic":
+            if action.get("action") not in _ANTHROPIC_CLICKS:
+                return action
+            coord = action.get("coordinate") or [0, 0]
+            x, y = coord[0], coord[1]
+        elif action.get("type") in _OPENAI_CLICKS:
+            x, y = action.get("x", 0), action.get("y", 0)
+        else:
+            return action
+        return {**action, "target_text": self.env.describe_point(x, y) or ""}
 
     def _safety_approved(self, call, checks):
         """True only if the caller explicitly approves the pending safety checks.

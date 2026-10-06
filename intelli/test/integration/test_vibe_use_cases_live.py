@@ -83,7 +83,7 @@ GUARD_CALLS = []
 def read_only(action):
     """Blocks actions that would place an order, pay, submit, approve or delete."""
     GUARD_CALLS.append(action)
-    text = str(action.get('text', '')).lower()
+    text = f"{action.get('text', '')} {action.get('target_text', '')}".lower()
     return not any(word in text for word in ('place order', 'pay', 'submit', 'approve', 'delete', 'confirm'))
 
 
